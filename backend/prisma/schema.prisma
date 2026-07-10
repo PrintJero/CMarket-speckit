@@ -1,0 +1,111 @@
+// CMarket backend Prisma schema
+// Models: User, Community, Membership, Invitation — see specs/001-community-invitations/data-model.md
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CommunityType {
+  UNIVERSITY
+  COMPANY
+  RESIDENTIAL_COMPLEX
+}
+
+enum MembershipRole {
+  ADMIN
+  MEMBER
+}
+
+enum MembershipStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String?  @unique
+  phone        String?  @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships       Membership[]  @relation("UserMemberships")
+  sentInvitations   Invitation[]  @relation("InvitationsSentByUser")
+  matchedInvitations Invitation[] @relation("InvitationsMatchedToUser")
+
+  @@map("users")
+}
+
+model Community {
+  id                    String        @id @default(uuid())
+  name                  String
+  type                  CommunityType
+  invitationExpiryDays  Int?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  memberships Membership[]
+  invitations Invitation[]
+
+  @@map("communities")
+}
+
+model Membership {
+  id                 String            @id @default(uuid())
+  communityId        String
+  userId             String
+  role               MembershipRole
+  status             MembershipStatus
+  sourceInvitationId String?           @unique
+  joinedAt           DateTime          @default(now())
+  revokedAt          DateTime?
+  updatedAt          DateTime          @updatedAt
+
+  community        Community   @relation(fields: [communityId], references: [id])
+  user              User        @relation("UserMemberships", fields: [userId], references: [id])
+  sourceInvitation  Invitation? @relation("MembershipSourceInvitation", fields: [sourceInvitationId], references: [id])
+
+  invitationsSentAsAdmin Invitation[] @relation("InvitationsSentByMembership")
+
+  @@unique([communityId, userId])
+  @@index([communityId, status])
+  @@map("memberships")
+}
+
+model Invitation {
+  id                     String           @id @default(uuid())
+  communityId            String
+  invitedByMembershipId  String
+  invitedByUserId        String
+  inviteeEmail           String?
+  inviteePhone           String?
+  matchedUserId          String?
+  status                 InvitationStatus @default(PENDING)
+  expiresAt              DateTime
+  createdAt              DateTime         @default(now())
+  respondedAt            DateTime?
+
+  community       Community   @relation(fields: [communityId], references: [id])
+  invitedByMembership Membership @relation("InvitationsSentByMembership", fields: [invitedByMembershipId], references: [id])
+  invitedByUser   User        @relation("InvitationsSentByUser", fields: [invitedByUserId], references: [id])
+  matchedUser     User?       @relation("InvitationsMatchedToUser", fields: [matchedUserId], references: [id])
+  resultingMembership Membership? @relation("MembershipSourceInvitation")
+
+  @@index([communityId, status])
+  @@index([inviteeEmail])
+  @@index([inviteePhone])
+  @@map("invitations")
+}

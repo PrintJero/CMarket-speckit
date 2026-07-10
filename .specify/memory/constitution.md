@@ -1,53 +1,37 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.0.0 → 2.0.0
-Rationale: MAJOR bump. The entire Core Principles set is replaced: the five
-generic, technology-agnostic principles from v1.0.0 are removed and replaced
-with eight concrete, non-negotiable CMarket product principles (community
-gating, community isolation, administrator gatekeeping, no in-app payment
-processing, web/mobile parity, contact/data privacy gating, simplicity/MVP,
-and critical-flow test discipline). This is backward-incompatible with the
-prior principle set, so MAJOR applies per the Governance versioning rule.
+Version change: 2.0.0 → 2.1.0
+Rationale: MINOR bump. Principle I (Community-Gated Access) is clarified and
+tightened: access is now explicitly invitation-only — administrators invite
+users; users cannot request/apply to join. This materially expands the
+guidance on an existing principle (adds a firm constraint that previously
+was only implicit in "approved by administrator") without removing or
+reversing any other principle, so MINOR applies rather than MAJOR/PATCH.
+Principles III and VIII wording updated for consistency (invite/accept
+instead of request/approve); no other principle content changed.
 
 Modified principles:
-  - "I. Independently Testable Increments" → removed (superseded; independence
-    is now expressed implicitly via MVP-first framing in new Principle VII)
-  - "II. Simplicity & YAGNI" → renamed/kept as "VII. Simplicity & MVP-First"
-  - "III. Contract-First Interfaces" → removed (not a stated non-negotiable
-    for this project; may return in a future amendment if warranted)
-  - "IV. Test Discipline" → replaced by "VIII. Test Discipline for Critical
-    Flows" (narrower, mandatory-for-named-flows rather than opt-in-by-request)
-  - "V. Observability & Operability" → removed (not restated by the user as
-    non-negotiable; folded implicitly into Principle IV's traceability
-    requirement for transaction logging)
+  - "I. Community-Gated Access" → clarified as invitation-only; self-service
+    join requests explicitly prohibited.
+  - "III. Administrator as Community Gatekeeper" → wording updated from
+    "approve or reject membership requests" to "invite new members, revoke
+    a pending invitation" to match the invitation-only model.
+  - "VIII. Test Discipline for Critical Flows" → critical flow renamed from
+    "membership request/approval" to "membership invitation/acceptance".
 
-Added principles (new, project-specific):
-  - I. Community-Gated Access (NON-NEGOTIABLE)
-  - II. Community Isolation (NON-NEGOTIABLE)
-  - III. Administrator as Community Gatekeeper
-  - IV. No In-App Payment Processing — Transaction Logging Only (NON-NEGOTIABLE)
-  - V. Web/Mobile Parity for Core Features
-  - VI. Contact & Data Privacy Gating
-  - VII. Simplicity & MVP-First
-  - VIII. Test Discipline for Critical Flows
-
-Added sections: None new (Additional Constraints, Development Workflow &
-Quality Gates, Governance retained, content updated for the new principles)
-
-Removed sections: None structurally; prior principle content replaced as above
+Added sections: None
+Removed sections: None
 
 Templates requiring updates:
-  - .specify/templates/tasks-template.md: ✅ updated — "Tests" note now
-    reflects that tests are mandatory for the four named critical flows
-    (registration, membership request/approval, product listing, transaction
-    logging) and optional elsewhere, instead of purely opt-in-by-request.
-  - .specify/templates/plan-template.md: ✅ no edit needed — Constitution
-    Check section is a generic placeholder ("[Gates determined based on
-    constitution file]") that already pulls from this document per feature.
+  - .specify/templates/tasks-template.md: ✅ updated — "Tests" note's critical
+    flow list now reads "membership invitation/acceptance" instead of
+    "membership request/approval".
+  - .specify/templates/plan-template.md: ✅ no edit needed — generic
+    Constitution Check placeholder already pulls from this document.
   - .specify/templates/spec-template.md: ✅ no edit needed — generic
-    Requirements/Key Entities structure already accommodates community,
-    membership, listing, and transaction entities without template changes.
+    Requirements/Key Entities structure accommodates invitation-based
+    membership without template changes.
   - .specify/templates/checklist-template.md: ✅ no changes needed (generic)
   - README.md / docs/quickstart.md: N/A (do not exist yet in this repo)
 
@@ -63,14 +47,22 @@ Follow-up TODOs:
 
 ### I. Community-Gated Access (NON-NEGOTIABLE)
 
-No user may view, list, sell, or buy within a community without having been
-explicitly approved by that community's administrator. Unapproved or pending
-members MUST be denied access to community listings, member rosters, and
-transaction activity — there is no public or default-open mode.
+Access to a community is invitation-only. An administrator MUST explicitly
+invite a user before that user has any presence in the community. Users
+MUST NOT be able to request, apply for, or otherwise self-initiate
+membership in a community — there is no "apply to join" pathway, open or
+otherwise. No user may view, list, sell, or buy within a community without
+having received and accepted that administrator's invitation. Non-invited
+and not-yet-accepted users MUST be denied access to community listings,
+member rosters, and transaction activity — there is no public or
+default-open mode.
 
 **Rationale**: CMarket's core value proposition is trust derived from closed
-membership (university, company, residential complex); any bypass of
-approval undermines that trust for every member of the community.
+membership (university, company, residential complex). Open join requests
+create a self-service attack surface (spam requests, social-engineering an
+admin into approving an illegitimate applicant); invitation-only access is
+a deliberate security decision that keeps the administrator as the sole
+origin of new membership, not merely its approver.
 
 ### II. Community Isolation (NON-NEGOTIABLE)
 
@@ -87,8 +79,9 @@ an unrelated community's marketplace activity.
 ### III. Administrator as Community Gatekeeper
 
 Each community's administrator(s) MUST have exclusive authority within that
-community to: approve or reject membership requests, remove existing
-members, and moderate (edit visibility of, take down) listings. No other
+community to: invite new members, revoke a pending invitation, remove
+existing members, and moderate (edit visibility of, take down) listings. No
+other
 actor — including CMarket-wide staff tooling used casually — may perform
 these actions in place of the community's own administrator without a
 documented support/escalation path.
@@ -162,7 +155,7 @@ reviewable.
 
 Automated tests are mandatory for these critical flows, regardless of
 whether a feature spec explicitly requests tests: user registration,
-membership request/approval, product listing, and transaction logging. For
+membership invitation/acceptance, product listing, and transaction logging. For
 these flows, tests MUST be written before implementation, MUST fail first
 (red), and implementation MUST proceed only to make them pass (green). For
 all other features, tests remain OPTIONAL and are only required when the
@@ -222,4 +215,4 @@ Core Principles in this document. Complexity that cannot be justified
 against Principle VII (Simplicity & MVP-First) MUST be simplified before
 merge.
 
-**Version**: 2.0.0 | **Ratified**: 2026-07-09 | **Last Amended**: 2026-07-09
+**Version**: 2.1.0 | **Ratified**: 2026-07-09 | **Last Amended**: 2026-07-09

@@ -1,0 +1,342 @@
+openapi: 3.0.3
+info:
+  title: CMarket Community Invitations API
+  version: "1.0.0"
+  description: >
+    REST contract for the community invitation/membership lifecycle
+    (invite, accept, decline, cancel, revoke, expire). This is the single
+    contract consumed by both the Next.js web app and the Expo mobile app —
+    neither client implements this business logic independently.
+servers:
+  - url: /api/v1
+
+security:
+  - bearerAuth: []
+
+paths:
+  /communities/{communityId}/invitations:
+    parameters:
+      - $ref: '#/components/parameters/communityId'
+    post:
+      summary: Create (send) an invitation to a prospective member
+      description: >
+        Admin-only. Requires an ACTIVE, ADMIN-role membership in
+        communityId. Rejects if the contact already has a PENDING
+        invitation or an ACTIVE membership in this community (FR-013, FR-014).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInvitationRequest'
+      responses:
+        '201':
+          description: Invitation created and notification dispatched
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invitation'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/CommunityNotFoundOrNotMember'
+        '409':
+          description: >
+            Contact already has a pending invitation, or is already an
+            active member, of this community (FR-013, FR-014)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      summary: List invitations for a community (admin view)
+      description: Admin-only. Includes effectiveStatus for every invitation.
+      responses:
+        '200':
+          description: List of invitations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Invitation'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/CommunityNotFoundOrNotMember'
+
+  /communities/{communityId}/invitations/{invitationId}:
+    parameters:
+      - $ref: '#/components/parameters/communityId'
+      - name: invitationId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    delete:
+      summary: Cancel a pending invitation (FR-007)
+      description: >
+        Admin-only. Rejected if the invitation's effectiveStatus is not
+        PENDING (already accepted, declined, cancelled, or expired).
+      responses:
+        '204':
+          description: Invitation cancelled
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/CommunityNotFoundOrNotMember'
+        '409':
+          description: Invitation is not in a cancellable (PENDING) state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/me/invitations:
+    get:
+      summary: List the caller's own pending invitations across all communities
+      description: >
+        Returns invitations where the caller's email or phone matches
+        inviteeEmail/inviteePhone and effectiveStatus is PENDING.
+      responses:
+        '200':
+          description: List of the caller's pending invitations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Invitation'
+
+  /invitations/{invitationId}/accept:
+    parameters:
+      - name: invitationId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      summary: Accept a pending invitation (FR-004, FR-005)
+      description: >
+        Caller must be the matched invitee. Creates/activates the
+        corresponding Membership and grants immediate marketplace access.
+      responses:
+        '200':
+          description: Invitation accepted; membership now active
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptInvitationResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Invitation not found or does not belong to the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Invitation is no longer PENDING (already resolved or expired)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /invitations/{invitationId}/decline:
+    parameters:
+      - name: invitationId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      summary: Decline a pending invitation (FR-004, FR-006)
+      responses:
+        '200':
+          description: Invitation declined
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invitation'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Invitation not found or does not belong to the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Invitation is no longer PENDING (already resolved or expired)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /communities/{communityId}/members:
+    parameters:
+      - $ref: '#/components/parameters/communityId'
+    get:
+      summary: List active members of a community
+      description: Caller must hold an ACTIVE membership in this community.
+      responses:
+        '200':
+          description: List of active members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Membership'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/CommunityNotFoundOrNotMember'
+
+  /communities/{communityId}/members/{userId}:
+    parameters:
+      - $ref: '#/components/parameters/communityId'
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    delete:
+      summary: Revoke a member's access to the community (FR-009, FR-010)
+      description: >
+        Admin-only. Rejected if the target user has no ACTIVE membership in
+        this community. Immediately removes marketplace access and hides
+        the member's active listings from other members; historical
+        transaction logs are untouched (FR-011).
+      responses:
+        '204':
+          description: Membership revoked
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Community not found, caller not a member, or target has no active membership
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    communityId:
+      name: communityId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    ValidationError:
+      description: Request failed validation (e.g., neither email nor phone provided)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Caller lacks the required admin role in this community
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    CommunityNotFoundOrNotMember:
+      description: >
+        Community does not exist, or the caller has no membership in it.
+        Deliberately indistinguishable from "not found" to avoid confirming
+        a community's existence to non-members (Principle II).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+
+    CreateInvitationRequest:
+      type: object
+      description: At least one of inviteeEmail/inviteePhone is required.
+      properties:
+        inviteeEmail:
+          type: string
+          format: email
+        inviteePhone:
+          type: string
+
+    Invitation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        communityId:
+          type: string
+          format: uuid
+        inviteeEmail:
+          type: string
+          nullable: true
+        inviteePhone:
+          type: string
+          nullable: true
+        effectiveStatus:
+          type: string
+          enum: [PENDING, ACCEPTED, DECLINED, CANCELLED, EXPIRED]
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        respondedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    Membership:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        communityId:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [ADMIN, MEMBER]
+        status:
+          type: string
+          enum: [ACTIVE, REVOKED]
+        joinedAt:
+          type: string
+          format: date-time
+
+    AcceptInvitationResponse:
+      type: object
+      properties:
+        invitation:
+          $ref: '#/components/schemas/Invitation'
+        membership:
+          $ref: '#/components/schemas/Membership'

@@ -1,0 +1,28 @@
+# Node / general
+node_modules/
+dist/
+build/
+coverage/
+*.log
+.env
+.env.*
+!.env.example
+
+# Backend (Prisma)
+backend/dist/
+
+# Web (Next.js)
+web/.next/
+web/out/
+
+# Mobile (Expo)
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+
+# Editors / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
