@@ -1,0 +1,38 @@
+{
+  "name": "cmarket",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "test:unit": "vitest run tests/unit tests/contract",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@auth/prisma-adapter": "2.11.2",
+    "@node-rs/argon2": "2.0.2",
+    "@prisma/client": "^6.19.3",
+    "next": "16.2.10",
+    "next-auth": "4.24.14",
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.61.1",
+    "@types/node": "26.1.1",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "dotenv": "^17.4.2",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "16.2.10",
+    "prettier": "3.9.5",
+    "prisma": "^6.19.3",
+    "typescript": "^6.0.3",
+    "vitest": "4.1.10"
+  }
+}

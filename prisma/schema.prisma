@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// A person's single, global CMarket identity, independent of any community membership.
+/// See specs/002-accounts-authentication/data-model.md.
+model Account {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  passwordHash    String?
+  emailVerifiedAt DateTime?
+  createdAt       DateTime  @default(now())
+
+  authIdentities      AuthIdentity[]
+  sessions            Session[]
+  verificationTokens  VerificationToken[]
+
+  @@map("accounts")
+}
+
+/// A federated identity (Google) linked to an Account. FR-015 auto-link is
+/// expressed by attaching this row to an existing Account matched by email,
+/// rather than always creating a new Account.
+model AuthIdentity {
+  id                String   @id @default(cuid())
+  accountId         String
+  provider          String
+  providerAccountId String
+  linkedAt          DateTime @default(now())
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([accountId])
+  @@map("auth_identities")
+}
+
+/// A persistent, server-revocable, authenticated instance of an Account signed
+/// in on a device. Deleting this row is what "sign out" means (Story 2).
+model Session {
+  id           String   @id @default(cuid())
+  accountId    String
+  sessionToken String   @unique
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@map("sessions")
+}
+
+/// A single-use, hashed, expiring credential proving control of the email
+/// address on an unverified Account (FR-005, FR-014), and — since security
+/// amendment #2 — the sole holder of that sign-up attempt's candidate
+/// password until consumption applies it to the Account (FR-019, FR-020).
+model VerificationToken {
+  id                    String    @id @default(cuid())
+  accountId             String
+  tokenHash             String    @unique
+  candidatePasswordHash String?
+  expiresAt             DateTime
+  consumedAt            DateTime?
+  createdAt             DateTime  @default(now())
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@map("verification_tokens")
+}
