@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cmarket-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cmarket
+      POSTGRES_PASSWORD: localdev
+      POSTGRES_DB: cmarket_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - cmarket-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cmarket -d cmarket_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  postgres-test:
+    image: postgres:16-alpine
+    container_name: cmarket-db-test
+    environment:
+      POSTGRES_USER: cmarket
+      POSTGRES_PASSWORD: localdev
+      POSTGRES_DB: cmarket_test
+    ports:
+      - "5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cmarket -d cmarket_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  cmarket-pgdata:

@@ -7,18 +7,20 @@ coverage/
 .env
 .env.*
 !.env.example
+*.tsbuildinfo
 
-# Backend (Prisma)
-backend/dist/
+# Next.js
+.next/
+out/
+next-env.d.ts
 
-# Web (Next.js)
-web/.next/
-web/out/
+# Prisma
+prisma/*.db
 
-# Mobile (Expo)
-mobile/.expo/
-mobile/dist/
-mobile/web-build/
+# Test artifacts
+playwright-report/
+test-results/
+blob-report/
 
 # Editors / OS
 .DS_Store
