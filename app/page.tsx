@@ -47,12 +47,13 @@ export default async function HomePage() {
             <ul>
               {account.memberships.map((membership) => (
                 <li key={membership.communityId}>
-                  {membership.role === "ADMINISTRATOR" ? (
-                    <Link href={`/communities/${membership.communityId}/admin`}>
-                      {membership.communityName}
+                  <Link href={`/communities/${membership.communityId}/listings`}>
+                    {membership.communityName}
+                  </Link>
+                  {membership.role === "ADMINISTRATOR" && (
+                    <Link href={`/communities/${membership.communityId}/admin`} className="app-sidebar__admin-link">
+                      Admin
                     </Link>
-                  ) : (
-                    <span>{membership.communityName}</span>
                   )}
                 </li>
               ))}
