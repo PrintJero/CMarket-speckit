@@ -331,6 +331,13 @@ button {
   font-size: 0.875rem;
 }
 
+.app-sidebar__admin-link {
+  margin-left: 0.5rem;
+  font-size: 0.75rem !important;
+  color: var(--text-muted) !important;
+  font-weight: 500 !important;
+}
+
 .app-sidebar__account {
   display: flex;
   flex-direction: column;
