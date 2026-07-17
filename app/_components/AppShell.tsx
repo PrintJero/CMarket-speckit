@@ -73,6 +73,16 @@ export function AppShell({
               <span className="truncate text-[13px] font-semibold">{account.email}</span>
             </div>
 
+            {/* 2026-07-17 amendment: reachable in one step from every authenticated screen (FR-023) */}
+            <nav className="mt-4 flex flex-col gap-1.5 border-t border-border pt-4 text-sm font-semibold">
+              <Link href="/chats" className="text-brand">
+                Chats
+              </Link>
+              <Link href="/my-listings" className="text-brand">
+                My listings
+              </Link>
+            </nav>
+
             {account.memberships.length > 0 && (
               <nav className="mt-4 border-t border-border pt-4">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-ink-muted">

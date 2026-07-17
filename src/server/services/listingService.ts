@@ -535,3 +535,56 @@ export async function deleteListing(input: DeleteListingInput): Promise<DeleteLi
   await prisma.listing.delete({ where: { id: input.listingId } });
   return { ok: true };
 }
+
+export type ListMyListingsResult = {
+  ok: true;
+  listings: {
+    id: string;
+    communityId: string;
+    communityName: string;
+    title: string;
+    status: "ACTIVE" | "PAUSED";
+    threadCount: number;
+  }[];
+};
+
+/**
+ * FR-021, FR-022, FR-024 (008-listing-messaging, 2026-07-17 amendment): every
+ * listing the caller owns, in any status, across every community they
+ * currently belong to, each with a database-computed thread count. Scoped
+ * entirely from the caller's own current `Membership` rows (never a
+ * caller-supplied community list), mirroring `messageService.ts`'s
+ * `listMyThreads()`. No error branch — always succeeds, `listings: []` for
+ * an account that owns nothing (Edge Cases).
+ */
+export async function listMyListings(callerAccountId: string): Promise<ListMyListingsResult> {
+  const memberships = await prisma.membership.findMany({
+    where: { accountId: callerAccountId },
+    select: { communityId: true },
+  });
+  const communityIds = memberships.map((membership) => membership.communityId);
+  if (communityIds.length === 0) {
+    return { ok: true, listings: [] };
+  }
+
+  const listings = await prisma.listing.findMany({
+    where: { ownerId: callerAccountId, communityId: { in: communityIds } },
+    orderBy: { createdAt: "desc" },
+    include: {
+      community: { select: { name: true } },
+      _count: { select: { threads: true } },
+    },
+  });
+
+  return {
+    ok: true,
+    listings: listings.map((listing) => ({
+      id: listing.id,
+      communityId: listing.communityId,
+      communityName: listing.community.name,
+      title: listing.title,
+      status: listing.status,
+      threadCount: listing._count.threads,
+    })),
+  };
+}

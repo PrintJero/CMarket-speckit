@@ -12,6 +12,7 @@ import {
   pauseListing,
   reactivateListing,
   deleteListing,
+  listMyListings,
 } from "@/server/services/listingService";
 import { setDisplayName } from "@/server/services/accountService";
 
@@ -963,6 +964,90 @@ describe("listingService (contract)", () => {
       expect((await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status).toBe(
         "ACTIVE",
       );
+    });
+  });
+
+  describe("listMyListings (2026-07-17 amendment, FR-021, FR-022, FR-024)", () => {
+    // T028
+    it("shows every owned listing, any status, across current communities, with a database-computed thread count", async () => {
+      const { community: communityA, admin: ownerA } = await createCommunityWithAdmin(
+        "Listing Test Community Twenty Seven A",
+        "listing-test-ownera-27@example.com",
+      );
+      const { community: communityB } = await createCommunityWithAdmin(
+        "Listing Test Community Twenty Seven B",
+        "listing-test-ownerb-27@example.com",
+      );
+      await prisma.membership.create({
+        data: { accountId: ownerA.id, communityId: communityB.id, role: "MEMBER" },
+      });
+
+      const activeListing = await createListing({
+        communityId: communityA.id,
+        ownerId: ownerA.id,
+        title: "Active item",
+        description: "Description",
+        priceCents: 1000,
+      });
+      const pausedListing = await createListing({
+        communityId: communityA.id,
+        ownerId: ownerA.id,
+        title: "Paused item",
+        description: "Description",
+        priceCents: 2000,
+      });
+      const listingInB = await createListing({
+        communityId: communityB.id,
+        ownerId: ownerA.id,
+        title: "B item",
+        description: "Description",
+        priceCents: 3000,
+      });
+      if (!activeListing.ok || !pausedListing.ok || !listingInB.ok) {
+        throw new Error("expected all three listings to be created");
+      }
+      await pauseListing({ listingId: pausedListing.listing.id, callerAccountId: ownerA.id });
+
+      // Two threads on the active listing (via direct rows — messageService.ts is exercised elsewhere).
+      const buyer = await addMember(communityA.id, "listing-test-buyer-27@example.com");
+      const otherBuyer = await addMember(communityA.id, "listing-test-other-buyer-27@example.com");
+      await prisma.messageThread.create({
+        data: { listingId: activeListing.listing.id, buyerId: buyer.id },
+      });
+      await prisma.messageThread.create({
+        data: { listingId: activeListing.listing.id, buyerId: otherBuyer.id },
+      });
+
+      const result = await listMyListings(ownerA.id);
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error("expected success");
+
+      const byId = new Map(result.listings.map((l) => [l.id, l]));
+      expect(byId.get(activeListing.listing.id)).toMatchObject({ status: "ACTIVE", threadCount: 2 });
+      expect(byId.get(pausedListing.listing.id)).toMatchObject({ status: "PAUSED", threadCount: 0 });
+      expect(byId.get(listingInB.listing.id)).toMatchObject({ status: "ACTIVE", threadCount: 0 });
+      expect(result.listings).toHaveLength(3);
+
+      // Losing membership in Community A removes both of its listings from the aggregate.
+      await prisma.membership.delete({
+        where: { accountId_communityId: { accountId: ownerA.id, communityId: communityA.id } },
+      });
+      const afterLeavingA = await listMyListings(ownerA.id);
+      expect(afterLeavingA.ok).toBe(true);
+      if (!afterLeavingA.ok) throw new Error("expected success");
+      expect(afterLeavingA.listings.map((l) => l.id)).toEqual([listingInB.listing.id]);
+    });
+
+    // T028 (Edge Cases)
+    it("returns an empty list for an account with no owned listings", async () => {
+      const { community } = await createCommunityWithAdmin(
+        "Listing Test Community Twenty Eight",
+        "listing-test-admin-28@example.com",
+      );
+      const nonOwner = await addMember(community.id, "listing-test-nonowner-28@example.com");
+
+      const result = await listMyListings(nonOwner.id);
+      expect(result).toEqual({ ok: true, listings: [] });
     });
   });
 });

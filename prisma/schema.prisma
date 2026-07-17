@@ -25,6 +25,8 @@ model Account {
   memberships         Membership[]
   invitationsSent     Invitation[]         @relation("InvitationsSent")
   listings            Listing[]
+  messageThreads      MessageThread[]      @relation("MessageThreadsAsBuyer")
+  messagesSent        Message[]            @relation("MessagesSent")
 
   @@map("accounts")
 }
@@ -166,6 +168,7 @@ model Listing {
   owner      Account        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   photos     ListingPhoto[] @relation("ListingPhotos")
   coverPhoto ListingPhoto?  @relation("ListingCoverPhoto", fields: [coverPhotoId], references: [id], onDelete: SetNull)
+  threads    MessageThread[]
 
   @@index([communityId, status, createdAt])
   @@index([ownerId])
@@ -189,4 +192,44 @@ model ListingPhoto {
 
   @@index([listingId])
   @@map("listing_photos")
+}
+
+/// A conversation between exactly one Listing's owner and one interested buyer,
+/// tied to that one listing (008-listing-messaging, FR-001-FR-002). No communityId
+/// of its own — every query scopes through the `listing` relation instead
+/// (data-model.md, research.md #1), since a listing's community never changes.
+model MessageThread {
+  id            String   @id @default(cuid())
+  listingId     String
+  buyerId       String
+  createdAt     DateTime @default(now())
+  /// The createdAt of this thread's most recent Message, kept current by
+  /// insertMessage() (2026-07-17 amendment) — lets Chats/the inbox order by
+  /// recent activity via a plain database ORDER BY, never an in-memory sort.
+  lastMessageAt DateTime @default(now())
+
+  listing  Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  buyer    Account   @relation("MessageThreadsAsBuyer", fields: [buyerId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@unique([listingId, buyerId])
+  @@index([buyerId])
+  @@index([lastMessageAt])
+  @@map("message_threads")
+}
+
+/// A single text message within a MessageThread (FR-003). Append-only — no
+/// edit, no delete (spec Out of Scope).
+model Message {
+  id        String   @id @default(cuid())
+  threadId  String
+  senderId  String
+  body      String
+  createdAt DateTime @default(now())
+
+  thread MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender Account       @relation("MessagesSent", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt])
+  @@map("messages")
 }
