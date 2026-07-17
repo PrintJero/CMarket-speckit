@@ -17,6 +17,9 @@ next-env.d.ts
 # Prisma
 prisma/*.db
 
+# Local machine-specific overrides
+docker-compose.override.yml
+
 # Test artifacts
 playwright-report/
 test-results/

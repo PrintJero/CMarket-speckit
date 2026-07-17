@@ -1,13 +1,20 @@
 import { cookies } from "next/headers";
 import { getValidSession } from "@/server/services/sessionService";
 import { SESSION_COOKIE_NAME } from "@/lib/auth/sessionCookie";
+import { prisma } from "@/lib/prisma";
+import type { MembershipRole } from "@prisma/client";
+
+export interface MembershipSummary {
+  communityId: string;
+  communityName: string;
+  role: MembershipRole;
+}
 
 export interface CurrentAccountPayload {
   accountId: string;
   email: string;
   verified: boolean;
-  /** FR-003/FR-013: this feature never resolves any community membership. */
-  memberships: [];
+  memberships: MembershipSummary[];
 }
 
 interface SessionAccount {
@@ -17,17 +24,19 @@ interface SessionAccount {
 }
 
 /**
- * The only shape a signed-in account's identity is ever exposed as. It
- * carries nothing beyond an always-empty memberships list, regardless of
- * which signup method created the account — this feature has no code path
- * that can populate it (FR-003, FR-013).
+ * The session-payload-construction function stays pure and defaults
+ * memberships to [] when omitted, so every pre-004 call site (002/003's own
+ * tests) is unaffected — only getCurrentAccount() supplies real data.
  */
-export function toCurrentAccountPayload(session: SessionAccount): CurrentAccountPayload {
+export function toCurrentAccountPayload(
+  session: SessionAccount,
+  memberships: MembershipSummary[] = [],
+): CurrentAccountPayload {
   return {
     accountId: session.accountId,
     email: session.email,
     verified: Boolean(session.emailVerifiedAt),
-    memberships: [],
+    memberships,
   };
 }
 
@@ -39,5 +48,17 @@ export async function getCurrentAccount(): Promise<CurrentAccountPayload | null>
   const session = await getValidSession(token);
   if (!session) return null;
 
-  return toCurrentAccountPayload(session);
+  const memberships = await prisma.membership.findMany({
+    where: { accountId: session.accountId },
+    include: { community: { select: { name: true } } },
+  });
+
+  return toCurrentAccountPayload(
+    session,
+    memberships.map((membership) => ({
+      communityId: membership.communityId,
+      communityName: membership.community.name,
+      role: membership.role,
+    })),
+  );
 }

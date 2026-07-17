@@ -41,22 +41,44 @@ export default async function HomePage() {
           </span>
           <span className="app-sidebar__user-email">{account.email}</span>
         </div>
-        {/* No nav sections yet: this account has no community memberships,
-            and no other features exist in this codebase to link to (Principle
-            I/II — nothing about any community may be revealed or invented). */}
+        {account.memberships.length > 0 && (
+          <nav className="app-sidebar__communities">
+            <span className="micro-label">Your communities</span>
+            <ul>
+              {account.memberships.map((membership) => (
+                <li key={membership.communityId}>
+                  {membership.role === "ADMINISTRATOR" ? (
+                    <Link href={`/communities/${membership.communityId}/admin`}>
+                      {membership.communityName}
+                    </Link>
+                  ) : (
+                    <span>{membership.communityName}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )}
         <div className="app-sidebar__account">
           <span className="micro-label">Signed in as {account.email}</span>
           <SignOutButton />
         </div>
       </aside>
       <main className="app-main">
-        <div className="empty-state">
-          <h1>You&apos;re all set</h1>
-          <p>
-            You don&apos;t belong to any community yet. Once a community administrator invites
-            you, it will appear here.
-          </p>
-        </div>
+        {account.memberships.length === 0 ? (
+          <div className="empty-state">
+            <h1>You&apos;re all set</h1>
+            <p>
+              You don&apos;t belong to any community yet. Once a community administrator invites
+              you, it will appear here.
+            </p>
+          </div>
+        ) : (
+          <div className="empty-state">
+            <h1>Welcome back</h1>
+            <p>Pick a community from the sidebar to get started.</p>
+          </div>
+        )}
       </main>
     </div>
   );
