@@ -4,6 +4,10 @@ import type { ReactNode } from "react";
 export const fieldInputClassName =
   "w-full rounded-pill bg-bg px-4 py-3 text-[15px] text-ink outline-none focus:ring-2 focus:ring-brand";
 
+/** Same as fieldInputClassName, but for multi-line `<textarea>`s — full pill rounding reads oddly across several lines of text. */
+export const fieldTextareaClassName =
+  "w-full rounded-card bg-bg px-4 py-3 text-[15px] text-ink outline-none focus:ring-2 focus:ring-brand";
+
 export function FormField({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="mb-4 block">

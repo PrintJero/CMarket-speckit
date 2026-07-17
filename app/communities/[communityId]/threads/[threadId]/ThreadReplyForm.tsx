@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { FormField, FormError, fieldInputClassName } from "../../../../_components/FormField";
+import { FormField, FormError, fieldInputClassName, fieldTextareaClassName } from "../../../../_components/FormField";
 import { Button } from "../../../../_components/Button";
 
 type SendThreadMessageResponse = { ok: true } | { ok: false; reason: string };
@@ -78,7 +78,7 @@ export function ThreadReplyForm({ communityId, threadId, currentDisplayName = nu
       )}
       <FormField label="Reply">
         <textarea
-          className={fieldInputClassName}
+          className={fieldTextareaClassName}
           required
           rows={3}
           value={body}

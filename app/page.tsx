@@ -9,14 +9,21 @@ export default async function HomePage() {
   if (!account) {
     return (
       <AuthShell>
-        <h1 className="mb-1 text-center text-[1.375rem] font-bold text-ink">Welcome</h1>
-        <p className="text-center">Create an account or sign in to get started.</p>
+        <h1 className="mb-2 text-center text-[1rem] font-bold leading-tight text-ink">
+          Buy and sell within your community
+        </h1>
+        <p className="mb-6 text-center text-[13px] leading-relaxed text-ink-muted">
+          A private marketplace for people you already trust — no public listings, no strangers.
+        </p>
         <LinkButton href="/sign-up" fullWidth>
           Sign up
         </LinkButton>
         <LinkButton href="/sign-in" variant="secondary" fullWidth className="mt-3">
           Sign in
         </LinkButton>
+        <p className="mt-5 text-center text-[13px] text-ink-muted">
+          Access is by invitation — ask your community&apos;s admin to add you.
+        </p>
       </AuthShell>
     );
   }
