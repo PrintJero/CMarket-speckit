@@ -37,6 +37,9 @@ export function buildPrismaAuthAdapter(): Adapter {
         data: {
           email: normalizeEmail(user.email),
           emailVerifiedAt: new Date(),
+          // 006-user-display-names FR-004: populated from the provider's own
+          // profile name at the moment of creation, with no prompt.
+          displayName: (user as { name?: string | null }).name ?? null,
         },
       });
       return toAdapterUser(created);

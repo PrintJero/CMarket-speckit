@@ -14,6 +14,9 @@ model Account {
   email           String    @unique
   passwordHash    String?
   emailVerifiedAt DateTime?
+  /// Optional, self-chosen name shown to fellow community members in place of
+  /// the email address (006-user-display-names, FR-001–FR-014).
+  displayName     String?
   createdAt       DateTime  @default(now())
 
   authIdentities      AuthIdentity[]
@@ -145,21 +148,24 @@ enum ListingStatus {
 }
 
 /// A product offered for sale within exactly one Community
-/// (005-product-listings, FR-001–FR-013).
+/// (005-product-listings, FR-001–FR-013; coverPhotoId added by the
+/// 2026-07-17 amendment, FR-014–FR-017).
 model Listing {
-  id          String        @id @default(cuid())
-  communityId String
-  ownerId     String
-  title       String
-  description String
-  priceCents  Int
-  status      ListingStatus @default(ACTIVE)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id            String        @id @default(cuid())
+  communityId   String
+  ownerId       String
+  title         String
+  description   String
+  priceCents    Int
+  status        ListingStatus @default(ACTIVE)
+  coverPhotoId  String?       @unique
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
-  community Community      @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  owner     Account        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  photos    ListingPhoto[]
+  community  Community      @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  owner      Account        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  photos     ListingPhoto[] @relation("ListingPhotos")
+  coverPhoto ListingPhoto?  @relation("ListingCoverPhoto", fields: [coverPhotoId], references: [id], onDelete: SetNull)
 
   @@index([communityId])
   @@index([ownerId])
@@ -177,7 +183,9 @@ model ListingPhoto {
   position   Int
   createdAt  DateTime @default(now())
 
-  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  listing        Listing  @relation("ListingPhotos", fields: [listingId], references: [id], onDelete: Cascade)
+  /// Back-relation only, for Listing.coverPhotoId (2026-07-17 amendment) — never queried from this side.
+  coverOfListing Listing? @relation("ListingCoverPhoto")
 
   @@index([listingId])
   @@map("listing_photos")

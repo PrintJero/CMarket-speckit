@@ -46,9 +46,12 @@ test("a member creates a product listing with a photo, and sees it in the commun
   await page.getByRole("link", { name: "New listing" }).click();
   await page.waitForURL(`**/communities/${community.id}/listings/new`);
 
+  // 006-user-display-names, FR-008: this account has no display name yet,
+  // so the create-listing form requires one before it will submit.
+  await page.getByLabel("Display name").fill("Listing Flow Member");
   await page.getByLabel("Title").fill("Bicycle");
   await page.getByLabel("Description").fill("Barely used road bike");
-  await page.getByLabel("Price (USD)").fill("250.00");
+  await page.getByLabel("Price (MXN)").fill("250.00");
   await page.setInputFiles('input[type="file"]', {
     name: "bike.jpg",
     mimeType: "image/jpeg",
@@ -100,7 +103,7 @@ test("the owner edits their listing via the detail page; a non-owner's edit atte
   await page.goto(`/communities/${community.id}/listings/${listing.id}`);
   await page.getByLabel("Title").fill("New title");
   await page.getByLabel("Description").fill("New description");
-  await page.getByLabel("Price (USD)").fill("20.00");
+  await page.getByLabel("Price (MXN)").fill("20.00");
   const [patchResponse] = await Promise.all([
     page.waitForResponse(
       (response) => response.url().endsWith(`/listings/${listing.id}`) && response.request().method() === "PATCH",
@@ -259,4 +262,98 @@ test("the community's administrator pauses another member's listing, without Edi
   const updated = await prisma.listing.findUniqueOrThrow({ where: { id: listing.id } });
   expect(updated.status).toBe("PAUSED");
   expect(updated.ownerId).toBe(member.id);
+});
+
+// T043 (2026-07-17 amendment) — feed cards (cover photo + placeholder), MXN price, and the
+// owner's own photo gallery on the detail page.
+test("the feed renders cards with a cover photo or placeholder and MXN prices; the owner sees a photo gallery on the detail page (amendment)", async ({
+  page,
+  browser,
+}) => {
+  const password = "correct-horse-battery-staple";
+  const ownerEmail = uniqueEmail("listing-cover-owner");
+  const memberEmail = uniqueEmail("listing-cover-member");
+  const community = await createCommunityWithAdmin(
+    page.request,
+    `Listing Cover Community ${Date.now()}`,
+    ownerEmail,
+    password,
+  );
+  await addMember(community.id, memberEmail, password);
+  const owner = await prisma.account.findUniqueOrThrow({ where: { email: ownerEmail } });
+
+  const listingWithPhoto = await prisma.listing.create({
+    data: {
+      communityId: community.id,
+      ownerId: owner.id,
+      title: "Has a photo",
+      description: "Description",
+      priceCents: 25000,
+    },
+  });
+  const photo = await prisma.listingPhoto.create({
+    data: {
+      listingId: listingWithPhoto.id,
+      data: Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
+      mimeType: "image/jpeg",
+      sizeBytes: 4,
+      position: 0,
+    },
+  });
+  await prisma.listing.update({
+    where: { id: listingWithPhoto.id },
+    data: { coverPhotoId: photo.id },
+  });
+
+  const listingWithoutPhoto = await prisma.listing.create({
+    data: {
+      communityId: community.id,
+      ownerId: owner.id,
+      title: "Has no photo",
+      description: "Description",
+      priceCents: 5000,
+    },
+  });
+
+  await signIn(page, ownerEmail, password);
+  await page.goto(`/communities/${community.id}/listings`);
+
+  const expectedPrice = new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(250);
+  const cardWithPhoto = page.locator(".listing-card", { hasText: "Has a photo" });
+  await expect(cardWithPhoto).toBeVisible();
+  await expect(cardWithPhoto.locator("img")).toBeVisible();
+  await expect(cardWithPhoto.locator("img")).toHaveAttribute(
+    "src",
+    `/api/communities/${community.id}/listings/${listingWithPhoto.id}/photos/${photo.id}`,
+  );
+  const coverImageResponse = await page.request.get(
+    `/api/communities/${community.id}/listings/${listingWithPhoto.id}/photos/${photo.id}`,
+  );
+  expect(coverImageResponse.status()).toBe(200);
+  await expect(cardWithPhoto).toContainText(expectedPrice);
+
+  const cardWithoutPhoto = page.locator(".listing-card", { hasText: "Has no photo" });
+  await expect(cardWithoutPhoto).toBeVisible();
+  await expect(cardWithoutPhoto.locator("img")).toHaveCount(0);
+  await expect(cardWithoutPhoto.locator(".listing-card__cover-placeholder")).toBeVisible();
+
+  // The owner's own detail page shows the photo gallery, not only the edit form.
+  await page.goto(`/communities/${community.id}/listings/${listingWithPhoto.id}`);
+  await expect(page.getByLabel("Title")).toBeVisible();
+  const galleryImage = page.locator(".listing-gallery img");
+  await expect(galleryImage).toHaveAttribute(
+    "src",
+    `/api/communities/${community.id}/listings/${listingWithPhoto.id}/photos/${photo.id}`,
+  );
+
+  // A different member (non-owner) also sees the gallery.
+  const memberContext = await browser.newContext();
+  const memberPage = await memberContext.newPage();
+  await signIn(memberPage, memberEmail, password);
+  await memberPage.goto(`/communities/${community.id}/listings/${listingWithPhoto.id}`);
+  await expect(memberPage.locator(".listing-gallery img")).toHaveAttribute(
+    "src",
+    `/api/communities/${community.id}/listings/${listingWithPhoto.id}/photos/${photo.id}`,
+  );
+  await memberContext.close();
 });

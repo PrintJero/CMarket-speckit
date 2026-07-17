@@ -121,3 +121,29 @@ export async function signInWithPassword(email: string, password: string): Promi
   const session = await createSession(account.id);
   return { ok: true, sessionToken: session.sessionToken, expiresAt: session.expiresAt };
 }
+
+const DISPLAY_NAME_MAX_LENGTH = 50;
+
+export type SetDisplayNameResult =
+  | { ok: true; account: { id: string; displayName: string } }
+  | { ok: false; reason: "invalid_display_name" };
+
+/**
+ * FR-002, FR-012: the sole write path for Account.displayName. The caller
+ * always supplies its own accountId (derived from the session, never a
+ * request field — see the route handler), so this holds FR-002's "only the
+ * account itself" guarantee by construction, not by an authorization check.
+ */
+export async function setDisplayName(accountId: string, displayName: string): Promise<SetDisplayNameResult> {
+  const trimmed = displayName.trim();
+  if (trimmed.length === 0 || trimmed.length > DISPLAY_NAME_MAX_LENGTH) {
+    return { ok: false, reason: "invalid_display_name" };
+  }
+
+  const updated = await prisma.account.update({
+    where: { id: accountId },
+    data: { displayName: trimmed },
+  });
+
+  return { ok: true, account: { id: updated.id, displayName: updated.displayName! } };
+}

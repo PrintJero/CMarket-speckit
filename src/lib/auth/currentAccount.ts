@@ -14,6 +14,7 @@ export interface CurrentAccountPayload {
   accountId: string;
   email: string;
   verified: boolean;
+  displayName: string | null;
   memberships: MembershipSummary[];
 }
 
@@ -21,12 +22,15 @@ interface SessionAccount {
   accountId: string;
   email: string;
   emailVerifiedAt: Date | null;
+  displayName?: string | null;
 }
 
 /**
  * The session-payload-construction function stays pure and defaults
  * memberships to [] when omitted, so every pre-004 call site (002/003's own
  * tests) is unaffected — only getCurrentAccount() supplies real data.
+ * displayName (006-user-display-names) is optional on the input for the same
+ * reason, defaulting to null.
  */
 export function toCurrentAccountPayload(
   session: SessionAccount,
@@ -36,6 +40,7 @@ export function toCurrentAccountPayload(
     accountId: session.accountId,
     email: session.email,
     verified: Boolean(session.emailVerifiedAt),
+    displayName: session.displayName ?? null,
     memberships,
   };
 }

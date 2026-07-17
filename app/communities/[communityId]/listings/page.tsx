@@ -1,14 +1,18 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/prisma";
 import { getCurrentAccount } from "@/lib/auth/currentAccount";
-
-const priceFormatter = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+import { listListings } from "@/server/services/listingService";
+import { formatListingPrice } from "@/lib/formatting/currency";
+import { resolveDisplayName } from "@/lib/formatting/displayName";
 
 /**
  * Member-only (any role) feed of a community's own ACTIVE listings.
  * Same notFound() convention as /communities/{id}/admin, but gated on any
  * Membership row, not just ADMINISTRATOR (FR-011, FR-012).
+ *
+ * Renders as cards (cover photo, title, price), calling listListings()
+ * directly rather than an inlined query, so this page never drifts from the
+ * contract-tested function (2026-07-17 amendment, FR-018, FR-021).
  */
 export default async function ListingsPage({
   params,
@@ -21,17 +25,11 @@ export default async function ListingsPage({
     notFound();
   }
 
-  const membership = await prisma.membership.findUnique({
-    where: { accountId_communityId: { accountId: account.accountId, communityId } },
-  });
-  if (!membership) {
+  const result = await listListings(communityId, account.accountId);
+  if (!result.ok) {
     notFound();
   }
-
-  const listings = await prisma.listing.findMany({
-    where: { communityId, status: "ACTIVE" },
-    orderBy: { createdAt: "desc" },
-  });
+  const { listings } = result;
 
   return (
     <div className="operator-shell">
@@ -46,27 +44,30 @@ export default async function ListingsPage({
         {listings.length === 0 ? (
           <p className="operator-empty">No listings yet. Create one to get started.</p>
         ) : (
-          <div className="operator-table-wrap">
-            <table className="operator-table">
-              <thead>
-                <tr>
-                  <th>Title</th>
-                  <th>Price</th>
-                </tr>
-              </thead>
-              <tbody>
-                {listings.map((listing) => (
-                  <tr key={listing.id}>
-                    <td>
-                      <Link href={`/communities/${communityId}/listings/${listing.id}`}>
-                        {listing.title}
-                      </Link>
-                    </td>
-                    <td>{priceFormatter.format(listing.priceCents / 100)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="listing-grid">
+            {listings.map((listing) => (
+              <Link
+                key={listing.id}
+                href={`/communities/${communityId}/listings/${listing.id}`}
+                className="listing-card"
+              >
+                <div className="listing-card__cover">
+                  {listing.coverPhotoId ? (
+                    <img
+                      src={`/api/communities/${communityId}/listings/${listing.id}/photos/${listing.coverPhotoId}`}
+                      alt=""
+                    />
+                  ) : (
+                    <div className="listing-card__cover-placeholder">No photo</div>
+                  )}
+                </div>
+                <div className="listing-card__body">
+                  <p className="listing-card__title">{listing.title}</p>
+                  <p className="listing-card__price">{formatListingPrice(listing.priceCents)}</p>
+                  <p className="listing-card__owner">{resolveDisplayName(listing.ownerDisplayName)}</p>
+                </div>
+              </Link>
+            ))}
           </div>
         )}
       </div>

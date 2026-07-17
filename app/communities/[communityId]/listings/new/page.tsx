@@ -28,7 +28,7 @@ export default async function NewListingPage({
           <h1>New listing</h1>
         </div>
         <section className="operator-panel-card">
-          <ListingForm communityId={communityId} />
+          <ListingForm communityId={communityId} currentDisplayName={account.displayName} />
         </section>
       </div>
     </div>

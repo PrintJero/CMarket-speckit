@@ -14,10 +14,20 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
-  webServer: {
-    command: "npm run dev",
-    url: "http://localhost:3000",
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer: [
+    {
+      command: "npm run dev",
+      url: "http://localhost:3000",
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+    {
+      // 006-user-display-names, research.md #2: the standalone mock Google
+      // OAuth boundary — never started by the production build/start path.
+      command: "npx tsx scripts/mock-google-oauth-server.ts",
+      url: process.env.GOOGLE_OAUTH_MOCK_URL ?? "http://localhost:4310",
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+  ],
 });

@@ -62,6 +62,7 @@ export default async function HomePage() {
         )}
         <div className="app-sidebar__account">
           <span className="micro-label">Signed in as {account.email}</span>
+          <Link href="/account">Account</Link>
           <SignOutButton />
         </div>
       </aside>
