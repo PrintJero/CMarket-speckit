@@ -319,7 +319,7 @@ test("the feed renders cards with a cover photo or placeholder and MXN prices; t
   await page.goto(`/communities/${community.id}/listings`);
 
   const expectedPrice = new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(250);
-  const cardWithPhoto = page.locator(".listing-card", { hasText: "Has a photo" });
+  const cardWithPhoto = page.locator('[data-testid="listing-card"]', { hasText: "Has a photo" });
   await expect(cardWithPhoto).toBeVisible();
   await expect(cardWithPhoto.locator("img")).toBeVisible();
   await expect(cardWithPhoto.locator("img")).toHaveAttribute(
@@ -332,15 +332,15 @@ test("the feed renders cards with a cover photo or placeholder and MXN prices; t
   expect(coverImageResponse.status()).toBe(200);
   await expect(cardWithPhoto).toContainText(expectedPrice);
 
-  const cardWithoutPhoto = page.locator(".listing-card", { hasText: "Has no photo" });
+  const cardWithoutPhoto = page.locator('[data-testid="listing-card"]', { hasText: "Has no photo" });
   await expect(cardWithoutPhoto).toBeVisible();
   await expect(cardWithoutPhoto.locator("img")).toHaveCount(0);
-  await expect(cardWithoutPhoto.locator(".listing-card__cover-placeholder")).toBeVisible();
+  await expect(cardWithoutPhoto.locator('[data-testid="listing-cover-placeholder"]')).toBeVisible();
 
   // The owner's own detail page shows the photo gallery, not only the edit form.
   await page.goto(`/communities/${community.id}/listings/${listingWithPhoto.id}`);
   await expect(page.getByLabel("Title")).toBeVisible();
-  const galleryImage = page.locator(".listing-gallery img");
+  const galleryImage = page.locator('[data-testid="listing-gallery"] img');
   await expect(galleryImage).toHaveAttribute(
     "src",
     `/api/communities/${community.id}/listings/${listingWithPhoto.id}/photos/${photo.id}`,
@@ -351,7 +351,7 @@ test("the feed renders cards with a cover photo or placeholder and MXN prices; t
   const memberPage = await memberContext.newPage();
   await signIn(memberPage, memberEmail, password);
   await memberPage.goto(`/communities/${community.id}/listings/${listingWithPhoto.id}`);
-  await expect(memberPage.locator(".listing-gallery img")).toHaveAttribute(
+  await expect(memberPage.locator('[data-testid="listing-gallery"] img')).toHaveAttribute(
     "src",
     `/api/communities/${community.id}/listings/${listingWithPhoto.id}/photos/${photo.id}`,
   );

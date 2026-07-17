@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Button } from "../../../../_components/Button";
+import { FormError } from "../../../../_components/FormField";
 
 export interface ListingActionsProps {
   communityId: string;
@@ -66,26 +68,22 @@ export function ListingActions({
   if (!canModerate) return null;
 
   return (
-    <div>
+    <div className="flex flex-wrap items-center gap-3">
       {status === "ACTIVE" ? (
-        <button className="btn-secondary" type="button" onClick={onPause}>
+        <Button variant="secondary" type="button" onClick={onPause}>
           Pause
-        </button>
+        </Button>
       ) : (
-        <button className="btn-secondary" type="button" onClick={onReactivate}>
+        <Button variant="secondary" type="button" onClick={onReactivate}>
           Reactivate
-        </button>
+        </Button>
       )}
       {isOwner && (
-        <button className="btn-danger-inline" type="button" onClick={onDelete}>
+        <Button variant="dangerOutline" type="button" onClick={onDelete}>
           Delete
-        </button>
+        </Button>
       )}
-      {error && (
-        <p className="form-error" role="status">
-          {error}
-        </p>
-      )}
+      {error && <FormError>{error}</FormError>}
     </div>
   );
 }

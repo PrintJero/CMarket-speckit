@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { FormField, FormError, fieldInputClassName } from "../../../_components/FormField";
+import { Button } from "../../../_components/Button";
 
 type CreateListingResponse =
   | { ok: true; listing: { id: string } }
@@ -125,57 +127,48 @@ export function ListingForm({
   return (
     <form onSubmit={onSubmit}>
       {needsDisplayName && (
-        <label className="field">
-          <span className="field__label">Display name</span>
+        <FormField label="Display name">
           <input
-            className="field__input"
+            className={fieldInputClassName}
             required
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
           />
-        </label>
+        </FormField>
       )}
-      <label className="field">
-        <span className="field__label">Title</span>
-        <input className="field__input" value={title} onChange={(e) => setTitle(e.target.value)} />
-      </label>
-      <label className="field">
-        <span className="field__label">Description</span>
+      <FormField label="Title">
+        <input className={fieldInputClassName} value={title} onChange={(e) => setTitle(e.target.value)} />
+      </FormField>
+      <FormField label="Description">
         <input
-          className="field__input"
+          className={fieldInputClassName}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
-      </label>
-      <label className="field">
-        <span className="field__label">Price (MXN)</span>
+      </FormField>
+      <FormField label="Price (MXN)">
         <input
-          className="field__input"
+          className={fieldInputClassName}
           type="number"
           step="0.01"
           min="0"
           value={price}
           onChange={(e) => setPrice(e.target.value)}
         />
-      </label>
-      <label className="field">
-        <span className="field__label">Photos (optional)</span>
+      </FormField>
+      <FormField label="Photos (optional)">
         <input
-          className="field__input"
+          className="w-full text-sm text-ink"
           type="file"
           accept="image/jpeg,image/png,image/webp"
           multiple
           onChange={(e) => setFiles(e.target.files)}
         />
-      </label>
-      {error && (
-        <p className="form-error" role="status">
-          {error}
-        </p>
-      )}
-      <button className="btn-primary" type="submit" disabled={submitting}>
+      </FormField>
+      {error && <FormError>{error}</FormError>}
+      <Button type="submit" fullWidth disabled={submitting}>
         {isEditMode ? "Save changes" : "Create listing"}
-      </button>
+      </Button>
     </form>
   );
 }

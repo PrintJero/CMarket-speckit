@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { FormField, FormError, fieldInputClassName } from "../_components/FormField";
+import { Button } from "../_components/Button";
 
 type SetDisplayNameResponse =
   | { ok: true; account: { id: string; displayName: string } }
@@ -37,23 +39,18 @@ export function DisplayNameForm({ currentDisplayName }: DisplayNameFormProps) {
 
   return (
     <form onSubmit={onSubmit}>
-      <label className="field">
-        <span className="field__label">Display name</span>
+      <FormField label="Display name">
         <input
-          className="field__input"
+          className={fieldInputClassName}
           required
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
         />
-      </label>
-      {error && (
-        <p className="form-error" role="status">
-          {error}
-        </p>
-      )}
-      <button className="btn-primary" type="submit" disabled={submitting}>
+      </FormField>
+      {error && <FormError>{error}</FormError>}
+      <Button type="submit" disabled={submitting}>
         Save
-      </button>
+      </Button>
     </form>
   );
 }

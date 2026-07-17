@@ -1,87 +1,44 @@
-import Link from "next/link";
 import { getCurrentAccount } from "@/lib/auth/currentAccount";
-import { SignOutButton } from "./_components/SignOutButton";
+import { AuthShell } from "./_components/AuthShell";
+import { AppShell } from "./_components/AppShell";
+import { LinkButton } from "./_components/Button";
 
 export default async function HomePage() {
   const account = await getCurrentAccount();
 
   if (!account) {
     return (
-      <main className="auth-shell">
-        <div className="auth-shell__blob auth-shell__blob--one" aria-hidden="true" />
-        <div className="auth-shell__blob auth-shell__blob--two" aria-hidden="true" />
-        <div className="auth-shell__wordmark">CMarket</div>
-        <div className="card" style={{ textAlign: "center" }}>
-          <h1>Welcome</h1>
-          <p>Create an account or sign in to get started.</p>
-          <Link className="btn-primary" href="/sign-up" style={{ display: "block" }}>
-            Sign up
-          </Link>
-          <Link
-            className="btn-secondary"
-            href="/sign-in"
-            style={{ display: "block", textAlign: "center" }}
-          >
-            Sign in
-          </Link>
-        </div>
-      </main>
+      <AuthShell>
+        <h1 className="mb-1 text-center text-[1.375rem] font-bold text-ink">Welcome</h1>
+        <p className="text-center">Create an account or sign in to get started.</p>
+        <LinkButton href="/sign-up" fullWidth>
+          Sign up
+        </LinkButton>
+        <LinkButton href="/sign-in" variant="secondary" fullWidth className="mt-3">
+          Sign in
+        </LinkButton>
+      </AuthShell>
     );
   }
 
-  const avatarInitial = account.email.charAt(0).toUpperCase();
-
   return (
-    <div className="app-shell">
-      <aside className="app-sidebar">
-        <div className="app-sidebar__wordmark">CMarket</div>
-        <div className="app-sidebar__user">
-          <span className="avatar" title={account.email}>
-            {avatarInitial}
-          </span>
-          <span className="app-sidebar__user-email">{account.email}</span>
-        </div>
-        {account.memberships.length > 0 && (
-          <nav className="app-sidebar__communities">
-            <span className="micro-label">Your communities</span>
-            <ul>
-              {account.memberships.map((membership) => (
-                <li key={membership.communityId}>
-                  <Link href={`/communities/${membership.communityId}/listings`}>
-                    {membership.communityName}
-                  </Link>
-                  {membership.role === "ADMINISTRATOR" && (
-                    <Link href={`/communities/${membership.communityId}/admin`} className="app-sidebar__admin-link">
-                      Admin
-                    </Link>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </nav>
-        )}
-        <div className="app-sidebar__account">
-          <span className="micro-label">Signed in as {account.email}</span>
-          <Link href="/account">Account</Link>
-          <SignOutButton />
-        </div>
-      </aside>
-      <main className="app-main">
+    <AppShell account={account}>
+      <div className="mx-auto max-w-md text-center">
         {account.memberships.length === 0 ? (
-          <div className="empty-state">
-            <h1>You&apos;re all set</h1>
+          <>
+            <h1 className="text-[1.375rem] font-bold text-ink">You&apos;re all set</h1>
             <p>
               You don&apos;t belong to any community yet. Once a community administrator invites
               you, it will appear here.
             </p>
-          </div>
+          </>
         ) : (
-          <div className="empty-state">
-            <h1>Welcome back</h1>
+          <>
+            <h1 className="text-[1.375rem] font-bold text-ink">Welcome back</h1>
             <p>Pick a community from the sidebar to get started.</p>
-          </div>
+          </>
         )}
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 }

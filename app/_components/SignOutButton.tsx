@@ -7,7 +7,11 @@ export function SignOutButton() {
   }
 
   return (
-    <button className="btn-signout" type="button" onClick={onClick}>
+    <button
+      className="p-0 text-[13px] font-bold text-danger hover:underline"
+      type="button"
+      onClick={onClick}
+    >
       Sign out
     </button>
   );

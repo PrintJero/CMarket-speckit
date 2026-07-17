@@ -5,6 +5,9 @@ import { listListings } from "@/server/services/listingService";
 import { formatListingPrice } from "@/lib/formatting/currency";
 import { resolveDisplayName } from "@/lib/formatting/displayName";
 import { ListingDiscoveryControls } from "./ListingDiscoveryControls";
+import { AppShell } from "../../../_components/AppShell";
+import { PageHeader } from "../../../_components/PageHeader";
+import { LinkButton } from "../../../_components/Button";
 
 function buildPageHref(
   communityId: string,
@@ -58,62 +61,76 @@ export default async function ListingsPage({
   const { listings } = result;
 
   return (
-    <div className="operator-shell">
-      <div className="operator-container">
-        <div className="operator-header">
-          <h1>Listings</h1>
-          <p className="operator-notice">
-            <Link href={`/communities/${communityId}/listings/new`}>New listing</Link>
-          </p>
+    <AppShell account={account}>
+      <PageHeader
+        title="Listings"
+        actions={
+          <LinkButton href={`/communities/${communityId}/listings/new`}>New listing</LinkButton>
+        }
+      />
+
+      <ListingDiscoveryControls
+        communityId={communityId}
+        initialQuery={sp.q ?? ""}
+        initialMinPrice={sp.minPrice ?? ""}
+        initialMaxPrice={sp.maxPrice ?? ""}
+      />
+
+      {listings.length === 0 ? (
+        <p className="py-16 text-center text-ink-muted">No listings match. Try a different search or filter.</p>
+      ) : (
+        <div className="mt-6 grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-5">
+          {listings.map((listing) => (
+            <Link
+              key={listing.id}
+              href={`/communities/${communityId}/listings/${listing.id}`}
+              data-testid="listing-card"
+              className="block overflow-hidden rounded-card bg-surface text-inherit shadow-card hover:no-underline"
+            >
+              <div className="aspect-[4/3] bg-bg">
+                {listing.coverPhotoId ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={`/api/communities/${communityId}/listings/${listing.id}/photos/${listing.coverPhotoId}`}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div
+                    data-testid="listing-cover-placeholder"
+                    className="flex h-full w-full items-center justify-center text-[13px] font-semibold text-ink-muted"
+                  >
+                    No photo
+                  </div>
+                )}
+              </div>
+              <div className="px-4 pb-4 pt-3.5">
+                <p className="mb-1 font-bold text-ink">{listing.title}</p>
+                <p className="text-sm text-ink-muted">{formatListingPrice(listing.priceCents)}</p>
+                <p className="mt-1 text-[13px] text-ink-muted">
+                  {resolveDisplayName(listing.ownerDisplayName)}
+                </p>
+              </div>
+            </Link>
+          ))}
         </div>
+      )}
 
-        <ListingDiscoveryControls
-          communityId={communityId}
-          initialQuery={sp.q ?? ""}
-          initialMinPrice={sp.minPrice ?? ""}
-          initialMaxPrice={sp.maxPrice ?? ""}
-        />
-
-        {listings.length === 0 ? (
-          <p className="operator-empty">No listings match. Try a different search or filter.</p>
-        ) : (
-          <div className="listing-grid">
-            {listings.map((listing) => (
-              <Link
-                key={listing.id}
-                href={`/communities/${communityId}/listings/${listing.id}`}
-                className="listing-card"
-              >
-                <div className="listing-card__cover">
-                  {listing.coverPhotoId ? (
-                    <img
-                      src={`/api/communities/${communityId}/listings/${listing.id}/photos/${listing.coverPhotoId}`}
-                      alt=""
-                    />
-                  ) : (
-                    <div className="listing-card__cover-placeholder">No photo</div>
-                  )}
-                </div>
-                <div className="listing-card__body">
-                  <p className="listing-card__title">{listing.title}</p>
-                  <p className="listing-card__price">{formatListingPrice(listing.priceCents)}</p>
-                  <p className="listing-card__owner">{resolveDisplayName(listing.ownerDisplayName)}</p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-
-        <p className="operator-notice">
+      {(result.page > 1 || result.hasMore) && (
+        <p className="mt-6 text-[13px] text-ink-muted">
           {result.page > 1 && (
-            <Link href={buildPageHref(communityId, sp, result.page - 1)}>Previous</Link>
+            <Link href={buildPageHref(communityId, sp, result.page - 1)} className="font-semibold text-brand">
+              Previous
+            </Link>
           )}
           {result.page > 1 && result.hasMore && " · "}
           {result.hasMore && (
-            <Link href={buildPageHref(communityId, sp, result.page + 1)}>Next</Link>
+            <Link href={buildPageHref(communityId, sp, result.page + 1)} className="font-semibold text-brand">
+              Next
+            </Link>
           )}
         </p>
-      </div>
-    </div>
+      )}
+    </AppShell>
   );
 }

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { FormField, FormError, fieldInputClassName } from "../../../_components/FormField";
+import { Button } from "../../../_components/Button";
 
 type InviteResponse =
   | { ok: true; invitation: { id: string; email: string } }
@@ -31,23 +33,16 @@ export function InviteForm({ communityId }: { communityId: string }) {
 
   return (
     <form onSubmit={onSubmit}>
-      <label className="field">
-        <span className="field__label">Invite by email</span>
+      <FormField label="Invite by email">
         <input
-          className="field__input"
+          className={fieldInputClassName}
           type="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
         />
-      </label>
-      {message && (
-        <p className="form-error" role="status">
-          {message}
-        </p>
-      )}
-      <button className="btn-primary" type="submit">
-        Send invitation
-      </button>
+      </FormField>
+      {message && <FormError>{message}</FormError>}
+      <Button type="submit">Send invitation</Button>
     </form>
   );
 }

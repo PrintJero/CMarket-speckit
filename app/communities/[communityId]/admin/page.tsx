@@ -3,6 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentAccount } from "@/lib/auth/currentAccount";
 import { InviteForm } from "./InviteForm";
 import { MemberList } from "./MemberList";
+import { AppShell } from "../../../_components/AppShell";
+import { BackLink } from "../../../_components/BackLink";
+import { PageHeader } from "../../../_components/PageHeader";
+import { Card } from "../../../_components/Card";
 
 /**
  * Administrator-only, same notFound() convention as app/operator/page.tsx.
@@ -46,25 +50,25 @@ export default async function CommunityAdminPage({
   }));
 
   return (
-    <div className="operator-shell">
-      <div className="operator-container">
-        <div className="operator-header">
-          <h1>{community.name}</h1>
-          <p className="operator-notice">Administrator panel</p>
-        </div>
+    <AppShell account={account}>
+      <BackLink href={`/communities/${communityId}/listings`}>Back to listings</BackLink>
+      <PageHeader title={community.name} subtitle="Administrator panel" />
 
-        <div className="operator-layout">
-          <section className="operator-panel-card">
-            <h2 className="micro-label">Invite a member</h2>
-            <InviteForm communityId={communityId} />
-          </section>
+      <div className="grid items-start gap-6 md:grid-cols-[380px_1fr]">
+        <Card>
+          <h2 className="mb-3 text-[0.6875rem] font-bold uppercase tracking-wider text-ink-muted">
+            Invite a member
+          </h2>
+          <InviteForm communityId={communityId} />
+        </Card>
 
-          <section className="operator-communities">
-            <h2 className="micro-label">Current members</h2>
-            <MemberList communityId={communityId} initialMembers={members} />
-          </section>
-        </div>
+        <Card className="min-w-0">
+          <h2 className="mb-3 text-[0.6875rem] font-bold uppercase tracking-wider text-ink-muted">
+            Current members
+          </h2>
+          <MemberList communityId={communityId} initialMembers={members} />
+        </Card>
       </div>
-    </div>
+    </AppShell>
   );
 }
