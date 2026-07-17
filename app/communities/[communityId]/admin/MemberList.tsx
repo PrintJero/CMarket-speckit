@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "../../../_components/Button";
+import { FormError } from "../../../_components/FormField";
 
 export interface MemberRow {
   membershipId: string;
@@ -37,37 +39,40 @@ export function MemberList({
   }
 
   if (members.length === 0) {
-    return <p className="operator-empty">No members yet. Invite someone to get started.</p>;
+    return <p className="py-10 text-center text-ink-muted">No members yet. Invite someone to get started.</p>;
   }
 
   return (
-    <div className="operator-table-wrap">
-      <table className="operator-table">
-        <colgroup>
-          <col />
-          <col />
-          <col className="operator-table__id-col" />
-        </colgroup>
+    <div className="overflow-x-auto rounded-xl border border-border">
+      <table className="w-full min-w-[420px] table-fixed border-collapse text-sm">
         <thead>
           <tr>
-            <th>Email</th>
-            <th>Role</th>
-            <th>Action</th>
+            <th className="whitespace-nowrap border-b border-border bg-bg px-4 py-3 text-left text-[0.6875rem] font-bold uppercase tracking-wider text-ink-muted">
+              Email
+            </th>
+            <th className="whitespace-nowrap border-b border-border bg-bg px-4 py-3 text-left text-[0.6875rem] font-bold uppercase tracking-wider text-ink-muted">
+              Role
+            </th>
+            <th className="whitespace-nowrap border-b border-border bg-bg px-4 py-3 text-left text-[0.6875rem] font-bold uppercase tracking-wider text-ink-muted">
+              Action
+            </th>
           </tr>
         </thead>
         <tbody>
           {members.map((member) => (
             <tr key={member.membershipId}>
-              <td>{member.email}</td>
-              <td>{member.role}</td>
-              <td>
-                <button className="btn-danger-inline" onClick={() => onRevoke(member.membershipId)}>
+              <td className="overflow-hidden text-ellipsis whitespace-nowrap border-b border-border px-4 py-3 last:border-none">
+                {member.email}
+              </td>
+              <td className="overflow-hidden text-ellipsis whitespace-nowrap border-b border-border px-4 py-3 last:border-none">
+                {member.role}
+              </td>
+              <td className="border-b border-border px-4 py-3 last:border-none">
+                <Button variant="dangerOutline" onClick={() => onRevoke(member.membershipId)}>
                   Revoke
-                </button>
+                </Button>
                 {errorByMembership[member.membershipId] && (
-                  <p className="form-error" role="status">
-                    {errorByMembership[member.membershipId]}
-                  </p>
+                  <FormError>{errorByMembership[member.membershipId]}</FormError>
                 )}
               </td>
             </tr>

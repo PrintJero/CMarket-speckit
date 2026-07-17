@@ -3,6 +3,8 @@
 import { useState, type FormEvent } from "react";
 import { signIn } from "next-auth/react";
 import { GoogleIcon } from "../../_components/GoogleIcon";
+import { FormField, FormError, fieldInputClassName } from "../../_components/FormField";
+import { Button } from "../../_components/Button";
 
 export default function SignInPage() {
   const [email, setEmail] = useState("");
@@ -33,47 +35,46 @@ export default function SignInPage() {
 
   return (
     <>
-      <h1>Sign in</h1>
+      <h1 className="mb-1 text-center text-[1.375rem] font-bold text-ink">Sign in</h1>
       <form onSubmit={onSubmit}>
-        <label className="field">
-          <span className="field__label">Email</span>
+        <FormField label="Email">
           <input
-            className="field__input"
+            className={fieldInputClassName}
             type="email"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
-        </label>
-        <label className="field">
-          <span className="field__label">Password</span>
+        </FormField>
+        <FormField label="Password">
           <input
-            className="field__input"
+            className={fieldInputClassName}
             type="password"
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-        </label>
-        {status === "error" && (
-          <p className="form-error" role="alert">
-            {errorMessage}
-          </p>
-        )}
-        <button className="btn-primary" type="submit" disabled={status === "submitting"}>
+        </FormField>
+        {status === "error" && <FormError role="alert">{errorMessage}</FormError>}
+        <Button type="submit" fullWidth disabled={status === "submitting"}>
           Sign in
-        </button>
+        </Button>
       </form>
-      <button
-        className="btn-secondary btn-google"
+      <Button
+        variant="secondary"
+        fullWidth
         type="button"
+        className="mt-3"
         onClick={() => signIn("google", { callbackUrl: "/" })}
       >
         <GoogleIcon />
         <span>Continue with Google</span>
-      </button>
-      <p className="form-footer-link">
-        New to CMarket? <a href="/sign-up">Sign up</a>
+      </Button>
+      <p className="mt-5 text-center text-sm text-ink-muted">
+        New to CMarket?{" "}
+        <a href="/sign-up" className="font-semibold text-brand hover:underline">
+          Sign up
+        </a>
       </p>
     </>
   );

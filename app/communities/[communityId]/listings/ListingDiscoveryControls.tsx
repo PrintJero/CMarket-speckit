@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { FormField, FormError, fieldInputClassName } from "../../../_components/FormField";
+import { Button } from "../../../_components/Button";
+import { Card } from "../../../_components/Card";
 
 /**
  * Plain GET-form search/filter bar (no fetch, no router.push): submitting
@@ -36,48 +39,57 @@ export function ListingDiscoveryControls({
   }
 
   return (
-    <form
-      method="GET"
-      action={`/communities/${communityId}/listings`}
-      onSubmit={handleSubmit}
-      className="operator-notice"
-    >
-      <label className="field">
-        <span className="field__label">Search</span>
-        <input
-          className="field__input"
-          type="text"
-          name="q"
-          defaultValue={initialQuery}
-          placeholder="Search title or description"
-        />
-      </label>
-      <label className="field">
-        <span className="field__label">Minimum price</span>
-        <input
-          className="field__input"
-          type="number"
-          name="minPrice"
-          value={minPrice}
-          onChange={(event) => setMinPrice(event.target.value)}
-          placeholder="Min price (cents)"
-        />
-      </label>
-      <label className="field">
-        <span className="field__label">Maximum price</span>
-        <input
-          className="field__input"
-          type="number"
-          name="maxPrice"
-          value={maxPrice}
-          onChange={(event) => setMaxPrice(event.target.value)}
-          placeholder="Max price (cents)"
-        />
-      </label>
-      <button className="btn-primary" type="submit">
-        Search
-      </button>
-      {error && <p role="alert">{error}</p>}
-    </form>
+    <Card className="mb-6 p-5">
+      <form
+        method="GET"
+        action={`/communities/${communityId}/listings`}
+        onSubmit={handleSubmit}
+        className="flex flex-wrap items-end gap-4"
+      >
+        <div className="min-w-[200px] flex-1">
+          <FormField label="Search">
+            <input
+              className={fieldInputClassName}
+              type="text"
+              name="q"
+              defaultValue={initialQuery}
+              placeholder="Search title or description"
+            />
+          </FormField>
+        </div>
+        <div className="w-36">
+          <FormField label="Minimum price">
+            <input
+              className={fieldInputClassName}
+              type="number"
+              name="minPrice"
+              value={minPrice}
+              onChange={(event) => setMinPrice(event.target.value)}
+              placeholder="Min price (cents)"
+            />
+          </FormField>
+        </div>
+        <div className="w-36">
+          <FormField label="Maximum price">
+            <input
+              className={fieldInputClassName}
+              type="number"
+              name="maxPrice"
+              value={maxPrice}
+              onChange={(event) => setMaxPrice(event.target.value)}
+              placeholder="Max price (cents)"
+            />
+          </FormField>
+        </div>
+        <Button type="submit" className="mb-4">
+          Search
+        </Button>
+        {error && (
+          <div className="w-full">
+            <FormError role="alert">{error}</FormError>
+          </div>
+        )}
+      </form>
+    </Card>
   );
 }

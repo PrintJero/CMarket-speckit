@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { FormField, FormError, fieldInputClassName } from "../_components/FormField";
+import { Button } from "../_components/Button";
 
 type CreateCommunityResponse =
   | { ok: true; community: { id: string; name: string; createdAt: string } }
@@ -40,39 +42,30 @@ export function OperatorCreateCommunityForm() {
 
   return (
     <form onSubmit={onSubmit}>
-      <label className="field">
-        <span className="field__label">Community name</span>
+      <FormField label="Community name">
         <input
-          className="field__input"
+          className={fieldInputClassName}
           value={name}
           onChange={(event) => setName(event.target.value)}
         />
-      </label>
-      <label className="field">
-        <span className="field__label">Founding administrator email</span>
+      </FormField>
+      <FormField label="Founding administrator email">
         <input
-          className="field__input"
+          className={fieldInputClassName}
           type="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
         />
-      </label>
-      <label className="field">
-        <span className="field__label">Your operator identifier</span>
+      </FormField>
+      <FormField label="Your operator identifier">
         <input
-          className="field__input"
+          className={fieldInputClassName}
           value={operator}
           onChange={(event) => setOperator(event.target.value)}
         />
-      </label>
-      {message && (
-        <p className="form-error" role="status">
-          {message}
-        </p>
-      )}
-      <button className="btn-primary" type="submit">
-        Create community
-      </button>
+      </FormField>
+      {message && <FormError>{message}</FormError>}
+      <Button type="submit">Create community</Button>
     </form>
   );
 }

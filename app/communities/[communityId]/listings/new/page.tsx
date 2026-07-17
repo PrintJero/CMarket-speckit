@@ -2,6 +2,10 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAccount } from "@/lib/auth/currentAccount";
 import { ListingForm } from "../ListingForm";
+import { AppShell } from "../../../../_components/AppShell";
+import { BackLink } from "../../../../_components/BackLink";
+import { PageHeader } from "../../../../_components/PageHeader";
+import { Card } from "../../../../_components/Card";
 
 export default async function NewListingPage({
   params,
@@ -22,15 +26,12 @@ export default async function NewListingPage({
   }
 
   return (
-    <div className="operator-shell">
-      <div className="operator-container">
-        <div className="operator-header">
-          <h1>New listing</h1>
-        </div>
-        <section className="operator-panel-card">
-          <ListingForm communityId={communityId} currentDisplayName={account.displayName} />
-        </section>
-      </div>
-    </div>
+    <AppShell account={account}>
+      <BackLink href={`/communities/${communityId}/listings`}>Back to listings</BackLink>
+      <PageHeader title="New listing" />
+      <Card className="max-w-xl">
+        <ListingForm communityId={communityId} currentDisplayName={account.displayName} />
+      </Card>
+    </AppShell>
   );
 }
