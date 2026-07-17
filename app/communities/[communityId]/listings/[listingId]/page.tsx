@@ -6,6 +6,7 @@ import { formatListingPrice } from "@/lib/formatting/currency";
 import { resolveDisplayName } from "@/lib/formatting/displayName";
 import { ListingForm } from "../ListingForm";
 import { ListingActions } from "./ListingActions";
+import { MessageOwnerForm } from "./MessageOwnerForm";
 import { AppShell } from "../../../../_components/AppShell";
 import { BackLink } from "../../../../_components/BackLink";
 import { PageHeader } from "../../../../_components/PageHeader";
@@ -70,6 +71,16 @@ export default async function ListingDetailPage({
           </>
         )}
       </Card>
+
+      {!isOwner && (
+        <Card className="mb-5 max-w-xl">
+          <MessageOwnerForm
+            communityId={communityId}
+            listingId={listing.id}
+            currentDisplayName={account.displayName}
+          />
+        </Card>
+      )}
 
       <ListingActions
         communityId={communityId}
