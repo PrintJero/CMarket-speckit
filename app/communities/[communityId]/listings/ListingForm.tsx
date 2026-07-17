@@ -5,11 +5,15 @@ import { useState } from "react";
 
 type CreateListingResponse =
   | { ok: true; listing: { id: string } }
-  | { ok: false; reason: "invalid_input" | "not_a_member" };
+  | { ok: false; reason: "invalid_input" | "not_a_member" | "display_name_required" };
 
 type UpdateListingResponse =
   | { ok: true; listing: { id: string } }
   | { ok: false; reason: "invalid_input" | "not_owner" | "not_found" };
+
+type SetDisplayNameResponse =
+  | { ok: true; account: { id: string; displayName: string } }
+  | { ok: false; reason: "invalid_display_name" };
 
 export interface ListingFormProps {
   communityId: string;
@@ -18,6 +22,13 @@ export interface ListingFormProps {
   initialTitle?: string;
   initialDescription?: string;
   initialPriceCents?: number;
+  /**
+   * The signed-in account's current display name (006-user-display-names,
+   * FR-008). When null in create mode, a required "Display name" field is
+   * shown and set before the listing itself is created — never in edit mode,
+   * since an account that already has a listing to edit already has a name.
+   */
+  currentDisplayName?: string | null;
 }
 
 export function ListingForm({
@@ -26,14 +37,17 @@ export function ListingForm({
   initialTitle = "",
   initialDescription = "",
   initialPriceCents,
+  currentDisplayName = null,
 }: ListingFormProps) {
   const router = useRouter();
   const isEditMode = listingId !== undefined;
+  const needsDisplayName = !isEditMode && !currentDisplayName;
   const [title, setTitle] = useState(initialTitle);
   const [description, setDescription] = useState(initialDescription);
   const [price, setPrice] = useState(
     initialPriceCents !== undefined ? (initialPriceCents / 100).toFixed(2) : "",
   );
+  const [displayName, setDisplayName] = useState("");
   const [files, setFiles] = useState<FileList | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -56,6 +70,20 @@ export function ListingForm({
     setSubmitting(true);
 
     const priceCents = Math.round(Number(price) * 100);
+
+    if (needsDisplayName) {
+      const nameResponse = await fetch("/api/account/display-name", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ displayName }),
+      });
+      const nameData: SetDisplayNameResponse = await nameResponse.json();
+      if (!nameData.ok) {
+        setError(`Failed: ${nameData.reason}`);
+        setSubmitting(false);
+        return;
+      }
+    }
 
     if (isEditMode) {
       const response = await fetch(`/api/communities/${communityId}/listings/${listingId}`, {
@@ -96,6 +124,17 @@ export function ListingForm({
 
   return (
     <form onSubmit={onSubmit}>
+      {needsDisplayName && (
+        <label className="field">
+          <span className="field__label">Display name</span>
+          <input
+            className="field__input"
+            required
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+          />
+        </label>
+      )}
       <label className="field">
         <span className="field__label">Title</span>
         <input className="field__input" value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -109,7 +148,7 @@ export function ListingForm({
         />
       </label>
       <label className="field">
-        <span className="field__label">Price (USD)</span>
+        <span className="field__label">Price (MXN)</span>
         <input
           className="field__input"
           type="number"

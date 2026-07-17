@@ -206,6 +206,31 @@ Single existing Next.js/Prisma project (extends `002-accounts-authentication`, `
 
 ---
 
+## Phase 9: Amendment (2026-07-17) — Cover Photo & Feed Presentation
+
+**Goal**: Photos were stored but never displayed (FR-003 was implemented as storage only). Add a per-listing cover photo (FR-014–FR-017), render the community feed as cards instead of a table (FR-018, FR-021), show every photo on the detail page to any member including the owner (FR-019), keep photo access solely behind the existing membership-gated route (FR-020), and display prices as MXN instead of hardcoded USD (FR-022).
+
+**Independent Test**: Create a listing, add two photos, confirm the first becomes the cover; change the cover to the second photo; remove the (new) cover and confirm the first photo (lowest remaining `position`) is promoted; remove the last photo and confirm the listing is coverless. Visit the community feed and confirm listings render as cards with cover photo/placeholder, title, and MXN-formatted price. Visit a listing's detail page as its owner and as a different member and confirm both see every attached photo in `position` order.
+
+### Tests ⚠️ Write first, confirm red
+
+- [X] T041 [Amendment] In `tests/contract/test_listings.ts`, add cover-photo coverage: the first photo added to a listing becomes its `coverPhotoId` automatically (FR-015); a second added photo does not change it; the owner calls a new `setCoverPhoto()` to change the cover to a different existing photo (FR-016), and a non-owner attempt is rejected (`not_owner`); removing the current cover promotes the remaining photo with the lowest `position` (FR-017); removing a listing's last remaining photo leaves it coverless (`coverPhotoId: null`). Confirm these FAIL (red) — `setCoverPhoto` doesn't exist and `addListingPhoto`/`removeListingPhoto` don't touch `coverPhotoId` yet.
+- [X] T042 [Amendment] In the same file, extend `listListings()`/`getListing()` assertions to assert the returned shape includes `coverPhotoId`. Confirm this FAILS (red).
+- [X] T043 [Amendment] Extend `tests/integration/test_listing_flow.spec.ts`: after creating a listing with a photo (existing US1 test), assert the feed renders it as a card with an `<img>` sourced from the existing photo-stream route (not a table row); assert a listing with zero photos renders the defined placeholder instead of a broken image; assert the price is formatted as MXN (`$250.00` with a `MX$`/`es-MX`-formatted string, not `USD`); assert the owner's own detail-page view shows the attached photo (gallery), not only the edit form. Confirm it FAILS (red) — the feed is currently a table with no images, and the owner's detail view shows no photos.
+
+### Implementation
+
+- [X] T044 [Amendment] Add `coverPhotoId String?` to `Listing` in `prisma/schema.prisma`, with a named relation to `ListingPhoto` (`onDelete: SetNull`) distinct from the existing `photos ListingPhoto[]` relation (data-model.md). Run `prisma migrate dev --name add_listing_cover_photo` and `prisma generate`.
+- [X] T045 [Amendment] In `src/server/services/listingService.ts`: `addListingPhoto()` sets the new photo as `coverPhotoId` when the listing currently has none (FR-015); add `setCoverPhoto({ listingId, photoId, callerAccountId })` (owner-only, `photoId` must belong to `listingId`) (FR-016); `removeListingPhoto()` — when the removed photo was the cover — promotes the remaining photo with the lowest `position`, or sets `coverPhotoId` to null if none remain (FR-017); `listListings()`/`getListing()` include `coverPhotoId` in their returned shape. Confirm T041/T042 pass (green).
+- [X] T046 [Amendment] Implement `PATCH /api/communities/[communityId]/listings/[listingId]/cover/route.ts`: calls `setCoverPhoto()`, maps to `200`/`403`/`404` per contracts/listings-api.md.
+- [X] T047 [Amendment] Add an `MXN`/`es-MX` price formatter (shared, not re-declared per page) and use it everywhere a price is displayed (feed cards, detail page) (FR-022).
+- [X] T048 [Amendment] Rewrite `app/communities/[communityId]/listings/page.tsx` to call `listListings()` (FR-021, replacing its inlined `prisma.membership.findUnique`/`prisma.listing.findMany`) and render each listing as a card: cover photo via `<img src=".../photos/{coverPhotoId}">` when present, a defined placeholder otherwise (FR-018), title, and MXN-formatted price.
+- [X] T049 [Amendment] Extend `app/communities/[communityId]/listings/[listingId]/page.tsx` to render a gallery of `listing.photos` (already returned by `getListing()`, ordered by `position`) via the existing photo-stream route, visible to any member including the owner, alongside (not instead of) the owner's existing edit form (FR-019). Confirm T043 passes (green).
+
+**Checkpoint**: Cover photos are assignable and correctly promoted/cleared on removal; the feed shows real images with a defined placeholder fallback; every member (including the owner) can see a listing's full photo set; prices read as MXN; the feed is driven by the contract-tested `listListings()`, not a parallel query.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -218,6 +243,7 @@ Single existing Next.js/Prisma project (extends `002-accounts-authentication`, `
 - **Phase 6 (US4)**: Depends on Phase 3; independent of Phases 4–5's logic, but shares files (`listings/[listingId]/route.ts`, `ListingActions.tsx`), so sequenced after them.
 - **Phase 7 (US5)**: Depends on Phase 5 (extends its `pauseListing()`/`reactivateListing()` and their tests directly).
 - **Polish (Phase 8)**: Depends on all prior phases being complete.
+- **Amendment (Phase 9)**: Depends on Phase 8 (extends the finished feature's schema, service, routes, and pages).
 
 ### Parallel Opportunities
 

@@ -23,12 +23,18 @@ describe("toCurrentAccountPayload", () => {
     expect(payload.verified).toBe(true);
   });
 
-  it("exposes only accountId, email, verified, and memberships", () => {
+  it("exposes only accountId, email, verified, displayName, and memberships", () => {
     const payload = toCurrentAccountPayload({
       accountId: "acc_3",
       email: "person@example.com",
       emailVerifiedAt: null,
     });
-    expect(Object.keys(payload).sort()).toEqual(["accountId", "email", "memberships", "verified"]);
+    expect(Object.keys(payload).sort()).toEqual([
+      "accountId",
+      "displayName",
+      "email",
+      "memberships",
+      "verified",
+    ]);
   });
 });

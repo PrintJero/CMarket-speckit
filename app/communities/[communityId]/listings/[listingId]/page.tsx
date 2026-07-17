@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { getCurrentAccount } from "@/lib/auth/currentAccount";
 import { getListing } from "@/server/services/listingService";
 import { requireCommunityAdministrator } from "@/server/services/invitationService";
+import { formatListingPrice } from "@/lib/formatting/currency";
+import { resolveDisplayName } from "@/lib/formatting/displayName";
 import { ListingForm } from "../ListingForm";
 import { ListingActions } from "./ListingActions";
 
@@ -31,7 +33,20 @@ export default async function ListingDetailPage({
       <div className="operator-container">
         <div className="operator-header">
           <h1>{listing.title}</h1>
+          <p className="operator-notice">Listed by {resolveDisplayName(listing.ownerDisplayName)}</p>
         </div>
+
+        {listing.photos.length > 0 && (
+          <div className="listing-gallery">
+            {listing.photos.map((photo) => (
+              <img
+                key={photo.id}
+                src={`/api/communities/${communityId}/listings/${listing.id}/photos/${photo.id}`}
+                alt=""
+              />
+            ))}
+          </div>
+        )}
 
         {isOwner ? (
           <section className="operator-panel-card">
@@ -46,7 +61,7 @@ export default async function ListingDetailPage({
         ) : (
           <section className="operator-panel-card">
             <p>{listing.description}</p>
-            <p>${(listing.priceCents / 100).toFixed(2)}</p>
+            <p>{formatListingPrice(listing.priceCents)}</p>
           </section>
         )}
 

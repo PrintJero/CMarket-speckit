@@ -8,14 +8,22 @@ import {
   getListing,
   updateListing,
   removeListingPhoto,
+  setCoverPhoto,
   pauseListing,
   reactivateListing,
   deleteListing,
 } from "@/server/services/listingService";
+import { setDisplayName } from "@/server/services/accountService";
 
+/**
+ * Defaults to a display name (006-user-display-names, FR-008) since almost
+ * every test in this file uses its accounts to create listings, which now
+ * requires one; the handful of tests specifically about the nameless case
+ * null it back out afterward via a direct prisma.account.update() call.
+ */
 function createVerifiedAccount(email: string) {
   return prisma.account.create({
-    data: { email, passwordHash: "irrelevant-hash", emailVerifiedAt: new Date() },
+    data: { email, passwordHash: "irrelevant-hash", emailVerifiedAt: new Date(), displayName: "Test Owner" },
   });
 }
 
@@ -147,6 +155,37 @@ describe("listingService (contract)", () => {
 
       expect(result).toEqual({ ok: false, reason: "not_a_member" });
       expect(await prisma.listing.count({ where: { communityId: community.id } })).toBe(0);
+    });
+
+    // T014 (006-user-display-names, FR-008): the guarantee holds regardless of
+    // client — createListing() itself rejects a nameless caller, not only the form.
+    it("rejects a caller with no display name yet, writing nothing, then succeeds once one is set", async () => {
+      const { community } = await createCommunityWithAdmin(
+        "Listing Test Community Twenty Six",
+        "listing-test-admin-26@example.com",
+      );
+      const nameless = await addMember(community.id, "listing-test-member-26@example.com");
+      await prisma.account.update({ where: { id: nameless.id }, data: { displayName: null } });
+
+      const rejected = await createListing({
+        communityId: community.id,
+        ownerId: nameless.id,
+        title: "valid",
+        description: "valid",
+        priceCents: 100,
+      });
+      expect(rejected).toEqual({ ok: false, reason: "display_name_required" });
+      expect(await prisma.listing.count({ where: { communityId: community.id } })).toBe(0);
+
+      await setDisplayName(nameless.id, "Now Named");
+      const accepted = await createListing({
+        communityId: community.id,
+        ownerId: nameless.id,
+        title: "valid",
+        description: "valid",
+        priceCents: 100,
+      });
+      expect(accepted.ok).toBe(true);
     });
   });
 
@@ -347,6 +386,269 @@ describe("listingService (contract)", () => {
 
       const wrongCommunity = await getListing(otherCommunity.id, created.listing.id, otherAdmin.id);
       expect(wrongCommunity).toEqual({ ok: false, reason: "not_found" });
+    });
+
+    // T009 (006-user-display-names, FR-009): listListings/getListing expose the owner's displayName.
+    it("includes the owner's ownerDisplayName, null when the owner has none", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Listing Test Community Twenty Five",
+        "listing-test-admin-25@example.com",
+      );
+      await setDisplayName(admin.id, "Ada Lovelace");
+      const nameless = await addMember(community.id, "listing-test-member-25@example.com");
+      await prisma.account.update({ where: { id: nameless.id }, data: { displayName: null } });
+
+      const named = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "Named owner's item",
+        description: "Description",
+        priceCents: 500,
+      });
+      if (!named.ok) throw new Error("expected listing creation to succeed");
+      // A nameless account can no longer create a listing at all (FR-008) — seed
+      // this one directly to test listListings()/getListing()'s own null-handling,
+      // independent of createListing()'s separate precondition (covered elsewhere).
+      const unnamedListing = await prisma.listing.create({
+        data: {
+          communityId: community.id,
+          ownerId: nameless.id,
+          title: "Nameless owner's item",
+          description: "Description",
+          priceCents: 500,
+        },
+      });
+
+      const feed = await listListings(community.id, admin.id);
+      expect(feed.ok).toBe(true);
+      if (!feed.ok) throw new Error("expected success");
+      expect(feed.listings.find((l) => l.id === named.listing.id)?.ownerDisplayName).toBe("Ada Lovelace");
+      expect(feed.listings.find((l) => l.id === unnamedListing.id)?.ownerDisplayName).toBeNull();
+
+      const foundNamed = await getListing(community.id, named.listing.id, admin.id);
+      expect(foundNamed.ok).toBe(true);
+      if (!foundNamed.ok) throw new Error("expected success");
+      expect(foundNamed.listing.ownerDisplayName).toBe("Ada Lovelace");
+
+      const foundUnnamed = await getListing(community.id, unnamedListing.id, admin.id);
+      expect(foundUnnamed.ok).toBe(true);
+      if (!foundUnnamed.ok) throw new Error("expected success");
+      expect(foundUnnamed.listing.ownerDisplayName).toBeNull();
+    });
+  });
+
+  describe("cover photo (2026-07-17 amendment)", () => {
+    // T041 (FR-014, FR-015)
+    it("automatically sets the first added photo as cover, and leaves it unchanged when a second photo is added", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Listing Test Community Twenty",
+        "listing-test-admin-20@example.com",
+      );
+      const created = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "Title",
+        description: "Description",
+        priceCents: 500,
+      });
+      if (!created.ok) throw new Error("expected listing creation to succeed");
+
+      const beforeAnyPhoto = await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } });
+      expect(beforeAnyPhoto.coverPhotoId).toBeNull();
+
+      const first = await addListingPhoto({
+        listingId: created.listing.id,
+        callerAccountId: admin.id,
+        data: JPEG,
+        mimeType: "image/jpeg",
+      });
+      if (!first.ok) throw new Error("expected photo to be added");
+      const afterFirst = await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } });
+      expect(afterFirst.coverPhotoId).toBe(first.photo.id);
+
+      const second = await addListingPhoto({
+        listingId: created.listing.id,
+        callerAccountId: admin.id,
+        data: JPEG,
+        mimeType: "image/jpeg",
+      });
+      if (!second.ok) throw new Error("expected photo to be added");
+      const afterSecond = await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } });
+      expect(afterSecond.coverPhotoId).toBe(first.photo.id);
+    });
+
+    // T041 (FR-016)
+    it("lets the owner change the cover to a different existing photo; rejects a non-owner", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Listing Test Community Twenty One",
+        "listing-test-admin-21@example.com",
+      );
+      const member = await addMember(community.id, "listing-test-member-21@example.com");
+      const created = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "Title",
+        description: "Description",
+        priceCents: 500,
+      });
+      if (!created.ok) throw new Error("expected listing creation to succeed");
+      const first = await addListingPhoto({
+        listingId: created.listing.id,
+        callerAccountId: admin.id,
+        data: JPEG,
+        mimeType: "image/jpeg",
+      });
+      const second = await addListingPhoto({
+        listingId: created.listing.id,
+        callerAccountId: admin.id,
+        data: JPEG,
+        mimeType: "image/jpeg",
+      });
+      if (!first.ok || !second.ok) throw new Error("expected both photos to be added");
+
+      const rejected = await setCoverPhoto({
+        listingId: created.listing.id,
+        photoId: second.photo.id,
+        callerAccountId: member.id,
+      });
+      expect(rejected).toEqual({ ok: false, reason: "not_owner" });
+      expect(
+        (await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).coverPhotoId,
+      ).toBe(first.photo.id);
+
+      const result = await setCoverPhoto({
+        listingId: created.listing.id,
+        photoId: second.photo.id,
+        callerAccountId: admin.id,
+      });
+      expect(result).toEqual({ ok: true, listing: { id: created.listing.id, coverPhotoId: second.photo.id } });
+      expect(
+        (await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).coverPhotoId,
+      ).toBe(second.photo.id);
+    });
+
+    // T041 (FR-017)
+    it("promotes the remaining lowest-position photo when the cover is removed, and clears it when no photos remain", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Listing Test Community Twenty Two",
+        "listing-test-admin-22@example.com",
+      );
+      const created = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "Title",
+        description: "Description",
+        priceCents: 500,
+      });
+      if (!created.ok) throw new Error("expected listing creation to succeed");
+
+      const photos = [];
+      for (let i = 0; i < 3; i += 1) {
+        const added = await addListingPhoto({
+          listingId: created.listing.id,
+          callerAccountId: admin.id,
+          data: JPEG,
+          mimeType: "image/jpeg",
+        });
+        if (!added.ok) throw new Error("expected photo to be added");
+        photos.push(added.photo);
+      }
+
+      // Cover starts as photos[0] (position 0).
+      await removeListingPhoto({ listingId: created.listing.id, photoId: photos[0].id, callerAccountId: admin.id });
+      expect(
+        (await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).coverPhotoId,
+      ).toBe(photos[1].id);
+
+      await removeListingPhoto({ listingId: created.listing.id, photoId: photos[1].id, callerAccountId: admin.id });
+      expect(
+        (await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).coverPhotoId,
+      ).toBe(photos[2].id);
+
+      await removeListingPhoto({ listingId: created.listing.id, photoId: photos[2].id, callerAccountId: admin.id });
+      expect(
+        (await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).coverPhotoId,
+      ).toBeNull();
+    });
+
+    // T041 (FR-016 — cross-listing rejection)
+    it("rejects setCoverPhoto for a photo that does not belong to the listing", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Listing Test Community Twenty Three",
+        "listing-test-admin-23@example.com",
+      );
+      const listingA = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "A",
+        description: "Description",
+        priceCents: 500,
+      });
+      const listingB = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "B",
+        description: "Description",
+        priceCents: 500,
+      });
+      if (!listingA.ok || !listingB.ok) throw new Error("expected both listings to be created");
+      const photoOnB = await addListingPhoto({
+        listingId: listingB.listing.id,
+        callerAccountId: admin.id,
+        data: JPEG,
+        mimeType: "image/jpeg",
+      });
+      if (!photoOnB.ok) throw new Error("expected photo to be added");
+
+      const result = await setCoverPhoto({
+        listingId: listingA.listing.id,
+        photoId: photoOnB.photo.id,
+        callerAccountId: admin.id,
+      });
+      expect(result).toEqual({ ok: false, reason: "not_found" });
+    });
+
+    // T042 (FR-014): listListings/getListing expose coverPhotoId
+    it("includes coverPhotoId in listListings() and getListing() results", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Listing Test Community Twenty Four",
+        "listing-test-admin-24@example.com",
+      );
+      const withPhoto = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "Has photo",
+        description: "Description",
+        priceCents: 500,
+      });
+      const withoutPhoto = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "No photo",
+        description: "Description",
+        priceCents: 500,
+      });
+      if (!withPhoto.ok || !withoutPhoto.ok) throw new Error("expected both listings to be created");
+      const photo = await addListingPhoto({
+        listingId: withPhoto.listing.id,
+        callerAccountId: admin.id,
+        data: JPEG,
+        mimeType: "image/jpeg",
+      });
+      if (!photo.ok) throw new Error("expected photo to be added");
+
+      const feed = await listListings(community.id, admin.id);
+      expect(feed.ok).toBe(true);
+      if (!feed.ok) throw new Error("expected success");
+      const feedWithPhoto = feed.listings.find((l) => l.id === withPhoto.listing.id);
+      const feedWithoutPhoto = feed.listings.find((l) => l.id === withoutPhoto.listing.id);
+      expect(feedWithPhoto?.coverPhotoId).toBe(photo.photo.id);
+      expect(feedWithoutPhoto?.coverPhotoId).toBeNull();
+
+      const found = await getListing(community.id, withPhoto.listing.id, admin.id);
+      expect(found.ok).toBe(true);
+      if (!found.ok) throw new Error("expected success");
+      expect(found.listing.coverPhotoId).toBe(photo.photo.id);
     });
   });
 

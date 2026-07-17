@@ -47,6 +47,7 @@ export async function POST(
     return NextResponse.json(result, { status: 201 });
   }
 
-  const status = result.reason === "not_a_member" ? 403 : 400;
+  const status =
+    result.reason === "not_a_member" ? 403 : result.reason === "display_name_required" ? 409 : 400;
   return NextResponse.json(result, { status });
 }

@@ -20,8 +20,9 @@ A product offered for sale within exactly one `Community` (research.md #3, #5).
 | `ownerId`     | identifier (FK → Account)   | The account that created it; only this account (or, for pause/reactivate only, that community's administrator) may act on it (FR-006–FR-010) |
 | `title`       | string          | Required (FR-002)                                                                                 |
 | `description` | string          | Required (FR-002)                                                                                 |
-| `priceCents`  | integer         | Required; a simple fixed amount in the smallest currency unit — no scheduling/dynamic adjustment (FR-002, FR-013) |
+| `priceCents`  | integer         | Required; a simple fixed amount in the smallest currency unit — no scheduling/dynamic adjustment (FR-002, FR-013). Displayed as MXN (`es-MX` locale) — 2026-07-17 amendment, FR-022; the field itself stays currency-agnostic. |
 | `status`      | `ListingStatus` | Defaults to `ACTIVE` on creation (FR-005)                                                          |
+| `coverPhotoId` | identifier (FK → ListingPhoto, nullable) *(new, 2026-07-17 amendment)* | Null when the listing has no cover (no photos, or its cover was removed with none left to promote). Set automatically to the first photo added (FR-015); changeable only by `ownerId` (FR-016); `ON DELETE SET NULL` so removing the referenced `ListingPhoto` never leaves a dangling reference — `removeListingPhoto()` explicitly promotes a replacement (FR-017) before/at that point rather than relying on the column merely going null. |
 | `createdAt`   | timestamp       |                                                                                                     |
 | `updatedAt`   | timestamp       | Updated on every edit/pause/reactivate                                                            |
 
@@ -34,6 +35,7 @@ A product offered for sale within exactly one `Community` (research.md #3, #5).
 - Pausing/reactivating (`status` transition) is permitted for `ownerId` OR the administrator of `communityId` (FR-007, FR-009, FR-010) — both converge on the same target status idempotently (research.md #3).
 - Deletion is permitted only for `ownerId` (FR-008, FR-010) — never by an administrator, even of the same community.
 - Every read (single listing, or a community's listing feed) MUST be scoped by `communityId` and MUST require the caller to hold a `Membership` (any role) in that community (FR-011, FR-012).
+- Changing `coverPhotoId` is permitted only for `ownerId`, and only to a photo that belongs to this same listing (FR-016) *(new, 2026-07-17 amendment)*.
 
 **State transitions**: `ACTIVE ⇄ PAUSED` (owner or that community's administrator, either direction, idempotent no-op if already in the target state) → terminal `deleted` (owner only, hard delete, cascades to `ListingPhoto`; not a `status` value — see research.md #3).
 
@@ -56,7 +58,9 @@ An image attached to exactly one `Listing` (FR-003).
 - A `Listing` MAY have zero photos at any time (FR-003, Edge Cases) — no minimum enforced.
 - A `Listing` MUST NOT exceed 6 photos; an attempt to add a 7th MUST be rejected with a clear error (research.md #1).
 - Adding a photo is permitted only for the listing's `ownerId` (FR-006) — same authorization as editing other fields.
-- Removing a photo is permitted only for the listing's `ownerId`. Removal leaves a gap in `position` for the remaining photos — positions are never renumbered; display order sorts by `position` ascending and values need not be contiguous.
+- Removing a photo is permitted only for the listing's `ownerId`. Removal leaves a gap in `position` for the remaining photos — positions are never renumbered; display order sorts by `position` ascending and values need not be contiguous. **Consequently, `position: 0` is never a valid stand-in for "the cover photo"** — after removing the photo that was at position 0, the remaining lowest position could be 1, 2, or any other value, never renumbered back down to 0. This is precisely why `Listing.coverPhotoId` (above) exists as an explicit pointer rather than a `position === 0` convention *(new, 2026-07-17 amendment)*.
+- Removing the current cover photo MUST promote the listing's remaining photo with the lowest `position` to cover (`coverPhotoId`); if none remain, `coverPhotoId` becomes null *(new, 2026-07-17 amendment, FR-017)*.
+- The first photo ever added to a listing (i.e., added while `coverPhotoId` is still null) automatically becomes its cover *(new, 2026-07-17 amendment, FR-015)*.
 - Deleting a `Listing` cascades to delete all its `ListingPhoto` rows (`onDelete: Cascade`) — zero orphaned rows (FR-008, SC-006).
 
 ## Community *(existing, from 003-community-creation — referenced, not modified)*

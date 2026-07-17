@@ -65,13 +65,14 @@ export async function findSessionWithAccount(
 
 export async function getValidSession(
   rawSessionToken: string,
-): Promise<{ accountId: string; email: string; emailVerifiedAt: Date | null } | null> {
+): Promise<{ accountId: string; email: string; emailVerifiedAt: Date | null; displayName: string | null } | null> {
   const found = await findSessionWithAccount(rawSessionToken);
   if (!found) return null;
   return {
     accountId: found.account.id,
     email: found.account.email,
     emailVerifiedAt: found.account.emailVerifiedAt,
+    displayName: found.account.displayName,
   };
 }
 

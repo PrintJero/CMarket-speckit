@@ -41,7 +41,8 @@ export type CreateListingResult =
       };
     }
   | { ok: false; reason: "invalid_input" }
-  | { ok: false; reason: "not_a_member" };
+  | { ok: false; reason: "not_a_member" }
+  | { ok: false; reason: "display_name_required" };
 
 export interface CreateListingInput {
   communityId: string;
@@ -51,7 +52,12 @@ export interface CreateListingInput {
   priceCents: number;
 }
 
-/** FR-001, FR-002, FR-005. */
+/**
+ * FR-001, FR-002, FR-005. FR-008 (006-user-display-names): the caller MUST
+ * already have a displayName — checked here, not only in the listing-
+ * creation form, so the guarantee holds regardless of how the request
+ * arrives (research.md #3 of that feature).
+ */
 export async function createListing(input: CreateListingInput): Promise<CreateListingResult> {
   if (isBlank(input.title) || isBlank(input.description) || !isValidPriceCents(input.priceCents)) {
     return { ok: false, reason: "invalid_input" };
@@ -59,6 +65,11 @@ export async function createListing(input: CreateListingInput): Promise<CreateLi
 
   if (!(await requireCommunityMembership(input.ownerId, input.communityId))) {
     return { ok: false, reason: "not_a_member" };
+  }
+
+  const owner = await prisma.account.findUnique({ where: { id: input.ownerId } });
+  if (!owner?.displayName) {
+    return { ok: false, reason: "display_name_required" };
   }
 
   const listing = await prisma.listing.create({
@@ -124,6 +135,13 @@ export async function addListingPhoto(input: AddListingPhotoInput): Promise<AddL
     },
   });
 
+  if (listing.coverPhotoId === null) {
+    await prisma.listing.update({
+      where: { id: input.listingId },
+      data: { coverPhotoId: photo.id },
+    });
+  }
+
   return { ok: true, photo: { id: photo.id, position: photo.position } };
 }
 
@@ -137,6 +155,8 @@ export type ListListingsResult =
         status: "ACTIVE" | "PAUSED";
         ownerId: string;
         createdAt: Date;
+        coverPhotoId: string | null;
+        ownerDisplayName: string | null;
       }[];
     }
   | { ok: false; reason: "not_a_member" };
@@ -150,6 +170,7 @@ export async function listListings(communityId: string, callerAccountId: string)
   const listings = await prisma.listing.findMany({
     where: { communityId, status: "ACTIVE" },
     orderBy: { createdAt: "desc" },
+    include: { owner: { select: { displayName: true } } },
   });
 
   return {
@@ -161,6 +182,8 @@ export async function listListings(communityId: string, callerAccountId: string)
       status: listing.status,
       ownerId: listing.ownerId,
       createdAt: listing.createdAt,
+      coverPhotoId: listing.coverPhotoId,
+      ownerDisplayName: listing.owner.displayName,
     })),
   };
 }
@@ -176,6 +199,8 @@ export type GetListingResult =
         description: string;
         priceCents: number;
         status: "ACTIVE" | "PAUSED";
+        coverPhotoId: string | null;
+        ownerDisplayName: string | null;
         photos: { id: string; position: number }[];
       };
     }
@@ -194,7 +219,10 @@ export async function getListing(
 
   const listing = await prisma.listing.findUnique({
     where: { id: listingId },
-    include: { photos: { orderBy: { position: "asc" } } },
+    include: {
+      photos: { orderBy: { position: "asc" } },
+      owner: { select: { displayName: true } },
+    },
   });
   if (!listing || listing.communityId !== communityId) {
     return { ok: false, reason: "not_found" };
@@ -210,6 +238,8 @@ export async function getListing(
       description: listing.description,
       priceCents: listing.priceCents,
       status: listing.status,
+      coverPhotoId: listing.coverPhotoId,
+      ownerDisplayName: listing.owner.displayName,
       photos: listing.photos.map((photo) => ({ id: photo.id, position: photo.position })),
     },
   };
@@ -315,7 +345,11 @@ export interface RemoveListingPhotoInput {
   callerAccountId: string;
 }
 
-/** FR-006. Same ownership check as updateListing. Leaves a gap in position (data-model.md). */
+/**
+ * FR-006. Same ownership check as updateListing. Leaves a gap in position (data-model.md).
+ * FR-017 (2026-07-17 amendment): if the removed photo was the cover, promotes the remaining
+ * photo with the lowest position, or clears coverPhotoId if none remain.
+ */
 export async function removeListingPhoto(input: RemoveListingPhotoInput): Promise<RemoveListingPhotoResult> {
   const listing = await prisma.listing.findUnique({ where: { id: input.listingId } });
   if (!listing) return { ok: false, reason: "not_found" };
@@ -324,8 +358,50 @@ export async function removeListingPhoto(input: RemoveListingPhotoInput): Promis
   const photo = await prisma.listingPhoto.findUnique({ where: { id: input.photoId } });
   if (!photo || photo.listingId !== input.listingId) return { ok: false, reason: "not_found" };
 
-  await prisma.listingPhoto.delete({ where: { id: input.photoId } });
+  await prisma.$transaction(async (tx) => {
+    await tx.listingPhoto.delete({ where: { id: input.photoId } });
+
+    if (listing.coverPhotoId === input.photoId) {
+      const nextCover = await tx.listingPhoto.findFirst({
+        where: { listingId: input.listingId },
+        orderBy: { position: "asc" },
+      });
+      await tx.listing.update({
+        where: { id: input.listingId },
+        data: { coverPhotoId: nextCover?.id ?? null },
+      });
+    }
+  });
+
   return { ok: true };
+}
+
+export type SetCoverPhotoResult =
+  | { ok: true; listing: { id: string; coverPhotoId: string } }
+  | { ok: false; reason: "not_found" }
+  | { ok: false; reason: "not_owner" };
+
+export interface SetCoverPhotoInput {
+  listingId: string;
+  photoId: string;
+  callerAccountId: string;
+}
+
+/** FR-016 (2026-07-17 amendment). Same ownership check as updateListing/removeListingPhoto. */
+export async function setCoverPhoto(input: SetCoverPhotoInput): Promise<SetCoverPhotoResult> {
+  const listing = await prisma.listing.findUnique({ where: { id: input.listingId } });
+  if (!listing) return { ok: false, reason: "not_found" };
+  if (listing.ownerId !== input.callerAccountId) return { ok: false, reason: "not_owner" };
+
+  const photo = await prisma.listingPhoto.findUnique({ where: { id: input.photoId } });
+  if (!photo || photo.listingId !== input.listingId) return { ok: false, reason: "not_found" };
+
+  const updated = await prisma.listing.update({
+    where: { id: input.listingId },
+    data: { coverPhotoId: photo.id },
+  });
+
+  return { ok: true, listing: { id: updated.id, coverPhotoId: updated.coverPhotoId! } };
 }
 
 export type PauseListingResult =
