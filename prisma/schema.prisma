@@ -19,6 +19,7 @@ model Account {
   authIdentities      AuthIdentity[]
   sessions            Session[]
   verificationTokens  VerificationToken[]
+  memberships         Membership[]
 
   @@map("accounts")
 }
@@ -72,4 +73,40 @@ model VerificationToken {
 
   @@index([accountId])
   @@map("verification_tokens")
+}
+
+/// A tenancy boundary corresponding to a real institution (003-community-creation,
+/// FR-001). Never created by end users — see the sole bootstrap exception, Principle I.
+model Community {
+  id                String   @id @default(cuid())
+  name              String
+  createdByOperator String
+  createdAt         DateTime @default(now())
+
+  memberships Membership[]
+
+  @@map("communities")
+}
+
+/// FR-010: enumerated, never a bare integer or free-text string, so a future
+/// removal/demotion feature can reliably count administrators.
+enum MembershipRole {
+  ADMINISTRATOR
+}
+
+/// The link between one Account and one Community, carrying a role
+/// (003-community-creation). This feature only ever produces ADMINISTRATOR rows.
+model Membership {
+  id          String         @id @default(cuid())
+  accountId   String
+  communityId String
+  role        MembershipRole
+  createdAt   DateTime       @default(now())
+
+  account   Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, communityId])
+  @@index([communityId])
+  @@map("memberships")
 }
