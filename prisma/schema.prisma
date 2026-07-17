@@ -20,6 +20,7 @@ model Account {
   sessions            Session[]
   verificationTokens  VerificationToken[]
   memberships         Membership[]
+  invitationsSent     Invitation[]         @relation("InvitationsSent")
 
   @@map("accounts")
 }
@@ -84,6 +85,7 @@ model Community {
   createdAt         DateTime @default(now())
 
   memberships Membership[]
+  invitations Invitation[]
 
   @@map("communities")
 }
@@ -92,10 +94,12 @@ model Community {
 /// removal/demotion feature can reliably count administrators.
 enum MembershipRole {
   ADMINISTRATOR
+  MEMBER
 }
 
 /// The link between one Account and one Community, carrying a role
-/// (003-community-creation). This feature only ever produces ADMINISTRATOR rows.
+/// (003-community-creation). 004-invitations-membership adds the MEMBER role
+/// value and the ability to delete (revoke) a row.
 model Membership {
   id          String         @id @default(cuid())
   accountId   String
@@ -109,4 +113,25 @@ model Membership {
   @@unique([accountId, communityId])
   @@index([communityId])
   @@map("memberships")
+}
+
+/// A single-use credential binding one email address to one Community, issued by
+/// that community's administrator (004-invitations-membership, FR-001–FR-005).
+/// consumedAt is set either by successful acceptance or by being superseded by a
+/// newer invitation to the same (email, communityId) pair (FR-012).
+model Invitation {
+  id          String    @id @default(cuid())
+  communityId String
+  email       String
+  tokenHash   String    @unique
+  invitedBy   String
+  consumedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  inviter   Account   @relation("InvitationsSent", fields: [invitedBy], references: [id], onDelete: Cascade)
+
+  @@index([communityId])
+  @@index([email, communityId])
+  @@map("invitations")
 }
