@@ -4,11 +4,28 @@ import { getCurrentAccount } from "@/lib/auth/currentAccount";
 import { listListings } from "@/server/services/listingService";
 import { formatListingPrice } from "@/lib/formatting/currency";
 import { resolveDisplayName } from "@/lib/formatting/displayName";
+import { ListingDiscoveryControls } from "./ListingDiscoveryControls";
+
+function buildPageHref(
+  communityId: string,
+  current: Record<string, string | undefined>,
+  page: number,
+): string {
+  const params = new URLSearchParams();
+  if (current.q) params.set("q", current.q);
+  if (current.minPrice) params.set("minPrice", current.minPrice);
+  if (current.maxPrice) params.set("maxPrice", current.maxPrice);
+  params.set("page", String(page));
+  return `/communities/${communityId}/listings?${params.toString()}`;
+}
 
 /**
- * Member-only (any role) feed of a community's own ACTIVE listings.
- * Same notFound() convention as /communities/{id}/admin, but gated on any
- * Membership row, not just ADMINISTRATOR (FR-011, FR-012).
+ * Member-only (any role) feed of a community's own ACTIVE listings, extended
+ * (007-listing-discovery) with keyword search, a price range, and pagination —
+ * all driven by the URL's query string and resolved in listListings()'s
+ * single Prisma query (research.md #4). Same notFound() convention as
+ * /communities/{id}/admin, but gated on any Membership row, not just
+ * ADMINISTRATOR (FR-001).
  *
  * Renders as cards (cover photo, title, price), calling listListings()
  * directly rather than an inlined query, so this page never drifts from the
@@ -16,16 +33,25 @@ import { resolveDisplayName } from "@/lib/formatting/displayName";
  */
 export default async function ListingsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ communityId: string }>;
+  searchParams: Promise<{ q?: string; minPrice?: string; maxPrice?: string; page?: string }>;
 }) {
   const { communityId } = await params;
+  const sp = await searchParams;
   const account = await getCurrentAccount();
   if (!account) {
     notFound();
   }
 
-  const result = await listListings(communityId, account.accountId);
+  const page = sp.page ? Number(sp.page) : 1;
+  const result = await listListings(communityId, account.accountId, {
+    search: sp.q,
+    minPriceCents: sp.minPrice ? Number(sp.minPrice) : undefined,
+    maxPriceCents: sp.maxPrice ? Number(sp.maxPrice) : undefined,
+    page,
+  });
   if (!result.ok) {
     notFound();
   }
@@ -41,8 +67,15 @@ export default async function ListingsPage({
           </p>
         </div>
 
+        <ListingDiscoveryControls
+          communityId={communityId}
+          initialQuery={sp.q ?? ""}
+          initialMinPrice={sp.minPrice ?? ""}
+          initialMaxPrice={sp.maxPrice ?? ""}
+        />
+
         {listings.length === 0 ? (
-          <p className="operator-empty">No listings yet. Create one to get started.</p>
+          <p className="operator-empty">No listings match. Try a different search or filter.</p>
         ) : (
           <div className="listing-grid">
             {listings.map((listing) => (
@@ -70,6 +103,16 @@ export default async function ListingsPage({
             ))}
           </div>
         )}
+
+        <p className="operator-notice">
+          {result.page > 1 && (
+            <Link href={buildPageHref(communityId, sp, result.page - 1)}>Previous</Link>
+          )}
+          {result.page > 1 && result.hasMore && " · "}
+          {result.hasMore && (
+            <Link href={buildPageHref(communityId, sp, result.page + 1)}>Next</Link>
+          )}
+        </p>
       </div>
     </div>
   );

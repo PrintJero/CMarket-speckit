@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { getCurrentAccount } from "@/lib/auth/currentAccount";
 import { createListing, listListings } from "@/server/services/listingService";
 
+function parseIntParam(value: string | null): number | undefined {
+  if (value === null || value === "") return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ communityId: string }> },
@@ -12,12 +18,20 @@ export async function GET(
   }
 
   const { communityId } = await params;
-  const result = await listListings(communityId, account.accountId);
+  const url = new URL(request.url);
+  const result = await listListings(communityId, account.accountId, {
+    search: url.searchParams.get("q") ?? undefined,
+    minPriceCents: parseIntParam(url.searchParams.get("minPrice")),
+    maxPriceCents: parseIntParam(url.searchParams.get("maxPrice")),
+    page: parseIntParam(url.searchParams.get("page")),
+    pageSize: parseIntParam(url.searchParams.get("pageSize")),
+  });
 
   if (result.ok) {
     return NextResponse.json(result, { status: 200 });
   }
-  return NextResponse.json(result, { status: 403 });
+  const status = result.reason === "invalid_input" ? 400 : 403;
+  return NextResponse.json(result, { status });
 }
 
 export async function POST(
