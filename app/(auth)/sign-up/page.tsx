@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { signIn } from "next-auth/react";
+import { GoogleIcon } from "../../_components/GoogleIcon";
 
 export default function SignUpPage() {
   const [email, setEmail] = useState("");
@@ -116,11 +117,12 @@ export default function SignUpPage() {
         </button>
       </form>
       <button
-        className="btn-secondary"
+        className="btn-secondary btn-google"
         type="button"
         onClick={() => signIn("google", { callbackUrl: "/" })}
       >
-        Continue with Google
+        <GoogleIcon />
+        <span>Continue with Google</span>
       </button>
       {status === "error" && (
         <p className="form-error" role="alert">

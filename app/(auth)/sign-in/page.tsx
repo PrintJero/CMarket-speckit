@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { signIn } from "next-auth/react";
+import { GoogleIcon } from "../../_components/GoogleIcon";
 
 export default function SignInPage() {
   const [email, setEmail] = useState("");
@@ -64,11 +65,12 @@ export default function SignInPage() {
         </button>
       </form>
       <button
-        className="btn-secondary"
+        className="btn-secondary btn-google"
         type="button"
         onClick={() => signIn("google", { callbackUrl: "/" })}
       >
-        Continue with Google
+        <GoogleIcon />
+        <span>Continue with Google</span>
       </button>
       <p className="form-footer-link">
         New to CMarket? <a href="/sign-up">Sign up</a>
