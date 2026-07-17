@@ -158,24 +158,84 @@ export type ListListingsResult =
         coverPhotoId: string | null;
         ownerDisplayName: string | null;
       }[];
+      page: number;
+      pageSize: number;
+      hasMore: boolean;
     }
-  | { ok: false; reason: "not_a_member" };
+  | { ok: false; reason: "not_a_member" }
+  | { ok: false; reason: "invalid_input" };
 
-/** FR-011, FR-012: only ACTIVE listings, only for a caller with membership in communityId. */
-export async function listListings(communityId: string, callerAccountId: string): Promise<ListListingsResult> {
+export interface ListListingsOptions {
+  search?: string;
+  minPriceCents?: number;
+  maxPriceCents?: number;
+  page?: number;
+  pageSize?: number;
+}
+
+const DEFAULT_PAGE_SIZE = 20;
+const MAX_PAGE_SIZE = 50;
+
+/**
+ * FR-011, FR-012: only ACTIVE listings, only for a caller with membership in
+ * communityId. 007-listing-discovery extends this with keyword search, a
+ * price range, and pagination — all folded into the one findMany call below
+ * (research.md #1-#4): never a second query, never an in-memory filter/sort/slice.
+ */
+export async function listListings(
+  communityId: string,
+  callerAccountId: string,
+  options: ListListingsOptions = {},
+): Promise<ListListingsResult> {
   if (!(await requireCommunityMembership(callerAccountId, communityId))) {
     return { ok: false, reason: "not_a_member" };
   }
 
+  const { search, minPriceCents, maxPriceCents } = options;
+  if (
+    minPriceCents !== undefined &&
+    maxPriceCents !== undefined &&
+    minPriceCents > maxPriceCents
+  ) {
+    return { ok: false, reason: "invalid_input" };
+  }
+
+  const page = Math.max(1, Math.trunc(options.page ?? 1));
+  const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Math.trunc(options.pageSize ?? DEFAULT_PAGE_SIZE)));
+
   const listings = await prisma.listing.findMany({
-    where: { communityId, status: "ACTIVE" },
-    orderBy: { createdAt: "desc" },
+    where: {
+      communityId,
+      status: "ACTIVE",
+      ...(search
+        ? {
+            OR: [
+              { title: { contains: search, mode: "insensitive" } },
+              { description: { contains: search, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+      ...(minPriceCents !== undefined || maxPriceCents !== undefined
+        ? {
+            priceCents: {
+              ...(minPriceCents !== undefined ? { gte: minPriceCents } : {}),
+              ...(maxPriceCents !== undefined ? { lte: maxPriceCents } : {}),
+            },
+          }
+        : {}),
+    },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    skip: (page - 1) * pageSize,
+    take: pageSize + 1,
     include: { owner: { select: { displayName: true } } },
   });
 
+  const hasMore = listings.length > pageSize;
+  const pageListings = listings.slice(0, pageSize);
+
   return {
     ok: true,
-    listings: listings.map((listing) => ({
+    listings: pageListings.map((listing) => ({
       id: listing.id,
       title: listing.title,
       priceCents: listing.priceCents,
@@ -185,6 +245,9 @@ export async function listListings(communityId: string, callerAccountId: string)
       coverPhotoId: listing.coverPhotoId,
       ownerDisplayName: listing.owner.displayName,
     })),
+    page,
+    pageSize,
+    hasMore,
   };
 }
 

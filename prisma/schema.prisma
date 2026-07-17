@@ -167,7 +167,7 @@ model Listing {
   photos     ListingPhoto[] @relation("ListingPhotos")
   coverPhoto ListingPhoto?  @relation("ListingCoverPhoto", fields: [coverPhotoId], references: [id], onDelete: SetNull)
 
-  @@index([communityId])
+  @@index([communityId, status, createdAt])
   @@index([ownerId])
   @@map("listings")
 }
