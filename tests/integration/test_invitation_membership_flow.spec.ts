@@ -154,3 +154,44 @@ test("administrator revokes a member via the admin page; the last-admin guard re
   });
   expect(adminMembership).not.toBeNull();
 });
+
+// 009-platform-administration, User Story 6: peer administrator delegation, entirely outside the MASTER surface.
+test("an administrator promotes a peer member; both can then administer, and neither can remove the last administrator", async ({
+  page,
+  request,
+}) => {
+  const password = "correct-horse-battery-staple";
+  const adminEmail = uniqueEmail("promote-admin");
+  const memberEmail = uniqueEmail("promote-member");
+  await createVerifiedAccount(adminEmail, password);
+  const member = await createVerifiedAccount(memberEmail, password);
+  const community = await createCommunityWithAdmin(request, `Promote Flow Community ${Date.now()}`, adminEmail);
+  await prisma.membership.create({
+    data: { accountId: member.id, communityId: community.id, role: "MEMBER" },
+  });
+
+  await signIn(page, adminEmail, password);
+  await page.goto(`/communities/${community.id}/admin`);
+
+  const memberRow = page.getByRole("row", { name: new RegExp(memberEmail) });
+  await memberRow.getByRole("button", { name: "Promote" }).click();
+  await expect(memberRow.getByText("ADMINISTRATOR")).toBeVisible();
+
+  // The newly promoted administrator can now perform administrator actions (e.g. inviting someone).
+  await signIn(page, memberEmail, password);
+  await page.goto(`/communities/${community.id}/admin`);
+  const newInviteEmail = uniqueEmail("promote-invitee");
+  await page.getByLabel("Invite by email").fill(newInviteEmail);
+  await page.getByRole("button", { name: "Send invitation" }).click();
+  await expect(page.getByText(`Invitation sent to ${newInviteEmail}.`)).toBeVisible();
+
+  // With two administrators, removing one succeeds...
+  const originalAdminRow = page.getByRole("row", { name: new RegExp(adminEmail) });
+  await originalAdminRow.getByRole("button", { name: "Revoke" }).click();
+  await expect(page.getByText(adminEmail)).toHaveCount(0);
+
+  // ...but removing the now-sole remaining administrator (the promoted member) is rejected.
+  const soleAdminRow = page.getByRole("row", { name: new RegExp(memberEmail) });
+  await soleAdminRow.getByRole("button", { name: "Revoke" }).click();
+  await expect(page.getByText("last_admin")).toBeVisible();
+});

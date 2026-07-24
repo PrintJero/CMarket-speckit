@@ -7,17 +7,30 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// FR-042/FR-034: closed set so sign-in/session checks can rely on a single
+/// enumerated value rather than inferring status from other columns.
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+}
+
 /// A person's single, global CMarket identity, independent of any community membership.
 /// See specs/002-accounts-authentication/data-model.md.
 model Account {
-  id              String    @id @default(cuid())
-  email           String    @unique
+  id              String        @id @default(cuid())
+  email           String        @unique
   passwordHash    String?
   emailVerifiedAt DateTime?
   /// Optional, self-chosen name shown to fellow community members in place of
   /// the email address (006-user-display-names, FR-001–FR-014).
   displayName     String?
-  createdAt       DateTime  @default(now())
+  /// 009-platform-administration, FR-042/FR-043: MASTER-controlled suspend/reactivate.
+  status          AccountStatus @default(ACTIVE)
+  /// 009-platform-administration, FR-034: set on permanent deletion. The Account
+  /// row itself is never deleted — see data-model.md's non-reassignable-attribution
+  /// design (research.md #9). Once set, permanent; no path clears it.
+  deletedAt       DateTime?
+  createdAt       DateTime      @default(now())
 
   authIdentities      AuthIdentity[]
   sessions            Session[]
@@ -82,13 +95,35 @@ model VerificationToken {
   @@map("verification_tokens")
 }
 
+/// 009-platform-administration, FR-048: closed lifecycle set. ARCHIVED communities
+/// are excluded from every ordinary marketplace path (FR-059); SUSPENDED ones keep
+/// read/reply access to existing content but block growth (FR-052/FR-053).
+enum CommunityStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
 /// A tenancy boundary corresponding to a real institution (003-community-creation,
-/// FR-001). Never created by end users — see the sole bootstrap exception, Principle I.
+/// FR-001). Never created by end users — see the sole bootstrap exception, Principle I,
+/// now joined by Principle IX's managed-provisioning exception (009-platform-administration).
 model Community {
-  id                String   @id @default(cuid())
+  id                String          @id @default(cuid())
   name              String
   createdByOperator String
-  createdAt         DateTime @default(now())
+  createdAt         DateTime        @default(now())
+  /// 009-platform-administration, FR-048–FR-065 (data-model.md's state machine).
+  status             CommunityStatus @default(ACTIVE)
+  suspendedAt        DateTime?
+  suspensionReason   String?
+  archiveScheduledAt DateTime?
+  archivedAt         DateTime?
+  /// research.md #8: the community's current "operational generation." Every
+  /// Listing/MessageThread/Invitation/Membership row is stamped with this value
+  /// at its own creation time; only rows whose stamped epoch matches this
+  /// column's *current* value are operational. Incremented by exactly 1 on
+  /// every restoration — never otherwise touched.
+  operationalEpoch   Int             @default(1)
 
   memberships Membership[]
   invitations Invitation[]
@@ -113,6 +148,10 @@ model Membership {
   communityId String
   role        MembershipRole
   createdAt   DateTime       @default(now())
+  /// 009-platform-administration, research.md #8: stamped from the community's
+  /// operationalEpoch at creation. Never updated thereafter EXCEPT for exactly
+  /// one row — the restored administrator's — at the moment of restoration.
+  operationalEpoch Int       @default(1)
 
   account   Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
   community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
@@ -134,6 +173,10 @@ model Invitation {
   invitedBy   String
   consumedAt  DateTime?
   createdAt   DateTime  @default(now())
+  /// 009-platform-administration, research.md #8: stamped from the community's
+  /// operationalEpoch at creation; never updated thereafter. A pre-restoration
+  /// invitation can never be accepted into a later epoch.
+  operationalEpoch Int  @default(1)
 
   community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
   inviter   Account   @relation("InvitationsSent", fields: [invitedBy], references: [id], onDelete: Cascade)
@@ -163,6 +206,9 @@ model Listing {
   coverPhotoId  String?       @unique
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
+  /// 009-platform-administration, research.md #8: stamped from the community's
+  /// operationalEpoch at creation; never updated thereafter.
+  operationalEpoch Int        @default(1)
 
   community  Community      @relation(fields: [communityId], references: [id], onDelete: Cascade)
   owner      Account        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
@@ -207,6 +253,9 @@ model MessageThread {
   /// insertMessage() (2026-07-17 amendment) — lets Chats/the inbox order by
   /// recent activity via a plain database ORDER BY, never an in-memory sort.
   lastMessageAt DateTime @default(now())
+  /// 009-platform-administration, research.md #8: stamped from the community's
+  /// operationalEpoch at creation; never updated thereafter.
+  operationalEpoch Int   @default(1)
 
   listing  Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
   buyer    Account   @relation("MessageThreadsAsBuyer", fields: [buyerId], references: [id], onDelete: Cascade)
@@ -232,4 +281,93 @@ model Message {
 
   @@index([threadId, createdAt])
   @@map("messages")
+}
+
+/// 009-platform-administration, FR-002: closed set for MasterIdentity.status.
+enum MasterStatus {
+  ACTIVE
+  DISABLED
+}
+
+/// A dedicated platform-operator identity (009-platform-administration,
+/// Constitution Principle IX), wholly separate from Account and Membership —
+/// see research.md #1. Never physically deleted (FR-016).
+model MasterIdentity {
+  id                 String       @id @default(cuid())
+  /// Normalized (trim + lowercase, research.md #3) at write time. Immutable
+  /// after creation — no update path exists for this field.
+  masterId           String       @unique
+  /// Operational email. Not a sign-in identifier (FR-003). Unique across
+  /// MasterIdentity and, by application-level check, also against
+  /// Account.email (research.md #4).
+  email              String       @unique
+  passwordHash       String
+  status             MasterStatus @default(ACTIVE)
+  /// true on creation (new MASTER or after a reset); cleared on the first
+  /// successful password change (FR-010, FR-011).
+  mustChangePassword Boolean      @default(true)
+  createdAt          DateTime     @default(now())
+  /// Null only for the bootstrap MASTER (FR-007).
+  createdByMasterId  String?
+  statusChangedAt    DateTime?
+
+  sessions MasterSession[]
+
+  @@map("master_identities")
+}
+
+/// An authenticated administrative session belonging only to a MasterIdentity
+/// (research.md #1) — never interchangeable with an ordinary Account Session.
+model MasterSession {
+  id               String   @id @default(cuid())
+  masterId         String
+  sessionTokenHash String   @unique
+  createdAt        DateTime @default(now())
+  expiresAt        DateTime
+
+  master MasterIdentity @relation(fields: [masterId], references: [id], onDelete: Cascade)
+
+  @@index([masterId])
+  @@map("master_sessions")
+}
+
+/// 009-platform-administration, FR-069: SYSTEM only for the automatic
+/// archival transition; MASTER for every interactive action.
+enum AuditActorType {
+  MASTER
+  SYSTEM
+}
+
+/// 009-platform-administration, FR-068: closed set, every consumer benefits
+/// from the exhaustiveness check.
+enum AuditOutcome {
+  SUCCESS
+  FAILURE
+}
+
+/// Immutable record of every platform-administration action and lifecycle
+/// automation event (research.md #6), distinct from the future marketplace
+/// transaction log (Constitution Principle IV/IX). Insert-only — no route or
+/// service function ever updates or deletes a row (FR-071).
+model AdministrativeAuditEntry {
+  id            String         @id @default(cuid())
+  actorType     AuditActorType
+  actorMasterId String?
+  /// Plain string, not an enum — this feature alone names 20+ distinct
+  /// action shapes and more will be added by future specs (research.md #6).
+  /// See the closed TypeScript union AdministrativeAction in auditService.ts.
+  action        String
+  targetType    String
+  targetId      String?
+  outcome       AuditOutcome
+  /// Sanitized before/after values or failure reason. Never a password, hash,
+  /// session token, invitation token, verification token, access code, or
+  /// payment credential (FR-070).
+  detail        Json?
+  createdAt     DateTime       @default(now())
+
+  @@index([createdAt])
+  @@index([actorMasterId])
+  @@index([targetType, targetId])
+  @@map("administrative_audit_entries")
 }

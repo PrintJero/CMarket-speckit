@@ -55,15 +55,20 @@ export async function getCurrentAccount(): Promise<CurrentAccountPayload | null>
 
   const memberships = await prisma.membership.findMany({
     where: { accountId: session.accountId },
-    include: { community: { select: { name: true } } },
+    include: { community: { select: { name: true, operationalEpoch: true } } },
   });
 
   return toCurrentAccountPayload(
     session,
-    memberships.map((membership) => ({
-      communityId: membership.communityId,
-      communityName: membership.community.name,
-      role: membership.role,
-    })),
+    memberships
+      // 009-platform-administration, research.md #8: a membership predating a
+      // restoration no longer counts as current — mirrors listMyListings()/
+      // listMyThreads()'s same epoch-map pattern (listingService.ts/messageService.ts).
+      .filter((membership) => membership.operationalEpoch === membership.community.operationalEpoch)
+      .map((membership) => ({
+        communityId: membership.communityId,
+        communityName: membership.community.name,
+        role: membership.role,
+      })),
   );
 }

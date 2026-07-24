@@ -96,7 +96,8 @@ export type SendMessageToListingOwnerResult =
   | { ok: false; reason: "cannot_message_own_listing" }
   | { ok: false; reason: "listing_paused" }
   | { ok: false; reason: "invalid_message" }
-  | { ok: false; reason: "display_name_required" };
+  | { ok: false; reason: "display_name_required" }
+  | { ok: false; reason: "community_not_active" };
 
 export interface SendMessageToListingOwnerInput {
   communityId: string;
@@ -112,19 +113,31 @@ export interface SendMessageToListingOwnerInput {
  * can never exist with zero messages, and the @@unique constraint resolves
  * any race between two rapid first-messages from the same buyer
  * (research.md #2). The ACTIVE-listing gate (FR-016, research.md #4) only
- * applies when a new thread would be created.
+ * applies when a new thread would be created. 009-platform-administration,
+ * FR-052/FR-053: the top-level membership check tolerates a SUSPENDED
+ * community (a reply into an existing thread must keep working), but
+ * creating a *new* thread additionally requires the community to be ACTIVE
+ * — checked only on that branch, exactly like the listing-paused check
+ * right below it. The new thread is stamped with the community's current
+ * operationalEpoch (research.md #8).
  */
 export async function sendMessageToListingOwner(
   input: SendMessageToListingOwnerInput,
 ): Promise<SendMessageToListingOwnerResult> {
   const { communityId, listingId, buyerAccountId, body } = input;
 
-  if (!(await requireCommunityMembership(buyerAccountId, communityId))) {
+  if (!(await requireCommunityMembership(buyerAccountId, communityId, { allowSuspended: true }))) {
     return { ok: false, reason: "not_a_member" };
   }
 
+  const community = await prisma.community.findUnique({ where: { id: communityId } });
+
   const listing = await prisma.listing.findUnique({ where: { id: listingId } });
-  if (!listing || listing.communityId !== communityId) {
+  if (
+    !listing ||
+    listing.communityId !== communityId ||
+    listing.operationalEpoch !== (community?.operationalEpoch ?? 1)
+  ) {
     return { ok: false, reason: "not_found" };
   }
 
@@ -136,10 +149,14 @@ export async function sendMessageToListingOwner(
     where: { listingId_buyerId: { listingId, buyerId: buyerAccountId } },
   });
 
-  if (existingThread) {
+  if (existingThread && existingThread.operationalEpoch === (community?.operationalEpoch ?? 1)) {
     const created = await createMessage(existingThread.id, buyerAccountId, body);
     if (!created.ok) return created;
     return { ok: true, thread: { id: existingThread.id }, message: created.message, threadCreated: false };
+  }
+
+  if (community?.status !== "ACTIVE") {
+    return { ok: false, reason: "community_not_active" };
   }
 
   if (listing.status !== "ACTIVE") {
@@ -154,7 +171,7 @@ export async function sendMessageToListingOwner(
 
   const created = await prisma.$transaction(async (tx) => {
     const thread = await tx.messageThread.create({
-      data: { listingId, buyerId: buyerAccountId },
+      data: { listingId, buyerId: buyerAccountId, operationalEpoch: community.operationalEpoch },
     });
     const message = await insertMessage(tx, thread.id, buyerAccountId, validated.trimmed);
     return { thread, message };
@@ -178,19 +195,29 @@ export interface SendThreadMessageInput {
   body: string;
 }
 
-/** FR-003. Either the thread's buyer or its listing's owner may reply — no PAUSED check (FR-016, research.md #4). */
+/**
+ * FR-003. Either the thread's buyer or its listing's owner may reply — no
+ * PAUSED check (FR-016, research.md #4). 009-platform-administration,
+ * FR-052: replying in an existing thread tolerates a SUSPENDED community.
+ */
 export async function sendThreadMessage(input: SendThreadMessageInput): Promise<SendThreadMessageResult> {
   const { communityId, threadId, senderAccountId, body } = input;
 
-  if (!(await requireCommunityMembership(senderAccountId, communityId))) {
+  if (!(await requireCommunityMembership(senderAccountId, communityId, { allowSuspended: true }))) {
     return { ok: false, reason: "not_a_member" };
   }
+
+  const community = await prisma.community.findUnique({ where: { id: communityId } });
 
   const thread = await prisma.messageThread.findUnique({
     where: { id: threadId },
     include: { listing: { select: { communityId: true, ownerId: true } } },
   });
-  if (!thread || thread.listing.communityId !== communityId) {
+  if (
+    !thread ||
+    thread.listing.communityId !== communityId ||
+    thread.operationalEpoch !== (community?.operationalEpoch ?? 1)
+  ) {
     return { ok: false, reason: "not_found" };
   }
 
@@ -234,13 +261,19 @@ export async function listThreads(
   callerAccountId: string,
   options: ListThreadsOptions = {},
 ): Promise<ListThreadsResult> {
-  if (!(await requireCommunityMembership(callerAccountId, communityId))) {
+  if (!(await requireCommunityMembership(callerAccountId, communityId, { allowSuspended: true }))) {
     return { ok: false, reason: "not_a_member" };
   }
+
+  const community = await prisma.community.findUnique({
+    where: { id: communityId },
+    select: { operationalEpoch: true },
+  });
 
   const threads = await prisma.messageThread.findMany({
     where: {
       listing: { communityId },
+      operationalEpoch: community?.operationalEpoch ?? 1,
       OR: [{ buyerId: callerAccountId }, { listing: { ownerId: callerAccountId } }],
       ...(options.listingId ? { listingId: options.listingId } : {}),
     },
@@ -290,20 +323,31 @@ export type ListMyThreadsResult = {
  * caller-supplied community list, data-model.md), ordered by `lastMessageAt`
  * descending at the database level. No error branch — always succeeds,
  * `threads: []` for an account with none (Edge Cases).
+ *
+ * 009-platform-administration, research.md #8: "current" membership means a
+ * `Membership.operationalEpoch` matching that community's own current
+ * `operationalEpoch` (mirrors `listMyListings()`'s epoch map, listingService.ts);
+ * threads themselves are filtered against the same map so a pre-restoration
+ * thread never reappears even though its participants' accounts are unchanged.
  */
 export async function listMyThreads(callerAccountId: string): Promise<ListMyThreadsResult> {
   const memberships = await prisma.membership.findMany({
     where: { accountId: callerAccountId },
-    select: { communityId: true },
+    include: { community: { select: { operationalEpoch: true } } },
   });
-  const communityIds = memberships.map((membership) => membership.communityId);
-  if (communityIds.length === 0) {
+  const currentEpochByCommunity = new Map<string, number>();
+  for (const membership of memberships) {
+    if (membership.operationalEpoch === membership.community.operationalEpoch) {
+      currentEpochByCommunity.set(membership.communityId, membership.community.operationalEpoch);
+    }
+  }
+  if (currentEpochByCommunity.size === 0) {
     return { ok: true, threads: [] };
   }
 
   const threads = await prisma.messageThread.findMany({
     where: {
-      listing: { communityId: { in: communityIds } },
+      listing: { communityId: { in: [...currentEpochByCommunity.keys()] } },
       OR: [{ buyerId: callerAccountId }, { listing: { ownerId: callerAccountId } }],
     },
     orderBy: { lastMessageAt: "desc" },
@@ -325,7 +369,9 @@ export async function listMyThreads(callerAccountId: string): Promise<ListMyThre
 
   return {
     ok: true,
-    threads: threads.map((thread) => {
+    threads: threads
+      .filter((thread) => thread.operationalEpoch === currentEpochByCommunity.get(thread.listing.communityId))
+      .map((thread) => {
       const isOwner = thread.listing.ownerId === callerAccountId;
       return {
         id: thread.id,
@@ -364,13 +410,22 @@ export interface GetThreadInput {
   callerAccountId: string;
 }
 
-/** FR-005, FR-006, FR-007, FR-009: only the thread's buyer or its listing's owner, and only while a current member. */
+/**
+ * FR-005, FR-006, FR-007, FR-009: only the thread's buyer or its listing's
+ * owner, and only while a current member. 009-platform-administration,
+ * FR-052: tolerates a SUSPENDED community.
+ */
 export async function getThread(input: GetThreadInput): Promise<GetThreadResult> {
   const { communityId, threadId, callerAccountId } = input;
 
-  if (!(await requireCommunityMembership(callerAccountId, communityId))) {
+  if (!(await requireCommunityMembership(callerAccountId, communityId, { allowSuspended: true }))) {
     return { ok: false, reason: "not_a_member" };
   }
+
+  const community = await prisma.community.findUnique({
+    where: { id: communityId },
+    select: { operationalEpoch: true },
+  });
 
   const thread = await prisma.messageThread.findUnique({
     where: { id: threadId },
@@ -382,7 +437,11 @@ export async function getThread(input: GetThreadInput): Promise<GetThreadResult>
       },
     },
   });
-  if (!thread || thread.listing.communityId !== communityId) {
+  if (
+    !thread ||
+    thread.listing.communityId !== communityId ||
+    thread.operationalEpoch !== (community?.operationalEpoch ?? 1)
+  ) {
     return { ok: false, reason: "not_found" };
   }
 

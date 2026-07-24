@@ -11,6 +11,7 @@ export interface MemberRow {
 }
 
 type RevokeResponse = { ok: false; reason: "not_administrator" | "not_found" | "last_admin" | "conflict" };
+type PromoteResponse = { ok: false; reason: "not_administrator" | "not_eligible" };
 
 export function MemberList({
   communityId,
@@ -36,6 +37,24 @@ export function MemberList({
 
     const data: RevokeResponse = await response.json();
     setErrorByMembership((prev) => ({ ...prev, [membershipId]: data.reason }));
+  }
+
+  /** 009-platform-administration, User Story 6: promote an existing active member to administrator. */
+  async function onPromote(membershipId: string) {
+    setErrorByMembership((prev) => ({ ...prev, [membershipId]: "" }));
+
+    const response = await fetch(`/api/communities/${communityId}/memberships/${membershipId}/promote`, {
+      method: "POST",
+    });
+    const data = await response.json();
+
+    if (data.ok) {
+      setMembers((prev) =>
+        prev.map((member) => (member.membershipId === membershipId ? { ...member, role: "ADMINISTRATOR" } : member)),
+      );
+      return;
+    }
+    setErrorByMembership((prev) => ({ ...prev, [membershipId]: (data as PromoteResponse).reason }));
   }
 
   if (members.length === 0) {
@@ -68,9 +87,16 @@ export function MemberList({
                 {member.role}
               </td>
               <td className="border-b border-border px-4 py-3 last:border-none">
-                <Button variant="dangerOutline" onClick={() => onRevoke(member.membershipId)}>
-                  Revoke
-                </Button>
+                <div className="flex gap-2">
+                  {member.role === "MEMBER" && (
+                    <Button variant="secondary" onClick={() => onPromote(member.membershipId)}>
+                      Promote
+                    </Button>
+                  )}
+                  <Button variant="dangerOutline" onClick={() => onRevoke(member.membershipId)}>
+                    Revoke
+                  </Button>
+                </div>
                 {errorByMembership[member.membershipId] && (
                   <FormError>{errorByMembership[member.membershipId]}</FormError>
                 )}

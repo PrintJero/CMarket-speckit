@@ -5,18 +5,34 @@ const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 const MAX_PHOTOS_PER_LISTING = 6;
 const ALLOWED_PHOTO_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
+export interface CommunityGateOptions {
+  /** FR-052: viewing existing content and replying in existing threads tolerate SUSPENDED. */
+  allowSuspended?: boolean;
+}
+
 /**
  * research.md #2: the "any role" counterpart to invitationService.ts's
  * requireCommunityAdministrator() — used to gate creation and viewing.
+ * 009-platform-administration, research.md #8/#15: also requires the
+ * community itself to be ACTIVE (or SUSPENDED when the caller explicitly
+ * tolerates that, e.g. viewing existing content) and that the caller's own
+ * membership row is stamped with the community's *current* operationalEpoch
+ * — a membership predating a restoration no longer counts as current.
  */
 export async function requireCommunityMembership(
   accountId: string,
   communityId: string,
+  options: CommunityGateOptions = {},
 ): Promise<boolean> {
+  const community = await prisma.community.findUnique({ where: { id: communityId } });
+  if (!community) return false;
+  if (community.status === "ARCHIVED") return false;
+  if (community.status === "SUSPENDED" && !options.allowSuspended) return false;
+
   const membership = await prisma.membership.findUnique({
     where: { accountId_communityId: { accountId, communityId } },
   });
-  return membership !== null;
+  return membership !== null && membership.operationalEpoch === community.operationalEpoch;
 }
 
 function isBlank(value: string): boolean {
@@ -56,7 +72,11 @@ export interface CreateListingInput {
  * FR-001, FR-002, FR-005. FR-008 (006-user-display-names): the caller MUST
  * already have a displayName — checked here, not only in the listing-
  * creation form, so the guarantee holds regardless of how the request
- * arrives (research.md #3 of that feature).
+ * arrives (research.md #3 of that feature). 009-platform-administration:
+ * creating a listing is a growth action, so the membership check defaults to
+ * requiring ACTIVE (no allowSuspended) — a SUSPENDED community rejects this
+ * the same way a non-member would (FR-053). The new row is stamped with the
+ * community's current operationalEpoch (research.md #8).
  */
 export async function createListing(input: CreateListingInput): Promise<CreateListingResult> {
   if (isBlank(input.title) || isBlank(input.description) || !isValidPriceCents(input.priceCents)) {
@@ -72,6 +92,11 @@ export async function createListing(input: CreateListingInput): Promise<CreateLi
     return { ok: false, reason: "display_name_required" };
   }
 
+  const community = await prisma.community.findUnique({
+    where: { id: input.communityId },
+    select: { operationalEpoch: true },
+  });
+
   const listing = await prisma.listing.create({
     data: {
       communityId: input.communityId,
@@ -79,6 +104,7 @@ export async function createListing(input: CreateListingInput): Promise<CreateLi
       title: input.title,
       description: input.description,
       priceCents: input.priceCents,
+      operationalEpoch: community?.operationalEpoch ?? 1,
     },
   });
 
@@ -101,7 +127,8 @@ export type AddListingPhotoResult =
   | { ok: false; reason: "not_found" }
   | { ok: false; reason: "not_owner" }
   | { ok: false; reason: "invalid_photo" }
-  | { ok: false; reason: "photo_limit_reached" };
+  | { ok: false; reason: "photo_limit_reached" }
+  | { ok: false; reason: "community_not_active" };
 
 export interface AddListingPhotoInput {
   listingId: string;
@@ -110,11 +137,18 @@ export interface AddListingPhotoInput {
   mimeType: string;
 }
 
-/** FR-003, FR-006. sizeBytes is derived from `data`, never trusted from the caller. */
+/**
+ * FR-003, FR-006. sizeBytes is derived from `data`, never trusted from the
+ * caller. 009-platform-administration, FR-053: adding a photo is a listing
+ * content edit, blocked while the community is SUSPENDED or ARCHIVED.
+ */
 export async function addListingPhoto(input: AddListingPhotoInput): Promise<AddListingPhotoResult> {
   const listing = await prisma.listing.findUnique({ where: { id: input.listingId } });
   if (!listing) return { ok: false, reason: "not_found" };
   if (listing.ownerId !== input.callerAccountId) return { ok: false, reason: "not_owner" };
+  if (!(await isCommunityActive(listing.communityId))) {
+    return { ok: false, reason: "community_not_active" };
+  }
 
   if (!ALLOWED_PHOTO_MIME_TYPES.has(input.mimeType) || input.data.length > MAX_PHOTO_BYTES) {
     return { ok: false, reason: "invalid_photo" };
@@ -181,13 +215,16 @@ const MAX_PAGE_SIZE = 50;
  * communityId. 007-listing-discovery extends this with keyword search, a
  * price range, and pagination — all folded into the one findMany call below
  * (research.md #1-#4): never a second query, never an in-memory filter/sort/slice.
+ * 009-platform-administration, FR-052: viewing tolerates a SUSPENDED community.
+ * Every returned row is additionally filtered to the community's current
+ * operationalEpoch (research.md #8) via the same findMany's `where`.
  */
 export async function listListings(
   communityId: string,
   callerAccountId: string,
   options: ListListingsOptions = {},
 ): Promise<ListListingsResult> {
-  if (!(await requireCommunityMembership(callerAccountId, communityId))) {
+  if (!(await requireCommunityMembership(callerAccountId, communityId, { allowSuspended: true }))) {
     return { ok: false, reason: "not_a_member" };
   }
 
@@ -203,10 +240,16 @@ export async function listListings(
   const page = Math.max(1, Math.trunc(options.page ?? 1));
   const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Math.trunc(options.pageSize ?? DEFAULT_PAGE_SIZE)));
 
+  const community = await prisma.community.findUnique({
+    where: { id: communityId },
+    select: { operationalEpoch: true },
+  });
+
   const listings = await prisma.listing.findMany({
     where: {
       communityId,
       status: "ACTIVE",
+      operationalEpoch: community?.operationalEpoch ?? 1,
       ...(search
         ? {
             OR: [
@@ -270,15 +313,25 @@ export type GetListingResult =
   | { ok: false; reason: "not_a_member" }
   | { ok: false; reason: "not_found" };
 
-/** FR-011, FR-012: any status, but only within the caller's own community. */
+/**
+ * FR-011, FR-012: any status, but only within the caller's own community.
+ * 009-platform-administration, FR-052: tolerates a SUSPENDED community; a
+ * pre-restoration listing (a stale operationalEpoch) reads as not_found,
+ * identically to a listing that never existed (research.md #8).
+ */
 export async function getListing(
   communityId: string,
   listingId: string,
   callerAccountId: string,
 ): Promise<GetListingResult> {
-  if (!(await requireCommunityMembership(callerAccountId, communityId))) {
+  if (!(await requireCommunityMembership(callerAccountId, communityId, { allowSuspended: true }))) {
     return { ok: false, reason: "not_a_member" };
   }
+
+  const community = await prisma.community.findUnique({
+    where: { id: communityId },
+    select: { operationalEpoch: true },
+  });
 
   const listing = await prisma.listing.findUnique({
     where: { id: listingId },
@@ -287,7 +340,11 @@ export async function getListing(
       owner: { select: { displayName: true } },
     },
   });
-  if (!listing || listing.communityId !== communityId) {
+  if (
+    !listing ||
+    listing.communityId !== communityId ||
+    listing.operationalEpoch !== (community?.operationalEpoch ?? 1)
+  ) {
     return { ok: false, reason: "not_found" };
   }
 
@@ -313,14 +370,17 @@ export type GetListingPhotoResult =
   | { ok: false; reason: "not_a_member" }
   | { ok: false; reason: "not_found" };
 
-/** FR-003, FR-012: streams a photo's bytes, gated by membership in communityId. */
+/**
+ * FR-003, FR-012: streams a photo's bytes, gated by membership in communityId.
+ * 009-platform-administration, FR-052: tolerates a SUSPENDED community.
+ */
 export async function getListingPhoto(
   communityId: string,
   listingId: string,
   photoId: string,
   callerAccountId: string,
 ): Promise<GetListingPhotoResult> {
-  if (!(await requireCommunityMembership(callerAccountId, communityId))) {
+  if (!(await requireCommunityMembership(callerAccountId, communityId, { allowSuspended: true }))) {
     return { ok: false, reason: "not_a_member" };
   }
 
@@ -350,7 +410,8 @@ export type UpdateListingResult =
     }
   | { ok: false; reason: "not_found" }
   | { ok: false; reason: "not_owner" }
-  | { ok: false; reason: "invalid_input" };
+  | { ok: false; reason: "invalid_input" }
+  | { ok: false; reason: "community_not_active" };
 
 export interface UpdateListingInput {
   listingId: string;
@@ -360,11 +421,18 @@ export interface UpdateListingInput {
   priceCents?: number;
 }
 
-/** FR-006. Ownership check alone — never requireCommunityAdministrator (FR-010). */
+/**
+ * FR-006. Ownership check alone — never requireCommunityAdministrator (FR-010).
+ * 009-platform-administration, FR-053: a listing content edit is blocked
+ * while the community is SUSPENDED or ARCHIVED.
+ */
 export async function updateListing(input: UpdateListingInput): Promise<UpdateListingResult> {
   const listing = await prisma.listing.findUnique({ where: { id: input.listingId } });
   if (!listing) return { ok: false, reason: "not_found" };
   if (listing.ownerId !== input.callerAccountId) return { ok: false, reason: "not_owner" };
+  if (!(await isCommunityActive(listing.communityId))) {
+    return { ok: false, reason: "community_not_active" };
+  }
 
   if (input.title !== undefined && isBlank(input.title)) return { ok: false, reason: "invalid_input" };
   if (input.description !== undefined && isBlank(input.description)) {
@@ -400,7 +468,8 @@ export async function updateListing(input: UpdateListingInput): Promise<UpdateLi
 export type RemoveListingPhotoResult =
   | { ok: true }
   | { ok: false; reason: "not_found" }
-  | { ok: false; reason: "not_owner" };
+  | { ok: false; reason: "not_owner" }
+  | { ok: false; reason: "community_not_active" };
 
 export interface RemoveListingPhotoInput {
   listingId: string;
@@ -412,11 +481,15 @@ export interface RemoveListingPhotoInput {
  * FR-006. Same ownership check as updateListing. Leaves a gap in position (data-model.md).
  * FR-017 (2026-07-17 amendment): if the removed photo was the cover, promotes the remaining
  * photo with the lowest position, or clears coverPhotoId if none remain.
+ * 009-platform-administration, FR-053: blocked while the community is SUSPENDED/ARCHIVED.
  */
 export async function removeListingPhoto(input: RemoveListingPhotoInput): Promise<RemoveListingPhotoResult> {
   const listing = await prisma.listing.findUnique({ where: { id: input.listingId } });
   if (!listing) return { ok: false, reason: "not_found" };
   if (listing.ownerId !== input.callerAccountId) return { ok: false, reason: "not_owner" };
+  if (!(await isCommunityActive(listing.communityId))) {
+    return { ok: false, reason: "community_not_active" };
+  }
 
   const photo = await prisma.listingPhoto.findUnique({ where: { id: input.photoId } });
   if (!photo || photo.listingId !== input.listingId) return { ok: false, reason: "not_found" };
@@ -442,7 +515,8 @@ export async function removeListingPhoto(input: RemoveListingPhotoInput): Promis
 export type SetCoverPhotoResult =
   | { ok: true; listing: { id: string; coverPhotoId: string } }
   | { ok: false; reason: "not_found" }
-  | { ok: false; reason: "not_owner" };
+  | { ok: false; reason: "not_owner" }
+  | { ok: false; reason: "community_not_active" };
 
 export interface SetCoverPhotoInput {
   listingId: string;
@@ -450,11 +524,17 @@ export interface SetCoverPhotoInput {
   callerAccountId: string;
 }
 
-/** FR-016 (2026-07-17 amendment). Same ownership check as updateListing/removeListingPhoto. */
+/**
+ * FR-016 (2026-07-17 amendment). Same ownership check as updateListing/removeListingPhoto.
+ * 009-platform-administration, FR-053: blocked while the community is SUSPENDED/ARCHIVED.
+ */
 export async function setCoverPhoto(input: SetCoverPhotoInput): Promise<SetCoverPhotoResult> {
   const listing = await prisma.listing.findUnique({ where: { id: input.listingId } });
   if (!listing) return { ok: false, reason: "not_found" };
   if (listing.ownerId !== input.callerAccountId) return { ok: false, reason: "not_owner" };
+  if (!(await isCommunityActive(listing.communityId))) {
+    return { ok: false, reason: "community_not_active" };
+  }
 
   const photo = await prisma.listingPhoto.findUnique({ where: { id: input.photoId } });
   if (!photo || photo.listingId !== input.listingId) return { ok: false, reason: "not_found" };
@@ -470,30 +550,48 @@ export async function setCoverPhoto(input: SetCoverPhotoInput): Promise<SetCover
 export type PauseListingResult =
   | { ok: true }
   | { ok: false; reason: "not_found" }
-  | { ok: false; reason: "not_authorized" };
+  | { ok: false; reason: "not_authorized" }
+  | { ok: false; reason: "community_not_active" };
 
 export interface PauseListingInput {
   listingId: string;
   callerAccountId: string;
 }
 
+/** Community-level status only (ARCHIVED excludes both; SUSPENDED excludes only via `requireActive`). */
+async function isCommunityActive(communityId: string): Promise<boolean> {
+  const community = await prisma.community.findUnique({ where: { id: communityId }, select: { status: true } });
+  return community?.status === "ACTIVE";
+}
+
+async function communityAllowsExistingContent(communityId: string): Promise<boolean> {
+  const community = await prisma.community.findUnique({ where: { id: communityId }, select: { status: true } });
+  return community?.status === "ACTIVE" || community?.status === "SUSPENDED";
+}
+
 /**
  * FR-007, FR-009: the owner, or that community's own administrator, may
  * pause/reactivate — no transaction is needed since setting status is
- * idempotent by construction (research.md #3).
+ * idempotent by construction (research.md #3). 009-platform-administration,
+ * FR-054: pausing is explicitly allowed while SUSPENDED (it reduces
+ * exposure); FR-053: reactivating a paused listing is not.
  */
 async function canModerateListing(
   listing: { ownerId: string; communityId: string },
   callerAccountId: string,
+  options: CommunityGateOptions = {},
 ): Promise<boolean> {
   if (listing.ownerId === callerAccountId) return true;
-  return requireCommunityAdministrator(callerAccountId, listing.communityId);
+  return requireCommunityAdministrator(callerAccountId, listing.communityId, options);
 }
 
 export async function pauseListing(input: PauseListingInput): Promise<PauseListingResult> {
   const listing = await prisma.listing.findUnique({ where: { id: input.listingId } });
   if (!listing) return { ok: false, reason: "not_found" };
-  if (!(await canModerateListing(listing, input.callerAccountId))) {
+  if (!(await communityAllowsExistingContent(listing.communityId))) {
+    return { ok: false, reason: "community_not_active" };
+  }
+  if (!(await canModerateListing(listing, input.callerAccountId, { allowSuspended: true }))) {
     return { ok: false, reason: "not_authorized" };
   }
 
@@ -504,6 +602,9 @@ export async function pauseListing(input: PauseListingInput): Promise<PauseListi
 export async function reactivateListing(input: PauseListingInput): Promise<PauseListingResult> {
   const listing = await prisma.listing.findUnique({ where: { id: input.listingId } });
   if (!listing) return { ok: false, reason: "not_found" };
+  if (!(await isCommunityActive(listing.communityId))) {
+    return { ok: false, reason: "community_not_active" };
+  }
   if (!(await canModerateListing(listing, input.callerAccountId))) {
     return { ok: false, reason: "not_authorized" };
   }
@@ -525,7 +626,9 @@ export interface DeleteListingInput {
 /**
  * FR-008, FR-010: ownership check alone — never requireCommunityAdministrator,
  * by design. Cascades to ListingPhoto via onDelete: Cascade (no $transaction
- * needed — data-model.md's Atomicity note).
+ * needed — data-model.md's Atomicity note). Not restricted by community
+ * suspension (spec.md Edge Cases names only pausing as explicitly permitted;
+ * deletion is left unrestricted rather than speculatively gated).
  */
 export async function deleteListing(input: DeleteListingInput): Promise<DeleteListingResult> {
   const listing = await prisma.listing.findUnique({ where: { id: input.listingId } });
@@ -556,19 +659,34 @@ export type ListMyListingsResult = {
  * caller-supplied community list), mirroring `messageService.ts`'s
  * `listMyThreads()`. No error branch — always succeeds, `listings: []` for
  * an account that owns nothing (Edge Cases).
+ *
+ * 009-platform-administration, research.md #8: "current" membership means a
+ * `Membership.operationalEpoch` matching that community's *own* current
+ * `operationalEpoch` — a membership predating a restoration no longer
+ * counts. Each candidate community's current epoch is fetched once (via the
+ * membership include) into a small map, then both the community-id filter
+ * and the returned listings themselves are checked against it, so a listing
+ * that predates a restoration is excluded even though its `ownerId` is
+ * unchanged. Bounded by the caller's own membership count — never a
+ * full-table scan.
  */
 export async function listMyListings(callerAccountId: string): Promise<ListMyListingsResult> {
   const memberships = await prisma.membership.findMany({
     where: { accountId: callerAccountId },
-    select: { communityId: true },
+    include: { community: { select: { operationalEpoch: true } } },
   });
-  const communityIds = memberships.map((membership) => membership.communityId);
-  if (communityIds.length === 0) {
+  const currentEpochByCommunity = new Map<string, number>();
+  for (const membership of memberships) {
+    if (membership.operationalEpoch === membership.community.operationalEpoch) {
+      currentEpochByCommunity.set(membership.communityId, membership.community.operationalEpoch);
+    }
+  }
+  if (currentEpochByCommunity.size === 0) {
     return { ok: true, listings: [] };
   }
 
   const listings = await prisma.listing.findMany({
-    where: { ownerId: callerAccountId, communityId: { in: communityIds } },
+    where: { ownerId: callerAccountId, communityId: { in: [...currentEpochByCommunity.keys()] } },
     orderBy: { createdAt: "desc" },
     include: {
       community: { select: { name: true } },
@@ -578,13 +696,15 @@ export async function listMyListings(callerAccountId: string): Promise<ListMyLis
 
   return {
     ok: true,
-    listings: listings.map((listing) => ({
-      id: listing.id,
-      communityId: listing.communityId,
-      communityName: listing.community.name,
-      title: listing.title,
-      status: listing.status,
-      threadCount: listing._count.threads,
-    })),
+    listings: listings
+      .filter((listing) => listing.operationalEpoch === currentEpochByCommunity.get(listing.communityId))
+      .map((listing) => ({
+        id: listing.id,
+        communityId: listing.communityId,
+        communityName: listing.community.name,
+        title: listing.title,
+        status: listing.status,
+        threadCount: listing._count.threads,
+      })),
   };
 }
