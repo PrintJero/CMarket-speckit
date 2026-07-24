@@ -743,4 +743,87 @@ describe("messageService (contract)", () => {
       expect(result).toEqual({ ok: true, threads: [] });
     });
   });
+
+  // 009-platform-administration, User Story 8: FR-052/FR-053's exact gating table.
+  describe("suspended-community gating (FR-052, FR-053)", () => {
+    it("replying in an existing thread tolerates SUSPENDED, but starting a new thread is blocked", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Messaging Test Community Suspend One",
+        "messaging-test-suspend-admin-1@example.com",
+      );
+      const buyer = await addMember(community.id, "messaging-test-suspend-buyer-1@example.com");
+      const listing = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "Listing",
+        description: "d",
+        priceCents: 100,
+      });
+      if (!listing.ok) throw new Error("setup failed");
+
+      const firstMessage = await sendMessageToListingOwner({
+        communityId: community.id,
+        listingId: listing.listing.id,
+        buyerAccountId: buyer.id,
+        body: "Is this available?",
+      });
+      if (!firstMessage.ok) throw new Error("setup failed");
+
+      await prisma.community.update({ where: { id: community.id }, data: { status: "SUSPENDED" } });
+
+      const reply = await sendThreadMessage({
+        communityId: community.id,
+        threadId: firstMessage.thread.id,
+        senderAccountId: admin.id,
+        body: "Yes, still available.",
+      });
+      expect(reply.ok).toBe(true);
+
+      const viewedThread = await getThread({
+        communityId: community.id,
+        threadId: firstMessage.thread.id,
+        callerAccountId: buyer.id,
+      });
+      expect(viewedThread.ok).toBe(true);
+
+      const otherBuyer = await addMember(community.id, "messaging-test-suspend-buyer2-1@example.com");
+      const blockedNewThread = await sendMessageToListingOwner({
+        communityId: community.id,
+        listingId: listing.listing.id,
+        buyerAccountId: otherBuyer.id,
+        body: "New thread while suspended",
+      });
+      expect(blockedNewThread).toEqual({ ok: false, reason: "community_not_active" });
+    });
+
+    it("every ordinary thread path denies access to an ARCHIVED community", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Messaging Test Community Archived One",
+        "messaging-test-archived-admin-1@example.com",
+      );
+      const buyer = await addMember(community.id, "messaging-test-archived-buyer-1@example.com");
+      const listing = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "Listing",
+        description: "d",
+        priceCents: 100,
+      });
+      if (!listing.ok) throw new Error("setup failed");
+      const firstMessage = await sendMessageToListingOwner({
+        communityId: community.id,
+        listingId: listing.listing.id,
+        buyerAccountId: buyer.id,
+        body: "Is this available?",
+      });
+      if (!firstMessage.ok) throw new Error("setup failed");
+
+      await prisma.community.update({ where: { id: community.id }, data: { status: "ARCHIVED" } });
+
+      expect(
+        await getThread({ communityId: community.id, threadId: firstMessage.thread.id, callerAccountId: buyer.id }),
+      ).toEqual({ ok: false, reason: "not_a_member" });
+      expect((await listThreads(community.id, buyer.id)).ok).toBe(false);
+    });
+  });
 });

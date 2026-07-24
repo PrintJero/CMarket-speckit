@@ -1050,4 +1050,115 @@ describe("listingService (contract)", () => {
       expect(result).toEqual({ ok: true, listings: [] });
     });
   });
+
+  // 009-platform-administration, User Story 8: FR-052/FR-053/FR-054's exact gating table.
+  describe("suspended-community gating (FR-052, FR-053, FR-054)", () => {
+    it("viewing an existing ACTIVE listing tolerates SUSPENDED, but creating a new one is blocked", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Listing Test Community Suspend One",
+        "listing-test-suspend-admin-1@example.com",
+      );
+      const created = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "Pre-suspension listing",
+        description: "d",
+        priceCents: 100,
+      });
+      if (!created.ok) throw new Error("setup failed");
+
+      await prisma.community.update({ where: { id: community.id }, data: { status: "SUSPENDED" } });
+
+      const viewed = await getListing(community.id, created.listing.id, admin.id);
+      expect(viewed.ok).toBe(true);
+
+      const listed = await listListings(community.id, admin.id);
+      expect(listed.ok).toBe(true);
+      if (listed.ok) expect(listed.listings.map((l) => l.id)).toContain(created.listing.id);
+
+      const blockedCreate = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "New listing while suspended",
+        description: "d",
+        priceCents: 100,
+      });
+      expect(blockedCreate).toEqual({ ok: false, reason: "not_a_member" });
+    });
+
+    it("pausing an existing listing is allowed while SUSPENDED, but reactivating it is blocked", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Listing Test Community Suspend Two",
+        "listing-test-suspend-admin-2@example.com",
+      );
+      const created = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "Listing to pause",
+        description: "d",
+        priceCents: 100,
+      });
+      if (!created.ok) throw new Error("setup failed");
+
+      await prisma.community.update({ where: { id: community.id }, data: { status: "SUSPENDED" } });
+
+      const paused = await pauseListing({ listingId: created.listing.id, callerAccountId: admin.id });
+      expect(paused).toEqual({ ok: true });
+
+      const blockedReactivate = await reactivateListing({ listingId: created.listing.id, callerAccountId: admin.id });
+      expect(blockedReactivate).toEqual({ ok: false, reason: "community_not_active" });
+    });
+
+    it("editing listing content (title/photos/cover) is blocked while SUSPENDED", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Listing Test Community Suspend Three",
+        "listing-test-suspend-admin-3@example.com",
+      );
+      const created = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "Listing to edit",
+        description: "d",
+        priceCents: 100,
+      });
+      if (!created.ok) throw new Error("setup failed");
+
+      await prisma.community.update({ where: { id: community.id }, data: { status: "SUSPENDED" } });
+
+      expect(
+        await updateListing({ listingId: created.listing.id, callerAccountId: admin.id, title: "New title" }),
+      ).toEqual({ ok: false, reason: "community_not_active" });
+      expect(
+        await addListingPhoto({
+          listingId: created.listing.id,
+          callerAccountId: admin.id,
+          data: JPEG,
+          mimeType: "image/jpeg",
+        }),
+      ).toEqual({ ok: false, reason: "community_not_active" });
+    });
+
+    it("every ordinary listing path denies access to an ARCHIVED community", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Listing Test Community Archived One",
+        "listing-test-archived-admin-1@example.com",
+      );
+      const created = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "Pre-archive listing",
+        description: "d",
+        priceCents: 100,
+      });
+      if (!created.ok) throw new Error("setup failed");
+
+      await prisma.community.update({ where: { id: community.id }, data: { status: "ARCHIVED" } });
+
+      expect(await getListing(community.id, created.listing.id, admin.id)).toEqual({
+        ok: false,
+        reason: "not_a_member",
+      });
+      expect((await listListings(community.id, admin.id)).ok).toBe(false);
+    });
+  });
 });

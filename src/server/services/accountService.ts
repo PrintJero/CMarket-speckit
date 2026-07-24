@@ -104,12 +104,14 @@ export type SignInResult =
 /**
  * FR-010, FR-012: a single generic failure for both "no such account" and
  * "wrong password" — including accounts that have no password set at all
- * (Google-only accounts).
+ * (Google-only accounts). 009-platform-administration, research.md #9: a
+ * SUSPENDED or soft-deleted account is denied the same generic way — never
+ * distinguishing "wrong password" from "this account is suspended."
  */
 export async function signInWithPassword(email: string, password: string): Promise<SignInResult> {
   const account = await prisma.account.findUnique({ where: { email: normalizeEmail(email) } });
 
-  if (!account?.passwordHash) {
+  if (!account?.passwordHash || account.status !== "ACTIVE" || account.deletedAt !== null) {
     return { ok: false };
   }
 

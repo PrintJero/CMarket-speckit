@@ -5,6 +5,7 @@ import {
   acceptInvitation,
   inviteToCommunity,
   revokeMembership,
+  promoteMember,
 } from "@/server/services/invitationService";
 import { getCapturedEmails } from "@/lib/email/sendEmail";
 
@@ -449,6 +450,73 @@ describe("invitationService (contract)", () => {
       const reinviteToken = await tokenFor(reinvited.invitation.id);
       const reaccepted = await acceptInvitation({ token: reinviteToken, accountId: memberAccount.id });
       expect(reaccepted).toEqual({ ok: true, membership: { communityId: community.id, role: "MEMBER" } });
+    });
+  });
+
+  // 009-platform-administration, User Story 6 (FR-036–FR-039): community-administrator peer promotion.
+  describe("promoteMember", () => {
+    it("an active administrator promotes an existing active member of the same community", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Invite Test Community Promote One",
+        "invite-membership-promote-admin-1@example.com",
+      );
+      const member = await createVerifiedAccount("invite-membership-promote-member-1@example.com");
+      const membership = await prisma.membership.create({
+        data: { accountId: member.id, communityId: community.id, role: "MEMBER", operationalEpoch: 1 },
+      });
+
+      const result = await promoteMember({ communityId: community.id, membershipId: membership.id, callerAccountId: admin.id });
+      expect(result).toEqual({ ok: true });
+
+      const after = await prisma.membership.findUnique({ where: { id: membership.id } });
+      expect(after?.role).toBe("ADMINISTRATOR");
+    });
+
+    it("rejects a caller who isn't a current administrator, and a target who isn't a current member of that community", async () => {
+      const { community: communityA, admin: adminA } = await createCommunityWithAdmin(
+        "Invite Test Community Promote Two A",
+        "invite-membership-promote-admin-2a@example.com",
+      );
+      const { community: communityB, admin: adminB } = await createCommunityWithAdmin(
+        "Invite Test Community Promote Two B",
+        "invite-membership-promote-admin-2b@example.com",
+      );
+      const memberA = await createVerifiedAccount("invite-membership-promote-member-2a@example.com");
+      const membershipA = await prisma.membership.create({
+        data: { accountId: memberA.id, communityId: communityA.id, role: "MEMBER", operationalEpoch: 1 },
+      });
+
+      // adminB is not an administrator of communityA.
+      expect(
+        await promoteMember({ communityId: communityA.id, membershipId: membershipA.id, callerAccountId: adminB.id }),
+      ).toEqual({ ok: false, reason: "not_administrator" });
+
+      // adminB's own membership belongs to communityB, not communityA — not eligible there.
+      const membershipB = await prisma.membership.findFirstOrThrow({ where: { communityId: communityB.id, accountId: adminB.id } });
+      expect(
+        await promoteMember({ communityId: communityA.id, membershipId: membershipB.id, callerAccountId: adminA.id }),
+      ).toEqual({ ok: false, reason: "not_eligible" });
+    });
+
+    it("rejects promotion while the community is SUSPENDED or ARCHIVED, matching revokeMembership's own gating", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Invite Test Community Promote Three",
+        "invite-membership-promote-admin-3@example.com",
+      );
+      const member = await createVerifiedAccount("invite-membership-promote-member-3@example.com");
+      const membership = await prisma.membership.create({
+        data: { accountId: member.id, communityId: community.id, role: "MEMBER", operationalEpoch: 1 },
+      });
+
+      await prisma.community.update({ where: { id: community.id }, data: { status: "SUSPENDED" } });
+      expect(
+        await promoteMember({ communityId: community.id, membershipId: membership.id, callerAccountId: admin.id }),
+      ).toEqual({ ok: false, reason: "not_administrator" });
+
+      // revokeMembership is gated identically — closes the gap noted in research.md #8/#15.
+      expect(
+        await revokeMembership({ communityId: community.id, membershipId: membership.id, revokedByAccountId: admin.id }),
+      ).toEqual({ ok: false, reason: "not_administrator" });
     });
   });
 });
