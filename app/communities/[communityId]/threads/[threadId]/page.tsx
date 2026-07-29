@@ -1,12 +1,16 @@
 import { notFound } from "next/navigation";
 import { getCurrentAccount } from "@/lib/auth/currentAccount";
 import { getThread } from "@/server/services/messageService";
+import { listTransactionsForThread } from "@/server/services/transactionService";
 import { resolveDisplayName } from "@/lib/formatting/displayName";
 import { ThreadReplyForm } from "./ThreadReplyForm";
 import { AppShell } from "../../../../_components/AppShell";
 import { BackLink } from "../../../../_components/BackLink";
 import { PageHeader } from "../../../../_components/PageHeader";
 import { Card } from "../../../../_components/Card";
+import { NonIntermediaryDisclosure } from "../../_components/NonIntermediaryDisclosure";
+import { RecordTransactionButton } from "../../_components/RecordTransactionButton";
+import { ConfirmTransactionButton } from "../../_components/ConfirmTransactionButton";
 
 export default async function ThreadDetailPage({
   params,
@@ -25,6 +29,12 @@ export default async function ThreadDetailPage({
   }
 
   const { thread, messages } = result;
+  const transactionsResult = await listTransactionsForThread({
+    communityId,
+    threadId,
+    callerAccountId: account.accountId,
+  });
+  const transactions = transactionsResult.ok ? transactionsResult.transactions : [];
 
   return (
     <AppShell account={account}>
@@ -42,6 +52,26 @@ export default async function ThreadDetailPage({
             </div>
           ))}
         </div>
+      </Card>
+
+      <Card className="mb-5 max-w-xl">
+        <NonIntermediaryDisclosure />
+        {transactions.length > 0 && (
+          <div className="mb-4 flex flex-col gap-3">
+            {transactions.map((transaction) => (
+              <div key={transaction.id} data-testid="transaction-row" className="rounded-card bg-bg p-3">
+                <p className="text-[13px] font-semibold">
+                  {transaction.confirmationState === "CONFIRMED" ? "Confirmed" : "Unconfirmed"} transaction with{" "}
+                  {resolveDisplayName(transaction.counterpartDisplayName)}
+                </p>
+                {transaction.confirmationState === "UNCONFIRMED" && transaction.role === "counterpart" && (
+                  <ConfirmTransactionButton communityId={communityId} transactionId={transaction.id} />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+        <RecordTransactionButton communityId={communityId} threadId={thread.id} />
       </Card>
 
       <Card className="max-w-xl">
