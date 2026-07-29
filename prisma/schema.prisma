@@ -40,6 +40,8 @@ model Account {
   listings            Listing[]
   messageThreads      MessageThread[]      @relation("MessageThreadsAsBuyer")
   messagesSent        Message[]            @relation("MessagesSent")
+  transactionsRecorded     Transaction[]   @relation("TransactionsRecorded")
+  transactionsAsCounterpart Transaction[]  @relation("TransactionsAsCounterpart")
 
   @@map("accounts")
 }
@@ -128,6 +130,7 @@ model Community {
   memberships Membership[]
   invitations Invitation[]
   listings    Listing[]
+  transactions Transaction[]
 
   @@map("communities")
 }
@@ -281,6 +284,51 @@ model Message {
 
   @@index([threadId, createdAt])
   @@map("messages")
+}
+
+/// 010-transaction-logging, research.md #5: single value today; a future
+/// in-app-payment feature adds IN_APP as a purely additive migration.
+enum TransactionPaymentPath {
+  OFF_PLATFORM
+}
+
+/// 010-transaction-logging, FR-004/FR-005: closed set, never a bare boolean —
+/// mirrors ListingStatus's own rationale.
+enum TransactionConfirmationState {
+  UNCONFIRMED
+  CONFIRMED
+}
+
+/// A permanent, traceable record that a transaction occurred between two
+/// co-members against a specific listing (010-transaction-logging,
+/// Constitution Principle IV). No relation to Listing or MessageThread —
+/// research.md #1: listingId/listingTitle are an unconstrained snapshot so
+/// the log survives listing deletion unaltered (FR-017). communityId is a
+/// first-class column, never inferred through a joinable-but-deletable
+/// Listing (research.md #1, Constitution Tenancy constraint).
+model Transaction {
+  id                String                        @id @default(cuid())
+  communityId       String
+  recorderId        String
+  counterpartId     String
+  listingId         String
+  listingTitle      String
+  paymentPath       TransactionPaymentPath        @default(OFF_PLATFORM)
+  confirmationState TransactionConfirmationState  @default(UNCONFIRMED)
+  createdAt         DateTime                      @default(now())
+  confirmedAt       DateTime?
+  /// research.md #6: stamped for consistency with every other per-community
+  /// row; deliberately never used to filter this model out of any view.
+  operationalEpoch  Int                            @default(1)
+
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  recorder    Account   @relation("TransactionsRecorded", fields: [recorderId], references: [id], onDelete: Cascade)
+  counterpart Account   @relation("TransactionsAsCounterpart", fields: [counterpartId], references: [id], onDelete: Cascade)
+
+  @@index([communityId])
+  @@index([recorderId])
+  @@index([counterpartId])
+  @@map("transactions")
 }
 
 /// 009-platform-administration, FR-002: closed set for MasterIdentity.status.
