@@ -93,6 +93,7 @@ test("a MASTER edits, suspends, reactivates, resets, and permanently deletes an 
   const signUpContext = await browser.newContext();
   const signUpPage = await signUpContext.newPage();
   await signUpPage.goto("/sign-up");
+  await signUpPage.getByLabel("Name").fill("Fresh Signup");
   await signUpPage.getByLabel("Email").fill(newEmail);
   await signUpPage.getByLabel("Password", { exact: true }).fill("a-fresh-password-1");
   await signUpPage.getByLabel("Confirm password").fill("a-fresh-password-1");

@@ -7,6 +7,7 @@ import { FormField, FormError, fieldInputClassName } from "../../_components/For
 import { Button } from "../../_components/Button";
 
 export default function SignUpPage() {
+  const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -44,7 +45,7 @@ export default function SignUpPage() {
     const response = await fetch("/api/auth/sign-up", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ displayName, email, password }),
     });
 
     if (response.status === 202) {
@@ -83,6 +84,14 @@ export default function SignUpPage() {
     <>
       <h1 className="mb-1 text-center text-[1.375rem] font-bold text-ink">Sign up</h1>
       <form onSubmit={onSubmit}>
+        <FormField label="Name">
+          <input
+            className={fieldInputClassName}
+            required
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+          />
+        </FormField>
         <FormField label="Email">
           <input
             className={fieldInputClassName}

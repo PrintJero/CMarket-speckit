@@ -1,7 +1,12 @@
 import { requireMasterPage } from "../_lib/requireMasterPage";
 import { MasterShell } from "../_components/MasterShell";
-import { PageHeader } from "../../_components/PageHeader";
-import { Card } from "../../_components/Card";
+import { MasterPageHeader } from "../_components/MasterPageHeader";
+import { MasterSection } from "../_components/MasterSection";
+import { MasterTable, masterThClassName, masterTdClassName, masterTrClassName } from "../_components/MasterTable";
+import { MasterStatusBadge } from "../_components/MasterStatusBadge";
+import { MasterEmptyState } from "../_components/MasterEmptyState";
+import { MasterPagination } from "../_components/MasterPagination";
+import { ClockIcon } from "../../_components/icons";
 import { listAuditEntries } from "@/server/services/auditService";
 import { AuditLogFilters } from "./AuditLogFilters";
 
@@ -16,64 +21,70 @@ export default async function AuditLogPage({
   const { action, targetType, targetId, cursor } = await searchParams;
 
   const result = await listAuditEntries({ action, targetType, targetId, cursor });
+  const hasMore = Boolean(result.nextCursor);
+
+  // Preserve the active filters when advancing to the next page — only the
+  // cursor changes; a fresh filter (via AuditLogFilters) always drops it.
+  const nextParams = new URLSearchParams();
+  if (action) nextParams.set("action", action);
+  if (targetType) nextParams.set("targetType", targetType);
+  if (targetId) nextParams.set("targetId", targetId);
+  if (result.nextCursor) nextParams.set("cursor", result.nextCursor);
 
   return (
     <MasterShell master={master}>
-      <PageHeader title="Audit log" subtitle="Every platform-administration action, including rejections." />
+      <MasterPageHeader title="Audit log" subtitle="Every platform-administration action, including rejections." />
       <AuditLogFilters />
-      <Card className="min-w-0">
-        {result.entries.length === 0 ? (
-          <p className="py-10 text-center text-ink-muted">No entries match this filter.</p>
-        ) : (
-          <div className="overflow-x-auto rounded-xl border border-border">
-            <table className="w-full min-w-[800px] table-fixed border-collapse text-sm">
-              <thead>
-                <tr>
-                  <th className="whitespace-nowrap border-b border-border bg-bg px-4 py-3 text-left text-[0.6875rem] font-bold uppercase tracking-wider text-ink-muted">
-                    When
-                  </th>
-                  <th className="whitespace-nowrap border-b border-border bg-bg px-4 py-3 text-left text-[0.6875rem] font-bold uppercase tracking-wider text-ink-muted">
-                    Actor
-                  </th>
-                  <th className="whitespace-nowrap border-b border-border bg-bg px-4 py-3 text-left text-[0.6875rem] font-bold uppercase tracking-wider text-ink-muted">
-                    Action
-                  </th>
-                  <th className="whitespace-nowrap border-b border-border bg-bg px-4 py-3 text-left text-[0.6875rem] font-bold uppercase tracking-wider text-ink-muted">
-                    Target
-                  </th>
-                  <th className="whitespace-nowrap border-b border-border bg-bg px-4 py-3 text-left text-[0.6875rem] font-bold uppercase tracking-wider text-ink-muted">
-                    Outcome
-                  </th>
+      {result.entries.length === 0 ? (
+        <MasterSection className="min-w-0">
+          <MasterEmptyState
+            icon={ClockIcon}
+            title="No entries match this filter"
+            description="Adjust or clear the action, target type, and target ID filters above."
+          />
+        </MasterSection>
+      ) : (
+        <div className="min-w-0">
+          <MasterTable>
+            <thead>
+              <tr>
+                <th className={masterThClassName}>When</th>
+                <th className={masterThClassName}>Actor</th>
+                <th className={masterThClassName}>Action</th>
+                <th className={masterThClassName}>Target</th>
+                <th className={masterThClassName}>Outcome</th>
+              </tr>
+            </thead>
+            <tbody>
+              {result.entries.map((entry) => (
+                <tr key={entry.id} className={masterTrClassName}>
+                  <td className={`${masterTdClassName} whitespace-nowrap`}>{dateFormatter.format(entry.createdAt)}</td>
+                  <td className={masterTdClassName}>
+                    {entry.actorType === "SYSTEM" ? (
+                      <MasterStatusBadge status="SYSTEM" />
+                    ) : (
+                      <span className="font-master-mono">{entry.actorMasterId}</span>
+                    )}
+                  </td>
+                  <td className={`${masterTdClassName} font-master-mono`}>{entry.action}</td>
+                  <td className={`${masterTdClassName} font-master-mono`}>
+                    {entry.targetType}
+                    {entry.targetId ? `:${entry.targetId}` : ""}
+                  </td>
+                  <td className={masterTdClassName}>
+                    <MasterStatusBadge status={entry.outcome} />
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {result.entries.map((entry) => (
-                  <tr key={entry.id}>
-                    <td className="whitespace-nowrap border-b border-border px-4 py-3 last:border-none">
-                      {dateFormatter.format(entry.createdAt)}
-                    </td>
-                    <td className="border-b border-border px-4 py-3 last:border-none">
-                      {entry.actorType === "SYSTEM" ? "System" : entry.actorMasterId}
-                    </td>
-                    <td className="border-b border-border px-4 py-3 font-mono text-[13px] last:border-none">
-                      {entry.action}
-                    </td>
-                    <td className="overflow-hidden text-ellipsis border-b border-border px-4 py-3 last:border-none">
-                      {entry.targetType}
-                      {entry.targetId ? `:${entry.targetId}` : ""}
-                    </td>
-                    <td className="border-b border-border px-4 py-3 last:border-none">
-                      <span className={entry.outcome === "SUCCESS" ? "text-ink" : "text-danger"}>
-                        {entry.outcome}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+              ))}
+            </tbody>
+          </MasterTable>
+          {hasMore && (
+            <div className="mt-3">
+              <MasterPagination hasMore={hasMore} nextHref={`/master/audit-log?${nextParams.toString()}`} />
+            </div>
+          )}
+        </div>
+      )}
     </MasterShell>
   );
 }

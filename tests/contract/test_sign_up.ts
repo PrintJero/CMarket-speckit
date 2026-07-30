@@ -49,9 +49,13 @@ describe("POST /api/auth/sign-up (contract)", () => {
     await prisma.$disconnect();
   });
 
-  it("returns 202 and creates an unverified account for a new email", async () => {
+  it("returns 202 and creates an unverified account, with its displayName, for a new email", async () => {
     const response = await signUp(
-      postRequest({ email: "contract-signup-1@example.com", password: "correct-horse-battery" }),
+      postRequest({
+        displayName: "Ada Lovelace",
+        email: "contract-signup-1@example.com",
+        password: "correct-horse-battery",
+      }),
     );
     expect(response.status).toBe(202);
 
@@ -59,6 +63,7 @@ describe("POST /api/auth/sign-up (contract)", () => {
       where: { email: "contract-signup-1@example.com" },
     });
     expect(account).not.toBeNull();
+    expect(account?.displayName).toBe("Ada Lovelace");
     expect(account?.emailVerifiedAt).toBeNull();
     expect(account?.passwordHash).toBeNull(); // FR-019: no credential attached before verification
     expect(sentEmails).toHaveLength(1);
@@ -66,14 +71,40 @@ describe("POST /api/auth/sign-up (contract)", () => {
 
   it("returns 400 for a password shorter than 8 characters", async () => {
     const response = await signUp(
-      postRequest({ email: "contract-signup-2@example.com", password: "short1" }),
+      postRequest({
+        displayName: "Test User",
+        email: "contract-signup-2@example.com",
+        password: "short1",
+      }),
     );
     expect(response.status).toBe(400);
   });
 
   it("returns 400 for a syntactically invalid email", async () => {
-    const response = await signUp(postRequest({ email: "not-an-email", password: "longenough1" }));
+    const response = await signUp(
+      postRequest({ displayName: "Test User", email: "not-an-email", password: "longenough1" }),
+    );
     expect(response.status).toBe(400);
+  });
+
+  it("returns 400 and creates no account when displayName is missing", async () => {
+    const email = "contract-signup-no-name@example.com";
+    const response = await signUp(postRequest({ email, password: "longenough1" }));
+    expect(response.status).toBe(400);
+
+    const account = await prisma.account.findUnique({ where: { email } });
+    expect(account).toBeNull();
+  });
+
+  it("returns 400 and creates no account when displayName is blank after trimming", async () => {
+    const email = "contract-signup-blank-name@example.com";
+    const response = await signUp(
+      postRequest({ displayName: "   ", email, password: "longenough1" }),
+    );
+    expect(response.status).toBe(400);
+
+    const account = await prisma.account.findUnique({ where: { email } });
+    expect(account).toBeNull();
   });
 
   it("FR-009: responds identically for a repeated sign-up, and consuming either party's own token applies only their own password", async () => {
@@ -81,10 +112,14 @@ describe("POST /api/auth/sign-up (contract)", () => {
     const attackerPassword = "attacker-password-123";
     const ownerPassword = "owner-password-456";
 
-    const first = await signUp(postRequest({ email, password: attackerPassword }));
+    const first = await signUp(
+      postRequest({ displayName: "Signup Three", email, password: attackerPassword }),
+    );
     const firstBody = await first.json();
 
-    const second = await signUp(postRequest({ email, password: ownerPassword }));
+    const second = await signUp(
+      postRequest({ displayName: "Signup Three", email, password: ownerPassword }),
+    );
     const secondBody = await second.json();
 
     expect(second.status).toBe(202);
@@ -118,7 +153,9 @@ describe("POST /api/auth/sign-up (contract)", () => {
     const responses: unknown[] = [];
 
     for (let i = 0; i < attemptCount; i += 1) {
-      const response = await signUp(postRequest({ email, password: `attempt-password-${i}` }));
+      const response = await signUp(
+        postRequest({ displayName: "Rate Limit Tester", email, password: `attempt-password-${i}` }),
+      );
       responses.push(await response.json());
       expect(response.status).toBe(202); // identical response even once rate-limited
     }

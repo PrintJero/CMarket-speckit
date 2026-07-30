@@ -59,8 +59,8 @@ describe("token coexistence across competing sign-ups", () => {
     const victimPassword = "victim-password-123";
     const attackerPassword = "attacker-password-456";
 
-    await signUp(postRequest({ email, password: victimPassword }));
-    await signUp(postRequest({ email, password: attackerPassword }));
+    await signUp(postRequest({ displayName: "Victim", email, password: victimPassword }));
+    await signUp(postRequest({ displayName: "Attacker", email, password: attackerPassword }));
 
     expect(sentEmails).toHaveLength(2);
     const victimToken = extractToken(sentEmails[0].text);
@@ -85,8 +85,8 @@ describe("token coexistence across competing sign-ups", () => {
     const victimPassword = "victim-password-789";
     const attackerPassword = "attacker-password-012";
 
-    await signUp(postRequest({ email, password: victimPassword }));
-    await signUp(postRequest({ email, password: attackerPassword }));
+    await signUp(postRequest({ displayName: "Victim", email, password: victimPassword }));
+    await signUp(postRequest({ displayName: "Attacker", email, password: attackerPassword }));
 
     const victimToken = extractToken(sentEmails[0].text);
     const attackerToken = extractToken(sentEmails[1].text);

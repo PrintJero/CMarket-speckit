@@ -15,6 +15,7 @@ test("sign-up blocks submission when the password confirmation does not match, w
   const email = uniqueEmail("signup-mismatch");
 
   await page.goto("/sign-up");
+  await page.getByLabel("Name").fill("Mismatch Tester");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password", { exact: true }).fill("first-password-123");
   await page.getByLabel("Confirm password").fill("different-password-456");

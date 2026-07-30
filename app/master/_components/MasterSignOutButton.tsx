@@ -8,9 +8,9 @@ export function MasterSignOutButton() {
 
   return (
     <button
-      className="rounded-pill border border-border bg-surface px-3.5 py-1.5 text-[13px] font-semibold text-ink hover:bg-bg"
       type="button"
       onClick={onClick}
+      className="flex-none rounded-md border border-border bg-surface px-2 py-1 text-[11.5px] font-semibold text-ink-muted transition-colors hover:border-danger hover:text-danger"
     >
       Sign out
     </button>

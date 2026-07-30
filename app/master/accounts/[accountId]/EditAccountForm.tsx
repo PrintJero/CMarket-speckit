@@ -2,8 +2,8 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { FormField, FormError, fieldInputClassName } from "../../../_components/FormField";
-import { Button } from "../../../_components/Button";
+import { MasterFormField, MasterFormMessage, masterFieldInputClassName } from "../../_components/MasterFormField";
+import { MasterButton } from "../../_components/MasterButton";
 
 export function EditAccountForm({
   accountId,
@@ -17,11 +17,13 @@ export function EditAccountForm({
   const router = useRouter();
   const [email, setEmail] = useState(initialEmail);
   const [displayName, setDisplayName] = useState(initialDisplayName ?? "");
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     setMessage(null);
+    setSubmitting(true);
 
     const response = await fetch(`/api/master/accounts/${accountId}`, {
       method: "PATCH",
@@ -29,33 +31,38 @@ export function EditAccountForm({
       body: JSON.stringify({ email, displayName }),
     });
     const data = await response.json();
+    setSubmitting(false);
 
     if (data.ok) {
-      setMessage("Saved.");
+      setMessage({ tone: "success", text: "Saved." });
       router.refresh();
       return;
     }
-    setMessage(`Failed: ${data.reason}`);
+    setMessage({ tone: "error", text: `Failed: ${data.reason}` });
   }
 
   return (
-    <form onSubmit={onSubmit}>
-      <FormField label="Email">
+    <form onSubmit={onSubmit} className="max-w-md">
+      <MasterFormField label="Email" required>
         <input
-          className={fieldInputClassName}
+          className={masterFieldInputClassName}
           type="email"
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
-      </FormField>
-      <FormField label="Display name">
-        <input className={fieldInputClassName} value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
-      </FormField>
-      {message && <FormError role="status">{message}</FormError>}
-      <Button type="submit" variant="secondary">
-        Save
-      </Button>
+      </MasterFormField>
+      <MasterFormField label="Display name">
+        <input
+          className={masterFieldInputClassName}
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+        />
+      </MasterFormField>
+      {message && <MasterFormMessage tone={message.tone}>{message.text}</MasterFormMessage>}
+      <MasterButton type="submit" variant="secondary" disabled={submitting}>
+        {submitting ? "Saving…" : "Save"}
+      </MasterButton>
     </form>
   );
 }

@@ -89,6 +89,7 @@ test("administrator invites someone with no account yet, who signs up and verifi
 
   // Sign up and verify with that exact email via the existing 002 flow.
   await signedOutPage.goto("/sign-up");
+  await signedOutPage.getByLabel("Name").fill("New Person");
   await signedOutPage.getByLabel("Email").fill(newPersonEmail);
   await signedOutPage.getByLabel("Password", { exact: true }).fill(password);
   await signedOutPage.getByLabel("Confirm password").fill(password);

@@ -2,8 +2,8 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { FormField, fieldInputClassName } from "../../_components/FormField";
-import { Button } from "../../_components/Button";
+import { MasterFormField, masterFieldInputClassName } from "../_components/MasterFormField";
+import { MasterButton, MasterLinkButton } from "../_components/MasterButton";
 
 export function AuditLogFilters() {
   const router = useRouter();
@@ -12,7 +12,16 @@ export function AuditLogFilters() {
   const [targetType, setTargetType] = useState(searchParams.get("targetType") ?? "");
   const [targetId, setTargetId] = useState(searchParams.get("targetId") ?? "");
 
+  // Reflects the currently-APPLIED filters (the URL), not unsaved edits in
+  // the inputs above — "Clear filters" only needs to appear once there's an
+  // actual filter narrowing the table beneath it.
+  const hasActiveFilter = Boolean(
+    searchParams.get("action") || searchParams.get("targetType") || searchParams.get("targetId"),
+  );
+
   function apply() {
+    // Deliberately never carries forward an existing `cursor` param — a new
+    // filter always restarts pagination from the first page.
     const params = new URLSearchParams();
     if (action) params.set("action", action);
     if (targetType) params.set("targetType", targetType);
@@ -23,23 +32,40 @@ export function AuditLogFilters() {
   return (
     <div className="mb-4 flex flex-wrap items-end gap-3">
       <div className="w-40">
-        <FormField label="Action">
-          <input className={fieldInputClassName} value={action} onChange={(e) => setAction(e.target.value)} />
-        </FormField>
+        <MasterFormField label="Action">
+          <input
+            className={masterFieldInputClassName}
+            value={action}
+            onChange={(e) => setAction(e.target.value)}
+          />
+        </MasterFormField>
       </div>
       <div className="w-40">
-        <FormField label="Target type">
-          <input className={fieldInputClassName} value={targetType} onChange={(e) => setTargetType(e.target.value)} />
-        </FormField>
+        <MasterFormField label="Target type">
+          <input
+            className={masterFieldInputClassName}
+            value={targetType}
+            onChange={(e) => setTargetType(e.target.value)}
+          />
+        </MasterFormField>
       </div>
       <div className="w-56">
-        <FormField label="Target ID">
-          <input className={fieldInputClassName} value={targetId} onChange={(e) => setTargetId(e.target.value)} />
-        </FormField>
+        <MasterFormField label="Target ID">
+          <input
+            className={masterFieldInputClassName}
+            value={targetId}
+            onChange={(e) => setTargetId(e.target.value)}
+          />
+        </MasterFormField>
       </div>
-      <Button variant="secondary" onClick={apply}>
+      <MasterButton variant="secondary" onClick={apply}>
         Filter
-      </Button>
+      </MasterButton>
+      {hasActiveFilter && (
+        <MasterLinkButton href="/master/audit-log" variant="ghost">
+          Clear filters
+        </MasterLinkButton>
+      )}
     </div>
   );
 }

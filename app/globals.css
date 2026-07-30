@@ -13,10 +13,34 @@
   --color-danger: #e0264d;
   --color-danger-tint: #fdecef;
 
+  /*
+   * MASTER (platform administration) tokens — a separate purple + status
+   * palette used only inside app/master/**'s authenticated shell/pages.
+   * Never referenced by /master/sign-in or /master/change-password, which
+   * stay on the marketplace's own brand tokens above, unchanged.
+   */
+  --color-master: #6d28d9;
+  --color-master-dark: #5b21b6;
+  --color-master-tint: #f5f2fd;
+  --color-master-border: #ddd0f7;
+
+  --color-success: #16a34a;
+  --color-success-dark: #15803d;
+  --color-success-tint: #f0fdf4;
+  --color-success-border: #bbf7d0;
+
+  --color-warning: #d97706;
+  --color-warning-dark: #b45309;
+  --color-warning-tint: #fffbeb;
+  --color-warning-border: #fde68a;
+
   --radius-card: 16px;
   --radius-pill: 999px;
 
   --font-sans: var(--font-brand), "Segoe UI", system-ui, -apple-system, sans-serif;
+  /* MASTER-only typography — see the font-master-sans/font-master-mono utilities used under app/master. */
+  --font-master-sans: var(--font-ibm-plex-sans), "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-master-mono: var(--font-ibm-plex-mono), ui-monospace, "SFMono-Regular", monospace;
 
   --shadow-card: 0 8px 30px rgba(23, 20, 31, 0.06), 0 2px 8px rgba(23, 20, 31, 0.04);
 }

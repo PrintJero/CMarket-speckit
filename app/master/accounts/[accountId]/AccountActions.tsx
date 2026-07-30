@@ -2,12 +2,17 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "../../../_components/Button";
+import { MasterButton } from "../../_components/MasterButton";
+import { MasterConfirmDialog } from "../../_components/MasterConfirmDialog";
+import { MasterTemporaryPasswordPanel } from "../../_components/MasterTemporaryPasswordPanel";
+import { MasterFormField, MasterFormMessage, masterFieldSelectClassName } from "../../_components/MasterFormField";
 
 interface EligibleMember {
   membershipId: string;
   label: string;
 }
+
+type DestructiveAction = "suspend" | "delete";
 
 export function AccountActions({
   accountId,
@@ -19,12 +24,47 @@ export function AccountActions({
   deleted: boolean;
 }) {
   const router = useRouter();
+
+  // Suspend and delete share the exact same two-step flow: attempt the
+  // action; if the backend reports would_orphan_communities, reveal a
+  // replacement-administrator select for each affected community inside
+  // the SAME open dialog, then let the caller confirm again with
+  // replacementAdministratorAssignments included.
+  const [destructiveDialog, setDestructiveDialog] = useState<DestructiveAction | null>(null);
   const [affected, setAffected] = useState<{ communityId: string; communityName: string }[] | null>(null);
   const [eligibleByCommunity, setEligibleByCommunity] = useState<Record<string, EligibleMember[]>>({});
   const [chosen, setChosen] = useState<Record<string, string>>({});
-  const [pendingAction, setPendingAction] = useState<"suspend" | "delete" | null>(null);
+  const [destructiveBusy, setDestructiveBusy] = useState(false);
+  const [destructiveError, setDestructiveError] = useState<string | null>(null);
 
-  async function attempt(action: "suspend" | "delete", assignments?: { communityId: string; membershipId: string }[]) {
+  const [reactivateOpen, setReactivateOpen] = useState(false);
+  const [reactivateBusy, setReactivateBusy] = useState(false);
+  const [reactivateError, setReactivateError] = useState<string | null>(null);
+
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [temporaryPassword, setTemporaryPassword] = useState<string | null>(null);
+
+  function openDestructive(action: DestructiveAction) {
+    setDestructiveError(null);
+    setAffected(null);
+    setEligibleByCommunity({});
+    setChosen({});
+    setDestructiveDialog(action);
+  }
+
+  function closeDestructive() {
+    setDestructiveDialog(null);
+    setAffected(null);
+    setEligibleByCommunity({});
+    setChosen({});
+    setDestructiveError(null);
+  }
+
+  async function attempt(action: DestructiveAction, assignments?: { communityId: string; membershipId: string }[]) {
+    setDestructiveBusy(true);
+    setDestructiveError(null);
     const response = await fetch(`/api/master/accounts/${accountId}/${action}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -33,13 +73,13 @@ export function AccountActions({
     const data = await response.json();
 
     if (data.ok) {
-      setAffected(null);
+      setDestructiveBusy(false);
+      closeDestructive();
       router.refresh();
       return;
     }
 
     if (data.reason === "would_orphan_communities") {
-      setPendingAction(action);
       const communities = await Promise.all(
         (data.affectedCommunityIds as string[]).map(async (id: string) => {
           const detailResponse = await fetch(`/api/master/communities/${id}`);
@@ -59,92 +99,167 @@ export function AccountActions({
         }),
       );
       setAffected(communities);
+      setDestructiveBusy(false);
       return;
     }
 
-    window.alert(`Failed: ${data.reason}`);
+    setDestructiveBusy(false);
+    setDestructiveError(`Failed: ${data.reason}`);
   }
 
-  async function confirmWithAssignments() {
-    if (!pendingAction || !affected) return;
-    const assignments = affected.map((c) => ({ communityId: c.communityId, membershipId: chosen[c.communityId] }));
-    if (assignments.some((a) => !a.membershipId)) {
-      window.alert("Select a replacement administrator for every affected community.");
+  const destructiveAssignmentsIncomplete = affected !== null && affected.some((c) => !chosen[c.communityId]);
+
+  function onDestructiveConfirm() {
+    if (!destructiveDialog) return;
+    if (affected) {
+      if (destructiveAssignmentsIncomplete) return;
+      const assignments = affected.map((c) => ({ communityId: c.communityId, membershipId: chosen[c.communityId] }));
+      void attempt(destructiveDialog, assignments);
       return;
     }
-    await attempt(pendingAction, assignments);
+    void attempt(destructiveDialog);
   }
 
   async function reactivate() {
+    setReactivateBusy(true);
+    setReactivateError(null);
     const response = await fetch(`/api/master/accounts/${accountId}/reactivate`, { method: "POST" });
     const data = await response.json();
-    if (!data.ok) window.alert(`Failed: ${data.reason}`);
+    setReactivateBusy(false);
+    if (!data.ok) {
+      setReactivateError(`Failed: ${data.reason}`);
+      router.refresh();
+      return;
+    }
+    setReactivateOpen(false);
     router.refresh();
   }
 
   async function resetPassword() {
+    setResetBusy(true);
+    setResetError(null);
     const response = await fetch(`/api/master/accounts/${accountId}/reset-password`, { method: "POST" });
     const data = await response.json();
+    setResetBusy(false);
     if (data.ok) {
-      window.alert(`New temporary password (shown once): ${data.temporaryPassword}`);
+      setTemporaryPassword(data.temporaryPassword);
+      setResetOpen(false);
     } else {
-      window.alert(`Failed: ${data.reason}`);
+      setResetError(`Failed: ${data.reason}`);
     }
     router.refresh();
   }
 
   if (deleted) {
-    return <p className="text-sm text-ink-muted">This account has been permanently deleted.</p>;
+    return <p className="text-[13px] text-ink-muted">This account has been permanently deleted.</p>;
   }
+
+  const destructiveTitle = destructiveDialog === "delete" ? "Delete account permanently" : "Suspend account";
+  const destructiveConfirmLabel = affected
+    ? `Confirm ${destructiveDialog}`
+    : destructiveDialog === "delete"
+      ? "Delete account permanently"
+      : "Suspend account";
 
   return (
     <div>
       <div className="flex flex-wrap gap-2">
         {status === "ACTIVE" ? (
-          <Button variant="dangerOutline" onClick={() => attempt("suspend")}>
+          <MasterButton variant="dangerOutline" onClick={() => openDestructive("suspend")}>
             Suspend
-          </Button>
+          </MasterButton>
         ) : (
-          <Button variant="secondary" onClick={reactivate}>
+          <MasterButton variant="secondary" onClick={() => setReactivateOpen(true)}>
             Reactivate
-          </Button>
+          </MasterButton>
         )}
-        <Button variant="secondary" onClick={resetPassword}>
+        <MasterButton variant="secondary" onClick={() => setResetOpen(true)}>
           Reset password
-        </Button>
-        <Button variant="dangerOutline" onClick={() => attempt("delete")}>
+        </MasterButton>
+        <MasterButton variant="dangerOutline" onClick={() => openDestructive("delete")}>
           Delete permanently
-        </Button>
+        </MasterButton>
       </div>
 
-      {affected && (
-        <div className="mt-4 rounded-card border border-danger/40 bg-bg p-4">
-          <p className="mb-3 text-[13px] font-semibold text-danger">
-            This account is the last active administrator of {affected.length} community(ies). Choose a
-            replacement administrator for each before continuing:
-          </p>
-          {affected.map((c) => (
-            <label key={c.communityId} className="mb-2 block">
-              <span className="mb-1 block text-[13px] font-semibold">{c.communityName}</span>
-              <select
-                className="w-full rounded-pill bg-surface px-4 py-2 text-[15px]"
-                value={chosen[c.communityId] ?? ""}
-                onChange={(e) => setChosen((prev) => ({ ...prev, [c.communityId]: e.target.value }))}
-              >
-                <option value="">Select a replacement…</option>
-                {(eligibleByCommunity[c.communityId] ?? []).map((m) => (
-                  <option key={m.membershipId} value={m.membershipId}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ))}
-          <Button variant="dangerOutline" className="mt-2" onClick={confirmWithAssignments}>
-            Confirm {pendingAction}
-          </Button>
+      {temporaryPassword && (
+        <div className="mt-4">
+          <MasterTemporaryPasswordPanel password={temporaryPassword} label="New temporary password" />
         </div>
       )}
+
+      {/* Suspend / delete — shared two-step orphan-replacement flow. */}
+      <MasterConfirmDialog
+        open={destructiveDialog !== null}
+        title={destructiveTitle}
+        description={
+          affected ? (
+            <>
+              This account is the last active administrator of {affected.length}{" "}
+              {affected.length === 1 ? "community" : "communities"}. Choose a replacement administrator for each
+              before continuing — every community listed below will gain that member as its new administrator.
+            </>
+          ) : destructiveDialog === "delete" ? (
+            "This permanently deletes the account. Its email address is released for reuse and it can never sign in again. Listings, messages, and membership history are retained for audit purposes."
+          ) : (
+            "This immediately revokes sign-in access for this account. It can be reactivated later."
+          )
+        }
+        tone="danger"
+        confirmLabel={destructiveConfirmLabel}
+        confirmDisabled={destructiveAssignmentsIncomplete}
+        busy={destructiveBusy}
+        typedConfirmationPhrase={destructiveDialog === "delete" ? "DELETE" : undefined}
+        onConfirm={onDestructiveConfirm}
+        onClose={closeDestructive}
+      >
+        {affected && (
+          <div className="flex flex-col gap-1">
+            {affected.map((c) => (
+              <MasterFormField key={c.communityId} label={c.communityName}>
+                <select
+                  className={masterFieldSelectClassName}
+                  value={chosen[c.communityId] ?? ""}
+                  onChange={(e) => setChosen((prev) => ({ ...prev, [c.communityId]: e.target.value }))}
+                >
+                  <option value="">Select a replacement…</option>
+                  {(eligibleByCommunity[c.communityId] ?? []).map((m) => (
+                    <option key={m.membershipId} value={m.membershipId}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </MasterFormField>
+            ))}
+          </div>
+        )}
+        {destructiveError && <MasterFormMessage tone="error">{destructiveError}</MasterFormMessage>}
+      </MasterConfirmDialog>
+
+      <MasterConfirmDialog
+        open={reactivateOpen}
+        title="Reactivate account"
+        description="This restores sign-in access for this account immediately."
+        tone="warning"
+        confirmLabel="Reactivate account"
+        busy={reactivateBusy}
+        onConfirm={reactivate}
+        onClose={() => setReactivateOpen(false)}
+      >
+        {reactivateError && <MasterFormMessage tone="error">{reactivateError}</MasterFormMessage>}
+      </MasterConfirmDialog>
+
+      <MasterConfirmDialog
+        open={resetOpen}
+        title="Reset password"
+        description="Generates a new temporary password for this account and invalidates the current one. The account is signed out everywhere."
+        tone="neutral"
+        confirmLabel="Reset password"
+        busy={resetBusy}
+        onConfirm={resetPassword}
+        onClose={() => setResetOpen(false)}
+      >
+        {resetError && <MasterFormMessage tone="error">{resetError}</MasterFormMessage>}
+      </MasterConfirmDialog>
     </div>
   );
 }
