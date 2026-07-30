@@ -23,7 +23,13 @@ export interface ListingFormProps {
   listingId?: string;
   initialTitle?: string;
   initialDescription?: string;
-  initialPriceCents?: number;
+  initialPriceCents?: number | null;
+  /**
+   * 011-wanted-posts: only meaningful in create mode — kind is immutable
+   * after creation (research.md #5), so edit mode never shows the selector,
+   * it just labels the price field according to the listing's existing kind.
+   */
+  initialKind?: "FOR_SALE" | "WANTED";
   /**
    * The signed-in account's current display name (006-user-display-names,
    * FR-008). When null in create mode, a required "Display name" field is
@@ -39,20 +45,23 @@ export function ListingForm({
   initialTitle = "",
   initialDescription = "",
   initialPriceCents,
+  initialKind = "FOR_SALE",
   currentDisplayName = null,
 }: ListingFormProps) {
   const router = useRouter();
   const isEditMode = listingId !== undefined;
   const needsDisplayName = !isEditMode && !currentDisplayName;
+  const [kind, setKind] = useState<"FOR_SALE" | "WANTED">(initialKind);
   const [title, setTitle] = useState(initialTitle);
   const [description, setDescription] = useState(initialDescription);
   const [price, setPrice] = useState(
-    initialPriceCents !== undefined ? (initialPriceCents / 100).toFixed(2) : "",
+    initialPriceCents !== undefined && initialPriceCents !== null ? (initialPriceCents / 100).toFixed(2) : "",
   );
   const [displayName, setDisplayName] = useState("");
   const [files, setFiles] = useState<FileList | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const isWanted = kind === "WANTED";
 
   async function uploadPhotos(targetListingId: string) {
     if (!files) return;
@@ -71,7 +80,9 @@ export function ListingForm({
     setError(null);
     setSubmitting(true);
 
-    const priceCents = Math.round(Number(price) * 100);
+    // 011-wanted-posts: a blank price is only ever valid for a WANTED post
+    // (optional budget) — omit the field entirely rather than sending 0.
+    const priceCents = price.trim() === "" ? undefined : Math.round(Number(price) * 100);
 
     if (needsDisplayName) {
       const nameResponse = await fetch("/api/account/display-name", {
@@ -110,7 +121,7 @@ export function ListingForm({
     const response = await fetch(`/api/communities/${communityId}/listings`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, description, priceCents }),
+      body: JSON.stringify({ title, description, priceCents, kind }),
     });
     const data: CreateListingResponse = await response.json();
 
@@ -136,6 +147,26 @@ export function ListingForm({
           />
         </FormField>
       )}
+      {!isEditMode && (
+        <fieldset className="mb-4">
+          <legend className="mb-1.5 block text-[13px] font-semibold text-ink">I&apos;m</legend>
+          <div className="flex gap-4 text-sm">
+            <label className="flex items-center gap-1.5">
+              <input
+                type="radio"
+                name="kind"
+                checked={kind === "FOR_SALE"}
+                onChange={() => setKind("FOR_SALE")}
+              />
+              Selling
+            </label>
+            <label className="flex items-center gap-1.5">
+              <input type="radio" name="kind" checked={kind === "WANTED"} onChange={() => setKind("WANTED")} />
+              Looking for
+            </label>
+          </div>
+        </fieldset>
+      )}
       <FormField label="Title">
         <input className={fieldInputClassName} value={title} onChange={(e) => setTitle(e.target.value)} />
       </FormField>
@@ -146,12 +177,13 @@ export function ListingForm({
           onChange={(e) => setDescription(e.target.value)}
         />
       </FormField>
-      <FormField label="Price (MXN)">
+      <FormField label={isWanted ? "Budget (optional, MXN)" : "Price (MXN)"}>
         <input
           className={fieldInputClassName}
           type="number"
           step="0.01"
           min="0"
+          required={!isWanted}
           value={price}
           onChange={(e) => setPrice(e.target.value)}
         />

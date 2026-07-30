@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { createCommunity } from "@/server/services/communityService";
-import { createListing, pauseListing, deleteListing } from "@/server/services/listingService";
+import { createListing, pauseListing, fulfillListing, deleteListing } from "@/server/services/listingService";
 import { setDisplayName } from "@/server/services/accountService";
 import {
   sendMessageToListingOwner,
@@ -385,6 +385,98 @@ describe("messageService (contract)", () => {
 
       expect(await prisma.messageThread.findUnique({ where: { id: sent.thread.id } })).toBeNull();
       expect(await prisma.message.count({ where: { threadId: sent.thread.id } })).toBe(0);
+    });
+  });
+
+  describe("messaging a WANTED post (011-wanted-posts, US2)", () => {
+    // T011: regression-lock — messageService.ts has zero kind awareness (research.md #1).
+    it("opens a thread against a WANTED post exactly as against a FOR_SALE listing, and rejects self-messaging", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Messaging Test Community Wanted One",
+        "messaging-test-wanted-admin-1@example.com",
+      );
+      const buyer = await addMember(community.id, "messaging-test-wanted-buyer-1@example.com");
+      const listing = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "Looking for a keyboard",
+        description: "Description",
+        kind: "WANTED",
+      });
+      if (!listing.ok) throw new Error("expected listing creation to succeed");
+
+      const result = await sendMessageToListingOwner({
+        communityId: community.id,
+        listingId: listing.listing.id,
+        buyerAccountId: buyer.id,
+        body: "I have one of these!",
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error("expected success");
+      expect(await prisma.message.count({ where: { threadId: result.thread.id } })).toBe(1);
+
+      const selfMessage = await sendMessageToListingOwner({
+        communityId: community.id,
+        listingId: listing.listing.id,
+        buyerAccountId: admin.id,
+        body: "Hello myself",
+      });
+      expect(selfMessage).toEqual({ ok: false, reason: "cannot_message_own_listing" });
+    });
+
+    // T011 (FR-015, spec.md Edge Cases): a new thread against a FULFILLED post is
+    // blocked; an existing thread on one remains usable, exactly as for PAUSED today.
+    it("blocks starting a new thread against a FULFILLED post, but an existing thread remains usable", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Messaging Test Community Wanted Two",
+        "messaging-test-wanted-admin-2@example.com",
+      );
+      const buyer = await addMember(community.id, "messaging-test-wanted-buyer-2@example.com");
+      const otherBuyer = await addMember(community.id, "messaging-test-wanted-other-buyer-2@example.com");
+      const listing = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "Looking for a monitor",
+        description: "Description",
+        kind: "WANTED",
+      });
+      if (!listing.ok) throw new Error("expected listing creation to succeed");
+
+      // Existing thread, created while still ACTIVE.
+      const existing = await sendMessageToListingOwner({
+        communityId: community.id,
+        listingId: listing.listing.id,
+        buyerAccountId: buyer.id,
+        body: "Before fulfillment",
+      });
+      expect(existing.ok).toBe(true);
+
+      const fulfilled = await fulfillListing({ listingId: listing.listing.id, callerAccountId: admin.id });
+      expect(fulfilled).toEqual({ ok: true });
+
+      // A brand-new thread against the now-FULFILLED post is rejected.
+      const newThreadAttempt = await sendMessageToListingOwner({
+        communityId: community.id,
+        listingId: listing.listing.id,
+        buyerAccountId: otherBuyer.id,
+        body: "Do you still need one?",
+      });
+      expect(newThreadAttempt).toEqual({ ok: false, reason: "listing_paused" });
+      expect(
+        await prisma.messageThread.count({
+          where: { listingId: listing.listing.id, buyerId: otherBuyer.id },
+        }),
+      ).toBe(0);
+
+      // The existing thread is unaffected by fulfillment.
+      if (!existing.ok) throw new Error("expected success");
+      const reply = await sendThreadMessage({
+        communityId: community.id,
+        threadId: existing.thread.id,
+        senderAccountId: admin.id,
+        body: "Actually, I still do — interested?",
+      });
+      expect(reply.ok).toBe(true);
     });
   });
 

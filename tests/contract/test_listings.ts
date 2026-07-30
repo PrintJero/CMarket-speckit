@@ -11,6 +11,7 @@ import {
   setCoverPhoto,
   pauseListing,
   reactivateListing,
+  fulfillListing,
   deleteListing,
   listMyListings,
 } from "@/server/services/listingService";
@@ -187,6 +188,133 @@ describe("listingService (contract)", () => {
         priceCents: 100,
       });
       expect(accepted.ok).toBe(true);
+    });
+  });
+
+  describe("createListing with kind (011-wanted-posts)", () => {
+    // T002 (FR-002, FR-003)
+    it("creates a WANTED post with no price (null), or with a valid optional budget", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Listing Test Community Wanted One",
+        "listing-test-wanted-admin-1@example.com",
+      );
+
+      const noPrice = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "Looking for a laptop",
+        description: "Used is fine",
+        kind: "WANTED",
+      });
+      expect(noPrice.ok).toBe(true);
+      if (!noPrice.ok) throw new Error("expected success");
+      expect(noPrice.listing.kind).toBe("WANTED");
+      expect(noPrice.listing.priceCents).toBeNull();
+
+      const withBudget = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "Looking for a bike",
+        description: "Under budget",
+        kind: "WANTED",
+        priceCents: 5000,
+      });
+      expect(withBudget.ok).toBe(true);
+      if (!withBudget.ok) throw new Error("expected success");
+      expect(withBudget.listing.priceCents).toBe(5000);
+    });
+
+    // T002 (FR-003)
+    it("rejects an invalid budget on a WANTED post, writing nothing", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Listing Test Community Wanted Two",
+        "listing-test-wanted-admin-2@example.com",
+      );
+
+      const result = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "Looking for something",
+        description: "Description",
+        kind: "WANTED",
+        priceCents: -1,
+      });
+      expect(result).toEqual({ ok: false, reason: "invalid_input" });
+      expect(await prisma.listing.count({ where: { communityId: community.id } })).toBe(0);
+    });
+
+    // T002 (FR-003 regression): FOR_SALE still requires a price, kind omitted defaults to FOR_SALE.
+    it("still requires a valid price for FOR_SALE (kind omitted), regardless of this feature", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Listing Test Community Wanted Three",
+        "listing-test-wanted-admin-3@example.com",
+      );
+
+      const missingPrice = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "For sale, no price",
+        description: "Description",
+      });
+      expect(missingPrice).toEqual({ ok: false, reason: "invalid_input" });
+
+      const explicitForSale = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "For sale, no price, explicit kind",
+        description: "Description",
+        kind: "FOR_SALE",
+      });
+      expect(explicitForSale).toEqual({ ok: false, reason: "invalid_input" });
+      expect(await prisma.listing.count({ where: { communityId: community.id } })).toBe(0);
+    });
+
+    // T002 (FR-001): membership gate is unaffected by kind.
+    it("rejects a non-member creating a WANTED post, exactly as for a FOR_SALE one", async () => {
+      const { community } = await createCommunityWithAdmin(
+        "Listing Test Community Wanted Four",
+        "listing-test-wanted-admin-4@example.com",
+      );
+      const outsider = await createVerifiedAccount("listing-test-wanted-outsider-4@example.com");
+
+      const result = await createListing({
+        communityId: community.id,
+        ownerId: outsider.id,
+        title: "Looking for something",
+        description: "Description",
+        kind: "WANTED",
+      });
+      expect(result).toEqual({ ok: false, reason: "not_a_member" });
+      expect(await prisma.listing.count({ where: { communityId: community.id } })).toBe(0);
+    });
+
+    // T002 (FR-004 regression): photos/cover work identically on a WANTED post.
+    it("adds photos and assigns a cover on a WANTED post exactly as on a FOR_SALE one", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Listing Test Community Wanted Five",
+        "listing-test-wanted-admin-5@example.com",
+      );
+      const created = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "Looking for a chair",
+        description: "Description",
+        kind: "WANTED",
+      });
+      if (!created.ok) throw new Error("expected creation to succeed");
+
+      const photo = await addListingPhoto({
+        listingId: created.listing.id,
+        callerAccountId: admin.id,
+        data: JPEG,
+        mimeType: "image/jpeg",
+      });
+      expect(photo.ok).toBe(true);
+      if (!photo.ok) throw new Error("expected success");
+      expect(photo.photo.position).toBe(0);
+      expect(
+        (await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).coverPhotoId,
+      ).toBe(photo.photo.id);
     });
   });
 
@@ -964,6 +1092,252 @@ describe("listingService (contract)", () => {
       expect((await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status).toBe(
         "ACTIVE",
       );
+    });
+  });
+
+  describe("fulfillListing (011-wanted-posts, US3)", () => {
+    // T014 (FR-005, FR-006)
+    it("sets FULFILLED for the owner of a WANTED post, idempotently", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Listing Test Community Fulfill One",
+        "listing-test-fulfill-admin-1@example.com",
+      );
+      const created = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "Looking for a desk",
+        description: "Description",
+        kind: "WANTED",
+      });
+      if (!created.ok) throw new Error("expected creation to succeed");
+
+      const fulfilled = await fulfillListing({ listingId: created.listing.id, callerAccountId: admin.id });
+      expect(fulfilled).toEqual({ ok: true });
+      expect((await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status).toBe(
+        "FULFILLED",
+      );
+
+      const fulfilledAgain = await fulfillListing({ listingId: created.listing.id, callerAccountId: admin.id });
+      expect(fulfilledAgain).toEqual({ ok: true });
+      expect((await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status).toBe(
+        "FULFILLED",
+      );
+    });
+
+    // T014 (FR-005: reachable only for WANTED)
+    it("rejects fulfilling a FOR_SALE listing, regardless of caller", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Listing Test Community Fulfill Two",
+        "listing-test-fulfill-admin-2@example.com",
+      );
+      const created = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "A regular listing",
+        description: "Description",
+        priceCents: 500,
+      });
+      if (!created.ok) throw new Error("expected creation to succeed");
+
+      const result = await fulfillListing({ listingId: created.listing.id, callerAccountId: admin.id });
+      expect(result).toEqual({ ok: false, reason: "not_a_wanted_post" });
+    });
+
+    // T014 (FR-008, research.md #3: owner-only, never the administrator)
+    it("rejects any account other than the owner, including that community's own administrator", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Listing Test Community Fulfill Three",
+        "listing-test-fulfill-admin-3@example.com",
+      );
+      const member = await addMember(community.id, "listing-test-fulfill-member-3@example.com");
+      const created = await createListing({
+        communityId: community.id,
+        ownerId: member.id,
+        title: "Looking for a lamp",
+        description: "Description",
+        kind: "WANTED",
+      });
+      if (!created.ok) throw new Error("expected creation to succeed");
+
+      const byAdmin = await fulfillListing({ listingId: created.listing.id, callerAccountId: admin.id });
+      expect(byAdmin).toEqual({ ok: false, reason: "not_owner" });
+      expect((await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status).toBe(
+        "ACTIVE",
+      );
+    });
+
+    // T014 (FR-006: owner can toggle freely, in both directions)
+    it("lets the owner reactivate or pause a FULFILLED post back out, freely", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Listing Test Community Fulfill Four",
+        "listing-test-fulfill-admin-4@example.com",
+      );
+      const created = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "Looking for a mirror",
+        description: "Description",
+        kind: "WANTED",
+      });
+      if (!created.ok) throw new Error("expected creation to succeed");
+      await fulfillListing({ listingId: created.listing.id, callerAccountId: admin.id });
+
+      const reactivated = await reactivateListing({ listingId: created.listing.id, callerAccountId: admin.id });
+      expect(reactivated).toEqual({ ok: true });
+      expect((await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status).toBe(
+        "ACTIVE",
+      );
+
+      await fulfillListing({ listingId: created.listing.id, callerAccountId: admin.id });
+      const paused = await pauseListing({ listingId: created.listing.id, callerAccountId: admin.id });
+      expect(paused).toEqual({ ok: true });
+      expect((await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status).toBe(
+        "PAUSED",
+      );
+    });
+
+    // T014 (FR-007: deletion cascades photos AND threads, regardless of status)
+    it("deleteListing removes a WANTED post's photos and message threads, regardless of status", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Listing Test Community Fulfill Five",
+        "listing-test-fulfill-admin-5@example.com",
+      );
+      const buyer = await addMember(community.id, "listing-test-fulfill-buyer-5@example.com");
+      const created = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "Looking for a rug",
+        description: "Description",
+        kind: "WANTED",
+      });
+      if (!created.ok) throw new Error("expected creation to succeed");
+      const photo = await addListingPhoto({
+        listingId: created.listing.id,
+        callerAccountId: admin.id,
+        data: JPEG,
+        mimeType: "image/jpeg",
+      });
+      if (!photo.ok) throw new Error("expected photo to be added");
+      const thread = await prisma.messageThread.create({
+        data: { listingId: created.listing.id, buyerId: buyer.id },
+      });
+      await prisma.message.create({ data: { threadId: thread.id, senderId: buyer.id, body: "Interested" } });
+      await fulfillListing({ listingId: created.listing.id, callerAccountId: admin.id });
+
+      const deleted = await deleteListing({ listingId: created.listing.id, callerAccountId: admin.id });
+      expect(deleted).toEqual({ ok: true });
+      expect(await prisma.listing.findUnique({ where: { id: created.listing.id } })).toBeNull();
+      expect(await prisma.listingPhoto.findUnique({ where: { id: photo.photo.id } })).toBeNull();
+      expect(await prisma.messageThread.findUnique({ where: { id: thread.id } })).toBeNull();
+      expect(await prisma.message.count({ where: { threadId: thread.id } })).toBe(0);
+    });
+  });
+
+  describe("administrator confinement to ACTIVE<->PAUSED (011-wanted-posts, US4, FR-008)", () => {
+    // T019
+    it("lets the administrator pause/reactivate a WANTED post exactly as a FOR_SALE one", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Listing Test Community Confine One",
+        "listing-test-confine-admin-1@example.com",
+      );
+      const member = await addMember(community.id, "listing-test-confine-member-1@example.com");
+      const created = await createListing({
+        communityId: community.id,
+        ownerId: member.id,
+        title: "Looking for a table",
+        description: "Description",
+        kind: "WANTED",
+      });
+      if (!created.ok) throw new Error("expected creation to succeed");
+
+      const paused = await pauseListing({ listingId: created.listing.id, callerAccountId: admin.id });
+      expect(paused).toEqual({ ok: true });
+      const reactivated = await reactivateListing({ listingId: created.listing.id, callerAccountId: admin.id });
+      expect(reactivated).toEqual({ ok: true });
+    });
+
+    // T019 (research.md #3: the case fulfillListing's own owner-only test doesn't cover)
+    it("rejects the administrator reactivating or pausing a FULFILLED post — only the owner may", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Listing Test Community Confine Two",
+        "listing-test-confine-admin-2@example.com",
+      );
+      const member = await addMember(community.id, "listing-test-confine-member-2@example.com");
+      const created = await createListing({
+        communityId: community.id,
+        ownerId: member.id,
+        title: "Looking for a couch",
+        description: "Description",
+        kind: "WANTED",
+      });
+      if (!created.ok) throw new Error("expected creation to succeed");
+      await fulfillListing({ listingId: created.listing.id, callerAccountId: member.id });
+
+      const reactivateAttempt = await reactivateListing({
+        listingId: created.listing.id,
+        callerAccountId: admin.id,
+      });
+      expect(reactivateAttempt).toEqual({ ok: false, reason: "not_authorized" });
+
+      const pauseAttempt = await pauseListing({ listingId: created.listing.id, callerAccountId: admin.id });
+      expect(pauseAttempt).toEqual({ ok: false, reason: "not_authorized" });
+
+      expect((await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status).toBe(
+        "FULFILLED",
+      );
+    });
+
+    // T019 (FR-008: never extends to fulfilling, editing, or deleting)
+    it("rejects the administrator fulfilling, editing, or deleting a WANTED post they don't own", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Listing Test Community Confine Three",
+        "listing-test-confine-admin-3@example.com",
+      );
+      const member = await addMember(community.id, "listing-test-confine-member-3@example.com");
+      const created = await createListing({
+        communityId: community.id,
+        ownerId: member.id,
+        title: "Looking for a shelf",
+        description: "Description",
+        kind: "WANTED",
+      });
+      if (!created.ok) throw new Error("expected creation to succeed");
+
+      expect(await fulfillListing({ listingId: created.listing.id, callerAccountId: admin.id })).toEqual({
+        ok: false,
+        reason: "not_owner",
+      });
+      expect(
+        await updateListing({ listingId: created.listing.id, callerAccountId: admin.id, title: "Hacked" }),
+      ).toEqual({ ok: false, reason: "not_owner" });
+      expect(await deleteListing({ listingId: created.listing.id, callerAccountId: admin.id })).toEqual({
+        ok: false,
+        reason: "not_owner",
+      });
+      expect(await prisma.listing.findUnique({ where: { id: created.listing.id } })).not.toBeNull();
+    });
+
+    // T019 (FR-009: no authority at all outside the administrator's own community)
+    it("rejects an administrator of a different, unrelated community entirely", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Listing Test Community Confine Four",
+        "listing-test-confine-admin-4@example.com",
+      );
+      const { admin: otherAdmin } = await createCommunityWithAdmin(
+        "Listing Test Community Confine Four B",
+        "listing-test-confine-adminb-4@example.com",
+      );
+      const created = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "Looking for a stool",
+        description: "Description",
+        kind: "WANTED",
+      });
+      if (!created.ok) throw new Error("expected creation to succeed");
+
+      const result = await pauseListing({ listingId: created.listing.id, callerAccountId: otherAdmin.id });
+      expect(result).toEqual({ ok: false, reason: "not_authorized" });
     });
   });
 

@@ -190,21 +190,38 @@ model Invitation {
 }
 
 /// FR-004: enumerated, never a bare boolean or free-text string.
+/// 011-wanted-posts, FR-005: FULFILLED added, reachable only for kind = WANTED
+/// (enforced in listingService.ts, not by the database) and reversible only
+/// by the owner (research.md #3 of that feature).
 enum ListingStatus {
   ACTIVE
   PAUSED
+  FULFILLED
 }
 
-/// A product offered for sale within exactly one Community
-/// (005-product-listings, FR-001–FR-013; coverPhotoId added by the
-/// 2026-07-17 amendment, FR-014–FR-017).
+/// 011-wanted-posts, research.md #1: a Listing variant discriminator rather
+/// than a distinct entity, since MessageThread has no polymorphic-FK path to
+/// a second entity in this ORM. Immutable after creation (research.md #5).
+enum ListingKind {
+  FOR_SALE
+  WANTED
+}
+
+/// A product offered for sale, or a request for something sought, within
+/// exactly one Community (005-product-listings, FR-001–FR-013; coverPhotoId
+/// added by the 2026-07-17 amendment, FR-014–FR-017; kind/nullable priceCents
+/// added by 011-wanted-posts).
 model Listing {
   id            String        @id @default(cuid())
   communityId   String
   ownerId       String
   title         String
   description   String
-  priceCents    Int
+  /// 011-wanted-posts, FR-003: required and validated when kind = FOR_SALE
+  /// (unchanged rule); optional budget ceiling, validated if present, when
+  /// kind = WANTED. Enforced in listingService.ts, not by the database.
+  priceCents    Int?
+  kind          ListingKind   @default(FOR_SALE)
   status        ListingStatus @default(ACTIVE)
   coverPhotoId  String?       @unique
   createdAt     DateTime      @default(now())
@@ -220,6 +237,10 @@ model Listing {
   threads    MessageThread[]
 
   @@index([communityId, status, createdAt])
+  /// 011-wanted-posts, data-model.md: supports the new kind-filtered feed
+  /// query at the same performance characteristics as the unfiltered one
+  /// (the index above, which the unfiltered query still uses).
+  @@index([communityId, kind, status, createdAt])
   @@index([ownerId])
   @@map("listings")
 }

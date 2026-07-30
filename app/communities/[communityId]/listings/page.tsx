@@ -18,6 +18,7 @@ function buildPageHref(
   if (current.q) params.set("q", current.q);
   if (current.minPrice) params.set("minPrice", current.minPrice);
   if (current.maxPrice) params.set("maxPrice", current.maxPrice);
+  if (current.kind) params.set("kind", current.kind);
   params.set("page", String(page));
   return `/communities/${communityId}/listings?${params.toString()}`;
 }
@@ -39,7 +40,7 @@ export default async function ListingsPage({
   searchParams,
 }: {
   params: Promise<{ communityId: string }>;
-  searchParams: Promise<{ q?: string; minPrice?: string; maxPrice?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; minPrice?: string; maxPrice?: string; kind?: string; page?: string }>;
 }) {
   const { communityId } = await params;
   const sp = await searchParams;
@@ -49,10 +50,12 @@ export default async function ListingsPage({
   }
 
   const page = sp.page ? Number(sp.page) : 1;
+  const kind = sp.kind === "FOR_SALE" || sp.kind === "WANTED" ? sp.kind : undefined;
   const result = await listListings(communityId, account.accountId, {
     search: sp.q,
     minPriceCents: sp.minPrice ? Number(sp.minPrice) : undefined,
     maxPriceCents: sp.maxPrice ? Number(sp.maxPrice) : undefined,
+    kind,
     page,
   });
   if (!result.ok) {
@@ -74,6 +77,7 @@ export default async function ListingsPage({
         initialQuery={sp.q ?? ""}
         initialMinPrice={sp.minPrice ?? ""}
         initialMaxPrice={sp.maxPrice ?? ""}
+        initialKind={kind ?? ""}
       />
 
       {listings.length === 0 ? (
@@ -105,6 +109,12 @@ export default async function ListingsPage({
                 )}
               </div>
               <div className="px-4 pb-4 pt-3.5">
+                <p
+                  data-testid="listing-kind-badge"
+                  className="mb-1.5 inline-block rounded-pill bg-brand-tint px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-brand-dark"
+                >
+                  {listing.kind === "WANTED" ? "Wanted" : "For sale"}
+                </p>
                 <p className="mb-1 font-bold text-ink">{listing.title}</p>
                 <p className="text-sm text-ink-muted">{formatListingPrice(listing.priceCents)}</p>
                 <p className="mt-1 text-[13px] text-ink-muted">

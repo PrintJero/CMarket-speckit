@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { createCommunity } from "@/server/services/communityService";
-import { createListing, listListings, pauseListing } from "@/server/services/listingService";
+import { createListing, listListings, pauseListing, fulfillListing } from "@/server/services/listingService";
 
 /** createListing() requires a displayName on the caller (006-user-display-names, FR-008). */
 function createVerifiedAccount(email: string) {
@@ -292,6 +292,119 @@ describe("listListings discovery (contract)", () => {
         maxPriceCents: 2000,
       });
       expect(result).toEqual({ ok: false, reason: "invalid_input" });
+    });
+  });
+
+  describe("kind filter (011-wanted-posts, US1)", () => {
+    // T003 (FR-010, FR-011)
+    it("filters by kind; omitting it returns both, interleaved", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Discovery Test Community Kind One",
+        "discovery-test-kind-admin-1@example.com",
+      );
+      const forSale = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "For sale item",
+        description: "generic",
+        priceCents: 1000,
+      });
+      const wanted = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "Wanted item",
+        description: "generic",
+        kind: "WANTED",
+      });
+      if (!forSale.ok || !wanted.ok) throw new Error("expected both to be created");
+
+      const onlyForSale = await listListings(community.id, admin.id, { kind: "FOR_SALE" });
+      expect(onlyForSale.ok).toBe(true);
+      if (!onlyForSale.ok) throw new Error("expected success");
+      expect(onlyForSale.listings.map((l) => l.id)).toEqual([forSale.listing.id]);
+
+      const onlyWanted = await listListings(community.id, admin.id, { kind: "WANTED" });
+      expect(onlyWanted.ok).toBe(true);
+      if (!onlyWanted.ok) throw new Error("expected success");
+      expect(onlyWanted.listings.map((l) => l.id)).toEqual([wanted.listing.id]);
+
+      const both = await listListings(community.id, admin.id, {});
+      expect(both.ok).toBe(true);
+      if (!both.ok) throw new Error("expected success");
+      expect(new Set(both.listings.map((l) => l.id))).toEqual(
+        new Set([forSale.listing.id, wanted.listing.id]),
+      );
+    });
+
+    // T003 (FR-012): FULFILLED is excluded from the feed exactly like PAUSED.
+    it("never returns a FULFILLED WANTED post", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Discovery Test Community Kind Two",
+        "discovery-test-kind-admin-2@example.com",
+      );
+      const created = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "Wanted, soon fulfilled",
+        description: "generic",
+        kind: "WANTED",
+      });
+      if (!created.ok) throw new Error("expected creation to succeed");
+      await fulfillListing({ listingId: created.listing.id, callerAccountId: admin.id });
+
+      const result = await listListings(community.id, admin.id, { kind: "WANTED" });
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error("expected success");
+      expect(result.listings).toHaveLength(0);
+    });
+
+    // T003 — MANDATORY (spec.md FR-013, Constitution Principle II): community isolation
+    // for wanted posts MUST be tested regardless of this feature's overall test-optionality.
+    it("never returns a different community's WANTED post, with or without the kind filter, or via search", async () => {
+      const { community: communityA, admin: adminA } = await createCommunityWithAdmin(
+        "Discovery Test Community Kind Three A",
+        "discovery-test-kinda-admin-3@example.com",
+      );
+      const { community: communityB, admin: adminB } = await createCommunityWithAdmin(
+        "Discovery Test Community Kind Three B",
+        "discovery-test-kindb-admin-3@example.com",
+      );
+      const wantedInA = await createListing({
+        communityId: communityA.id,
+        ownerId: adminA.id,
+        title: "Shared keyword wanted item",
+        description: "generic",
+        kind: "WANTED",
+      });
+      const wantedInB = await createListing({
+        communityId: communityB.id,
+        ownerId: adminB.id,
+        title: "Shared keyword wanted item",
+        description: "generic",
+        kind: "WANTED",
+      });
+      if (!wantedInA.ok || !wantedInB.ok) throw new Error("expected both to be created");
+
+      const unfilteredA = await listListings(communityA.id, adminA.id, {});
+      expect(unfilteredA.ok).toBe(true);
+      if (!unfilteredA.ok) throw new Error("expected success");
+      expect(unfilteredA.listings.map((l) => l.id)).toEqual([wantedInA.listing.id]);
+
+      const kindFilteredA = await listListings(communityA.id, adminA.id, { kind: "WANTED" });
+      expect(kindFilteredA.ok).toBe(true);
+      if (!kindFilteredA.ok) throw new Error("expected success");
+      expect(kindFilteredA.listings.map((l) => l.id)).toEqual([wantedInA.listing.id]);
+
+      const searchedA = await listListings(communityA.id, adminA.id, { search: "Shared keyword" });
+      expect(searchedA.ok).toBe(true);
+      if (!searchedA.ok) throw new Error("expected success");
+      expect(searchedA.listings.map((l) => l.id)).toEqual([wantedInA.listing.id]);
+
+      // Symmetric case for community B.
+      const unfilteredB = await listListings(communityB.id, adminB.id, {});
+      expect(unfilteredB.ok).toBe(true);
+      if (!unfilteredB.ok) throw new Error("expected success");
+      expect(unfilteredB.listings.map((l) => l.id)).toEqual([wantedInB.listing.id]);
     });
   });
 

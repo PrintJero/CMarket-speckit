@@ -52,8 +52,9 @@ export type CreateListingResult =
         ownerId: string;
         title: string;
         description: string;
-        priceCents: number;
-        status: "ACTIVE" | "PAUSED";
+        priceCents: number | null;
+        kind: "FOR_SALE" | "WANTED";
+        status: "ACTIVE" | "PAUSED" | "FULFILLED";
       };
     }
   | { ok: false; reason: "invalid_input" }
@@ -65,7 +66,9 @@ export interface CreateListingInput {
   ownerId: string;
   title: string;
   description: string;
-  priceCents: number;
+  priceCents?: number;
+  /** 011-wanted-posts, research.md #1/#5: defaults to FOR_SALE; immutable after creation. */
+  kind?: "FOR_SALE" | "WANTED";
 }
 
 /**
@@ -77,9 +80,22 @@ export interface CreateListingInput {
  * requiring ACTIVE (no allowSuspended) — a SUSPENDED community rejects this
  * the same way a non-member would (FR-053). The new row is stamped with the
  * community's current operationalEpoch (research.md #8).
+ *
+ * 011-wanted-posts, FR-002/FR-003: `priceCents` is required and validated
+ * when `kind = FOR_SALE` (the default, unchanged rule) — optional, but still
+ * validated if present, when `kind = WANTED` (data-model.md's creation gates).
  */
 export async function createListing(input: CreateListingInput): Promise<CreateListingResult> {
-  if (isBlank(input.title) || isBlank(input.description) || !isValidPriceCents(input.priceCents)) {
+  const kind = input.kind ?? "FOR_SALE";
+  const priceRequired = kind === "FOR_SALE";
+  const priceProvided = input.priceCents !== undefined;
+
+  if (
+    isBlank(input.title) ||
+    isBlank(input.description) ||
+    (priceRequired && !priceProvided) ||
+    (priceProvided && !isValidPriceCents(input.priceCents!))
+  ) {
     return { ok: false, reason: "invalid_input" };
   }
 
@@ -103,7 +119,8 @@ export async function createListing(input: CreateListingInput): Promise<CreateLi
       ownerId: input.ownerId,
       title: input.title,
       description: input.description,
-      priceCents: input.priceCents,
+      priceCents: priceProvided ? input.priceCents : null,
+      kind,
       operationalEpoch: community?.operationalEpoch ?? 1,
     },
   });
@@ -117,6 +134,7 @@ export async function createListing(input: CreateListingInput): Promise<CreateLi
       title: listing.title,
       description: listing.description,
       priceCents: listing.priceCents,
+      kind: listing.kind,
       status: listing.status,
     },
   };
@@ -185,8 +203,9 @@ export type ListListingsResult =
       listings: {
         id: string;
         title: string;
-        priceCents: number;
-        status: "ACTIVE" | "PAUSED";
+        priceCents: number | null;
+        kind: "FOR_SALE" | "WANTED";
+        status: "ACTIVE" | "PAUSED" | "FULFILLED";
         ownerId: string;
         createdAt: Date;
         coverPhotoId: string | null;
@@ -203,6 +222,8 @@ export interface ListListingsOptions {
   search?: string;
   minPriceCents?: number;
   maxPriceCents?: number;
+  /** 011-wanted-posts, FR-011: omitted returns both kinds, interleaved (research.md #4). */
+  kind?: "FOR_SALE" | "WANTED";
   page?: number;
   pageSize?: number;
 }
@@ -218,6 +239,9 @@ const MAX_PAGE_SIZE = 50;
  * 009-platform-administration, FR-052: viewing tolerates a SUSPENDED community.
  * Every returned row is additionally filtered to the community's current
  * operationalEpoch (research.md #8) via the same findMany's `where`.
+ * 011-wanted-posts, research.md #4: `kind` is one more optional filter in the
+ * same `where`, mirroring the price-range pattern — never a second query.
+ * FR-012 covers FULFILLED for free, since only `status: "ACTIVE"` rows match.
  */
 export async function listListings(
   communityId: string,
@@ -228,7 +252,7 @@ export async function listListings(
     return { ok: false, reason: "not_a_member" };
   }
 
-  const { search, minPriceCents, maxPriceCents } = options;
+  const { search, minPriceCents, maxPriceCents, kind } = options;
   if (
     minPriceCents !== undefined &&
     maxPriceCents !== undefined &&
@@ -250,6 +274,7 @@ export async function listListings(
       communityId,
       status: "ACTIVE",
       operationalEpoch: community?.operationalEpoch ?? 1,
+      ...(kind ? { kind } : {}),
       ...(search
         ? {
             OR: [
@@ -282,6 +307,7 @@ export async function listListings(
       id: listing.id,
       title: listing.title,
       priceCents: listing.priceCents,
+      kind: listing.kind,
       status: listing.status,
       ownerId: listing.ownerId,
       createdAt: listing.createdAt,
@@ -303,8 +329,9 @@ export type GetListingResult =
         ownerId: string;
         title: string;
         description: string;
-        priceCents: number;
-        status: "ACTIVE" | "PAUSED";
+        priceCents: number | null;
+        kind: "FOR_SALE" | "WANTED";
+        status: "ACTIVE" | "PAUSED" | "FULFILLED";
         coverPhotoId: string | null;
         ownerDisplayName: string | null;
         photos: { id: string; position: number }[];
@@ -357,6 +384,7 @@ export async function getListing(
       title: listing.title,
       description: listing.description,
       priceCents: listing.priceCents,
+      kind: listing.kind,
       status: listing.status,
       coverPhotoId: listing.coverPhotoId,
       ownerDisplayName: listing.owner.displayName,
@@ -404,8 +432,9 @@ export type UpdateListingResult =
         ownerId: string;
         title: string;
         description: string;
-        priceCents: number;
-        status: "ACTIVE" | "PAUSED";
+        priceCents: number | null;
+        kind: "FOR_SALE" | "WANTED";
+        status: "ACTIVE" | "PAUSED" | "FULFILLED";
       };
     }
   | { ok: false; reason: "not_found" }
@@ -424,7 +453,9 @@ export interface UpdateListingInput {
 /**
  * FR-006. Ownership check alone — never requireCommunityAdministrator (FR-010).
  * 009-platform-administration, FR-053: a listing content edit is blocked
- * while the community is SUSPENDED or ARCHIVED.
+ * while the community is SUSPENDED or ARCHIVED. 011-wanted-posts, research.md
+ * #5: `kind` is immutable — `UpdateListingInput` has no `kind` field, so
+ * there is nothing for a caller to send that would change it.
  */
 export async function updateListing(input: UpdateListingInput): Promise<UpdateListingResult> {
   const listing = await prisma.listing.findUnique({ where: { id: input.listingId } });
@@ -460,6 +491,7 @@ export async function updateListing(input: UpdateListingInput): Promise<UpdateLi
       title: updated.title,
       description: updated.description,
       priceCents: updated.priceCents,
+      kind: updated.kind,
       status: updated.status,
     },
   };
@@ -585,11 +617,29 @@ async function canModerateListing(
   return requireCommunityAdministrator(callerAccountId, listing.communityId, options);
 }
 
+/**
+ * 011-wanted-posts, research.md #3: a listing currently FULFILLED is
+ * administrator-untouchable in either direction — FR-008's "does NOT extend
+ * to setting or clearing FULFILLED" covers an administrator reactivating (or
+ * pausing) one back out of FULFILLED, not just setting it in the first
+ * place. Checked before `canModerateListing()` so the owner's own path
+ * (checked first inside this function) is unaffected.
+ */
+function isLeavingFulfilledAsNonOwner(
+  listing: { status: "ACTIVE" | "PAUSED" | "FULFILLED"; ownerId: string },
+  callerAccountId: string,
+): boolean {
+  return listing.status === "FULFILLED" && listing.ownerId !== callerAccountId;
+}
+
 export async function pauseListing(input: PauseListingInput): Promise<PauseListingResult> {
   const listing = await prisma.listing.findUnique({ where: { id: input.listingId } });
   if (!listing) return { ok: false, reason: "not_found" };
   if (!(await communityAllowsExistingContent(listing.communityId))) {
     return { ok: false, reason: "community_not_active" };
+  }
+  if (isLeavingFulfilledAsNonOwner(listing, input.callerAccountId)) {
+    return { ok: false, reason: "not_authorized" };
   }
   if (!(await canModerateListing(listing, input.callerAccountId, { allowSuspended: true }))) {
     return { ok: false, reason: "not_authorized" };
@@ -605,11 +655,46 @@ export async function reactivateListing(input: PauseListingInput): Promise<Pause
   if (!(await isCommunityActive(listing.communityId))) {
     return { ok: false, reason: "community_not_active" };
   }
+  if (isLeavingFulfilledAsNonOwner(listing, input.callerAccountId)) {
+    return { ok: false, reason: "not_authorized" };
+  }
   if (!(await canModerateListing(listing, input.callerAccountId))) {
     return { ok: false, reason: "not_authorized" };
   }
 
   await prisma.listing.update({ where: { id: input.listingId }, data: { status: "ACTIVE" } });
+  return { ok: true };
+}
+
+export type FulfillListingResult =
+  | { ok: true }
+  | { ok: false; reason: "not_found" }
+  | { ok: false; reason: "not_owner" }
+  | { ok: false; reason: "not_a_wanted_post" }
+  | { ok: false; reason: "community_not_active" };
+
+export interface FulfillListingInput {
+  listingId: string;
+  callerAccountId: string;
+}
+
+/**
+ * 011-wanted-posts, FR-005, FR-006, FR-008, research.md #3: owner-only —
+ * never `canModerateListing()`/`requireCommunityAdministrator()`, mirroring
+ * `deleteListing()`'s ownership-only pattern, not `pauseListing()`'s
+ * owner-or-admin one. Reachable only for `kind = WANTED`. Idempotent: setting
+ * FULFILLED on an already-FULFILLED listing is a no-op, not an error.
+ */
+export async function fulfillListing(input: FulfillListingInput): Promise<FulfillListingResult> {
+  const listing = await prisma.listing.findUnique({ where: { id: input.listingId } });
+  if (!listing) return { ok: false, reason: "not_found" };
+  if (listing.ownerId !== input.callerAccountId) return { ok: false, reason: "not_owner" };
+  if (listing.kind !== "WANTED") return { ok: false, reason: "not_a_wanted_post" };
+  if (!(await communityAllowsExistingContent(listing.communityId))) {
+    return { ok: false, reason: "community_not_active" };
+  }
+
+  await prisma.listing.update({ where: { id: input.listingId }, data: { status: "FULFILLED" } });
   return { ok: true };
 }
 
@@ -646,7 +731,8 @@ export type ListMyListingsResult = {
     communityId: string;
     communityName: string;
     title: string;
-    status: "ACTIVE" | "PAUSED";
+    kind: "FOR_SALE" | "WANTED";
+    status: "ACTIVE" | "PAUSED" | "FULFILLED";
     threadCount: number;
   }[];
 };
@@ -703,6 +789,7 @@ export async function listMyListings(callerAccountId: string): Promise<ListMyLis
         communityId: listing.communityId,
         communityName: listing.community.name,
         title: listing.title,
+        kind: listing.kind,
         status: listing.status,
         threadCount: listing._count.threads,
       })),
