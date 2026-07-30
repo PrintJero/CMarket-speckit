@@ -48,17 +48,30 @@ export default async function ChatsPage() {
               </h2>
               <div className="flex flex-col gap-3">
                 {group.threads.map((thread) => (
-                  <Link key={thread.id} href={`/communities/${communityId}/threads/${thread.id}`}>
-                    <Card className="max-w-xl" data-testid="chats-thread-row">
+                  <Card key={thread.id} className="max-w-xl" data-testid="chats-thread-row">
+                    <Link
+                      href={`/communities/${communityId}/threads/${thread.id}`}
+                      className="block hover:no-underline"
+                    >
                       <p className="font-semibold text-ink">{thread.listingTitle}</p>
-                      <p className="text-[13px] text-ink-muted">
-                        {thread.role === "owner" ? "You own this listing" : "You contacted the owner"}
-                        {" · "}
+                    </Link>
+                    <p className="text-[13px] text-ink-muted">
+                      {thread.role === "owner" ? "You own this listing" : "You contacted the owner"}
+                      {" · "}
+                      <Link
+                        href={`/communities/${communityId}/members/${thread.counterpartId}`}
+                        className="hover:underline"
+                      >
                         {resolveDisplayName(thread.counterpartDisplayName)}
-                      </p>
+                      </Link>
+                    </p>
+                    <Link
+                      href={`/communities/${communityId}/threads/${thread.id}`}
+                      className="block hover:no-underline"
+                    >
                       <p className="mt-1 text-sm text-ink-muted">{thread.lastMessagePreview}</p>
-                    </Card>
-                  </Link>
+                    </Link>
+                  </Card>
                 ))}
               </div>
             </section>

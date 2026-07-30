@@ -42,6 +42,8 @@ model Account {
   messagesSent        Message[]            @relation("MessagesSent")
   transactionsRecorded     Transaction[]   @relation("TransactionsRecorded")
   transactionsAsCounterpart Transaction[]  @relation("TransactionsAsCounterpart")
+  reviewsWritten            Review[]       @relation("ReviewsWritten")
+  reviewsReceived           Review[]       @relation("ReviewsReceived")
 
   @@map("accounts")
 }
@@ -345,11 +347,35 @@ model Transaction {
   community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
   recorder    Account   @relation("TransactionsRecorded", fields: [recorderId], references: [id], onDelete: Cascade)
   counterpart Account   @relation("TransactionsAsCounterpart", fields: [counterpartId], references: [id], onDelete: Cascade)
+  reviews     Review[]
 
   @@index([communityId])
   @@index([recorderId])
   @@index([counterpartId])
   @@map("transactions")
+}
+
+/// A single 1-5 star rating one participant of a CONFIRMED transaction
+/// (010-transaction-logging) leaves about the other (012-profiles-reputation).
+/// No comment/free-text field (FR-021). No communityId — reputation is
+/// computed globally and must never disclose which community a rating came
+/// from (FR-011, research.md #2); community only matters transiently at
+/// creation, derived through transactionId.
+model Review {
+  id            String   @id @default(cuid())
+  reviewerId    String
+  reviewedId    String
+  transactionId String
+  rating        Int
+  createdAt     DateTime @default(now())
+
+  reviewer    Account     @relation("ReviewsWritten", fields: [reviewerId], references: [id], onDelete: Cascade)
+  reviewed    Account     @relation("ReviewsReceived", fields: [reviewedId], references: [id], onDelete: Cascade)
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewerId, transactionId])
+  @@index([reviewedId])
+  @@map("reviews")
 }
 
 /// 009-platform-administration, FR-002: closed set for MasterIdentity.status.

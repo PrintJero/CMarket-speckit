@@ -148,7 +148,7 @@ export async function confirmTransaction(input: ConfirmTransactionInput): Promis
 }
 
 export type GetTransactionResult =
-  | { ok: true; transaction: TransactionRecord & { role: "recorder" | "counterpart"; counterpartDisplayName: string | null } }
+  | { ok: true; transaction: TransactionRecord & { role: "recorder" | "counterpart"; counterpartId: string; counterpartDisplayName: string | null } }
   | { ok: false; reason: "not_a_member" }
   | { ok: false; reason: "not_found" }
   | { ok: false; reason: "not_a_party" };
@@ -189,6 +189,7 @@ export async function getTransaction(input: GetTransactionInput): Promise<GetTra
     transaction: {
       ...toRecord(row),
       role: isRecorder ? "recorder" : "counterpart",
+      counterpartId: isRecorder ? row.counterpartId : row.recorderId,
       counterpartDisplayName: isRecorder ? row.counterpart.displayName : row.recorder.displayName,
     },
   };
@@ -197,7 +198,7 @@ export async function getTransaction(input: GetTransactionInput): Promise<GetTra
 export type ListTransactionsResult =
   | {
       ok: true;
-      transactions: (TransactionRecord & { role: "recorder" | "counterpart"; counterpartDisplayName: string | null })[];
+      transactions: (TransactionRecord & { role: "recorder" | "counterpart"; counterpartId: string; counterpartDisplayName: string | null })[];
     }
   | { ok: false; reason: "not_a_member" };
 
@@ -223,6 +224,7 @@ export async function listTransactions(communityId: string, callerAccountId: str
       return {
         ...toRecord(row),
         role: isRecorder ? ("recorder" as const) : ("counterpart" as const),
+        counterpartId: isRecorder ? row.counterpartId : row.recorderId,
         counterpartDisplayName: isRecorder ? row.counterpart.displayName : row.recorder.displayName,
       };
     }),
@@ -232,7 +234,7 @@ export async function listTransactions(communityId: string, callerAccountId: str
 export type ListTransactionsForThreadResult =
   | {
       ok: true;
-      transactions: (TransactionRecord & { role: "recorder" | "counterpart"; counterpartDisplayName: string | null })[];
+      transactions: (TransactionRecord & { role: "recorder" | "counterpart"; counterpartId: string; counterpartDisplayName: string | null })[];
     }
   | { ok: false; reason: "not_a_member" }
   | { ok: false; reason: "not_found" }
@@ -299,6 +301,7 @@ export async function listTransactionsForThread(
       return {
         ...toRecord(row),
         role: isRecorder ? ("recorder" as const) : ("counterpart" as const),
+        counterpartId: isRecorder ? row.counterpartId : row.recorderId,
         counterpartDisplayName: isRecorder ? row.counterpart.displayName : row.recorder.displayName,
       };
     }),

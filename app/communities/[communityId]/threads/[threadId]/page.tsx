@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { getCurrentAccount } from "@/lib/auth/currentAccount";
 import { getThread } from "@/server/services/messageService";
 import { listTransactionsForThread } from "@/server/services/transactionService";
@@ -46,7 +47,10 @@ export default async function ThreadDetailPage({
           {messages.map((message) => (
             <div key={message.id} data-testid="message">
               <p className="mb-1 text-[13px] font-semibold text-ink-muted">
-                {resolveDisplayName(message.senderDisplayName)} · {new Date(message.createdAt).toLocaleString()}
+                <Link href={`/communities/${communityId}/members/${message.senderId}`} className="hover:underline">
+                  {resolveDisplayName(message.senderDisplayName)}
+                </Link>{" "}
+                · {new Date(message.createdAt).toLocaleString()}
               </p>
               <p>{message.body}</p>
             </div>
@@ -62,7 +66,12 @@ export default async function ThreadDetailPage({
               <div key={transaction.id} data-testid="transaction-row" className="rounded-card bg-bg p-3">
                 <p className="text-[13px] font-semibold">
                   {transaction.confirmationState === "CONFIRMED" ? "Confirmed" : "Unconfirmed"} transaction with{" "}
-                  {resolveDisplayName(transaction.counterpartDisplayName)}
+                  <Link
+                    href={`/communities/${communityId}/members/${transaction.counterpartId}`}
+                    className="hover:underline"
+                  >
+                    {resolveDisplayName(transaction.counterpartDisplayName)}
+                  </Link>
                 </p>
                 {transaction.confirmationState === "UNCONFIRMED" && transaction.role === "counterpart" && (
                   <ConfirmTransactionButton communityId={communityId} transactionId={transaction.id} />

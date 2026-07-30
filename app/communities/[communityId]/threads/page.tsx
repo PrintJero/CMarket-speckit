@@ -37,13 +37,20 @@ export default async function ThreadsInboxPage({
       ) : (
         <div className="flex flex-col gap-3">
           {result.threads.map((thread) => (
-            <Link key={thread.id} href={`/communities/${communityId}/threads/${thread.id}`}>
-              <Card className="max-w-xl" data-testid="thread-row">
+            <Card key={thread.id} className="max-w-xl" data-testid="thread-row">
+              <Link href={`/communities/${communityId}/threads/${thread.id}`} className="block hover:no-underline">
                 <p className="font-semibold text-ink">{thread.listingTitle}</p>
-                <p className="text-[13px] text-ink-muted">{resolveDisplayName(thread.counterpartDisplayName)}</p>
+              </Link>
+              <Link
+                href={`/communities/${communityId}/members/${thread.counterpartId}`}
+                className="text-[13px] text-ink-muted hover:underline"
+              >
+                {resolveDisplayName(thread.counterpartDisplayName)}
+              </Link>
+              <Link href={`/communities/${communityId}/threads/${thread.id}`} className="block hover:no-underline">
                 <p className="mt-1 text-sm text-ink-muted">{thread.lastMessagePreview}</p>
-              </Card>
-            </Link>
+              </Link>
+            </Card>
           ))}
         </div>
       )}
