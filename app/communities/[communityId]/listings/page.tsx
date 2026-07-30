@@ -85,43 +85,52 @@ export default async function ListingsPage({
       ) : (
         <div className="mt-6 grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-5">
           {listings.map((listing) => (
-            <Link
+            <div
               key={listing.id}
-              href={`/communities/${communityId}/listings/${listing.id}`}
               data-testid="listing-card"
-              className="block overflow-hidden rounded-card bg-surface text-inherit shadow-card hover:no-underline"
+              className="overflow-hidden rounded-card bg-surface shadow-card"
             >
-              <div className="aspect-[4/3] bg-bg">
-                {listing.coverPhotoId ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={`/api/communities/${communityId}/listings/${listing.id}/photos/${listing.coverPhotoId}`}
-                    alt=""
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div
-                    data-testid="listing-cover-placeholder"
-                    className="flex h-full w-full items-center justify-center text-[13px] font-semibold text-ink-muted"
+              <Link
+                href={`/communities/${communityId}/listings/${listing.id}`}
+                className="block text-inherit hover:no-underline"
+              >
+                <div className="aspect-[4/3] bg-bg">
+                  {listing.coverPhotoId ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={`/api/communities/${communityId}/listings/${listing.id}/photos/${listing.coverPhotoId}`}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div
+                      data-testid="listing-cover-placeholder"
+                      className="flex h-full w-full items-center justify-center text-[13px] font-semibold text-ink-muted"
+                    >
+                      No photo
+                    </div>
+                  )}
+                </div>
+                <div className="px-4 pt-3.5">
+                  <p
+                    data-testid="listing-kind-badge"
+                    className="mb-1.5 inline-block rounded-pill bg-brand-tint px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-brand-dark"
                   >
-                    No photo
-                  </div>
-                )}
-              </div>
-              <div className="px-4 pb-4 pt-3.5">
-                <p
-                  data-testid="listing-kind-badge"
-                  className="mb-1.5 inline-block rounded-pill bg-brand-tint px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-brand-dark"
+                    {listing.kind === "WANTED" ? "Wanted" : "For sale"}
+                  </p>
+                  <p className="mb-1 font-bold text-ink">{listing.title}</p>
+                  <p className="text-sm text-ink-muted">{formatListingPrice(listing.priceCents)}</p>
+                </div>
+              </Link>
+              <div className="px-4 pb-4">
+                <Link
+                  href={`/communities/${communityId}/members/${listing.ownerId}`}
+                  className="mt-1 inline-block text-[13px] text-ink-muted hover:underline"
                 >
-                  {listing.kind === "WANTED" ? "Wanted" : "For sale"}
-                </p>
-                <p className="mb-1 font-bold text-ink">{listing.title}</p>
-                <p className="text-sm text-ink-muted">{formatListingPrice(listing.priceCents)}</p>
-                <p className="mt-1 text-[13px] text-ink-muted">
                   {resolveDisplayName(listing.ownerDisplayName)}
-                </p>
+                </Link>
               </div>
-            </Link>
+            </div>
           ))}
         </div>
       )}

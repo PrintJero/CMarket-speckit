@@ -236,6 +236,7 @@ export type ListThreadsResult =
         id: string;
         listingId: string;
         listingTitle: string;
+        counterpartId: string;
         counterpartDisplayName: string | null;
         lastMessageAt: Date;
         lastMessagePreview: string;
@@ -293,6 +294,7 @@ export async function listThreads(
         id: thread.id,
         listingId: thread.listing.id,
         listingTitle: thread.listing.title,
+        counterpartId: isOwner ? thread.buyerId : thread.listing.ownerId,
         counterpartDisplayName: isOwner ? thread.buyer.displayName : thread.listing.owner.displayName,
         lastMessageAt: thread.lastMessageAt,
         lastMessagePreview: thread.messages[0].body,
@@ -310,6 +312,7 @@ export type ListMyThreadsResult = {
     listingId: string;
     listingTitle: string;
     role: "owner" | "buyer";
+    counterpartId: string;
     counterpartDisplayName: string | null;
     lastMessageAt: Date;
     lastMessagePreview: string;
@@ -380,6 +383,7 @@ export async function listMyThreads(callerAccountId: string): Promise<ListMyThre
         listingId: thread.listing.id,
         listingTitle: thread.listing.title,
         role: isOwner ? "owner" : "buyer",
+        counterpartId: isOwner ? thread.buyerId : thread.listing.ownerId,
         counterpartDisplayName: isOwner ? thread.buyer.displayName : thread.listing.owner.displayName,
         lastMessageAt: thread.lastMessageAt,
         lastMessagePreview: thread.messages[0].body,

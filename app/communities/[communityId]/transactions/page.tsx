@@ -36,21 +36,26 @@ export default async function TransactionsPage({
       ) : (
         <div className="flex flex-col gap-3">
           {result.transactions.map((transaction) => (
-            <Link
-              key={transaction.id}
-              href={`/communities/${communityId}/transactions/${transaction.id}`}
-              data-testid="transaction-list-row"
-            >
-              <Card className="max-w-xl">
+            <Card key={transaction.id} className="max-w-xl" data-testid="transaction-list-row">
+              <Link
+                href={`/communities/${communityId}/transactions/${transaction.id}`}
+                className="block hover:no-underline"
+              >
                 <p className="text-[15px] font-semibold">{transaction.listingTitle}</p>
-                <p className="text-[13px] text-ink-muted">
-                  {transaction.role === "recorder" ? "You recorded this" : "Recorded by"}{" "}
-                  {resolveDisplayName(transaction.counterpartDisplayName)} ·{" "}
-                  {transaction.confirmationState === "CONFIRMED" ? "Confirmed" : "Unconfirmed"} ·{" "}
-                  {new Date(transaction.createdAt).toLocaleString()}
-                </p>
-              </Card>
-            </Link>
+              </Link>
+              <p className="text-[13px] text-ink-muted">
+                {transaction.role === "recorder" ? "You recorded this" : "Recorded by"}{" "}
+                <Link
+                  href={`/communities/${communityId}/members/${transaction.counterpartId}`}
+                  className="hover:underline"
+                >
+                  {resolveDisplayName(transaction.counterpartDisplayName)}
+                </Link>{" "}
+                ·{" "}
+                {transaction.confirmationState === "CONFIRMED" ? "Confirmed" : "Unconfirmed"} ·{" "}
+                {new Date(transaction.createdAt).toLocaleString()}
+              </p>
+            </Card>
           ))}
         </div>
       )}

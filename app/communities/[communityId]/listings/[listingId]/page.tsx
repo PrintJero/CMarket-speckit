@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { getCurrentAccount } from "@/lib/auth/currentAccount";
 import { getListing } from "@/server/services/listingService";
 import { requireCommunityAdministrator } from "@/server/services/invitationService";
@@ -38,7 +39,14 @@ export default async function ListingDetailPage({
       <BackLink href={`/communities/${communityId}/listings`}>Back to listings</BackLink>
       <PageHeader
         title={listing.title}
-        subtitle={`${listing.kind === "WANTED" ? "Wanted" : "For sale"} · Listed by ${resolveDisplayName(listing.ownerDisplayName)}`}
+        subtitle={
+          <>
+            {listing.kind === "WANTED" ? "Wanted" : "For sale"} · Listed by{" "}
+            <Link href={`/communities/${communityId}/members/${listing.ownerId}`} className="hover:underline">
+              {resolveDisplayName(listing.ownerDisplayName)}
+            </Link>
+          </>
+        }
       />
 
       {listing.photos.length > 0 && (
