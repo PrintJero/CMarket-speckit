@@ -17,11 +17,14 @@ export function ListingDiscoveryControls({
   initialQuery,
   initialMinPrice,
   initialMaxPrice,
+  initialKind = "",
 }: {
   communityId: string;
   initialQuery: string;
   initialMinPrice: string;
   initialMaxPrice: string;
+  /** 011-wanted-posts, FR-011: "" means both kinds (omitted filter), mirroring price range's own optional-bound convention. */
+  initialKind?: string;
 }) {
   const [minPrice, setMinPrice] = useState(initialMinPrice);
   const [maxPrice, setMaxPrice] = useState(initialMaxPrice);
@@ -79,6 +82,15 @@ export function ListingDiscoveryControls({
               onChange={(event) => setMaxPrice(event.target.value)}
               placeholder="Max price (cents)"
             />
+          </FormField>
+        </div>
+        <div className="w-40">
+          <FormField label="Kind">
+            <select className={fieldInputClassName} name="kind" defaultValue={initialKind}>
+              <option value="">All</option>
+              <option value="FOR_SALE">For sale</option>
+              <option value="WANTED">Wanted</option>
+            </select>
           </FormField>
         </div>
         <Button type="submit" className="mb-4">

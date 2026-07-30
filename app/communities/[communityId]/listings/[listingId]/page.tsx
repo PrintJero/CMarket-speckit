@@ -38,7 +38,7 @@ export default async function ListingDetailPage({
       <BackLink href={`/communities/${communityId}/listings`}>Back to listings</BackLink>
       <PageHeader
         title={listing.title}
-        subtitle={`Listed by ${resolveDisplayName(listing.ownerDisplayName)}`}
+        subtitle={`${listing.kind === "WANTED" ? "Wanted" : "For sale"} · Listed by ${resolveDisplayName(listing.ownerDisplayName)}`}
       />
 
       {listing.photos.length > 0 && (
@@ -63,6 +63,7 @@ export default async function ListingDetailPage({
             initialTitle={listing.title}
             initialDescription={listing.description}
             initialPriceCents={listing.priceCents}
+            initialKind={listing.kind}
           />
         ) : (
           <>
@@ -86,6 +87,7 @@ export default async function ListingDetailPage({
         communityId={communityId}
         listingId={listing.id}
         initialStatus={listing.status}
+        kind={listing.kind}
         canModerate={isOwner || isAdministrator}
         isOwner={isOwner}
       />

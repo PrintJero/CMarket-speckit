@@ -7,6 +7,10 @@ export const listingPriceFormatter = new Intl.NumberFormat(LISTING_LOCALE, {
   currency: LISTING_CURRENCY,
 });
 
-export function formatListingPrice(priceCents: number): string {
+/** 011-wanted-posts: a WANTED post's budget is optional (nullable priceCents). */
+export const BUDGET_PLACEHOLDER = "Budget not specified";
+
+export function formatListingPrice(priceCents: number | null): string {
+  if (priceCents === null) return BUDGET_PLACEHOLDER;
   return listingPriceFormatter.format(priceCents / 100);
 }
