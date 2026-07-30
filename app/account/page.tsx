@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import { getCurrentAccount } from "@/lib/auth/currentAccount";
-import { DisplayNameForm } from "./DisplayNameForm";
 import { AppShell } from "../_components/AppShell";
 import { BackLink } from "../_components/BackLink";
 import { PageHeader } from "../_components/PageHeader";
@@ -17,12 +16,9 @@ export default async function AccountPage() {
       <BackLink href="/">Back home</BackLink>
       <PageHeader title="Account" />
       <Card>
-        {!account.displayName && (
-          <p className="mb-3 text-[0.6875rem] font-bold uppercase tracking-wider text-ink-muted">
-            Display name not set yet.
-          </p>
-        )}
-        <DisplayNameForm currentDisplayName={account.displayName} />
+        <p className="py-6 text-center text-[14px] font-semibold text-ink-muted">
+          Account settings coming soon
+        </p>
       </Card>
     </AppShell>
   );

@@ -19,6 +19,7 @@ test("signup → blocked before verification → verify → allowed after", asyn
   const password = "correct-horse-battery-staple";
 
   await page.goto("/sign-up");
+  await page.getByLabel("Name").fill("Verification Flow Tester");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByLabel("Confirm password").fill(password);

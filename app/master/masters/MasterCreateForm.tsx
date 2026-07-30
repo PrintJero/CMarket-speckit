@@ -2,8 +2,9 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { FormField, FormError, fieldInputClassName } from "../../_components/FormField";
-import { Button } from "../../_components/Button";
+import { MasterFormField, MasterFormMessage, masterFieldInputClassName } from "../_components/MasterFormField";
+import { MasterButton } from "../_components/MasterButton";
+import { MasterTemporaryPasswordPanel } from "../_components/MasterTemporaryPasswordPanel";
 
 export function MasterCreateForm() {
   const router = useRouter();
@@ -39,32 +40,32 @@ export function MasterCreateForm() {
   return (
     <div>
       <form onSubmit={onSubmit}>
-        <FormField label="Master ID">
+        <MasterFormField label="Master ID" required>
           <input
-            className={fieldInputClassName}
+            className={masterFieldInputClassName}
             required
             value={masterId}
             onChange={(e) => setMasterId(e.target.value)}
           />
-        </FormField>
-        <FormField label="Operational email">
+        </MasterFormField>
+        <MasterFormField label="Operational email" required>
           <input
-            className={fieldInputClassName}
+            className={masterFieldInputClassName}
             type="email"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
-        </FormField>
-        {error && <FormError role="alert">{error}</FormError>}
-        <Button type="submit" disabled={submitting}>
-          Create MASTER
-        </Button>
+        </MasterFormField>
+        {error && <MasterFormMessage tone="error">{error}</MasterFormMessage>}
+        <MasterButton type="submit" disabled={submitting} fullWidth>
+          {submitting ? "Creating…" : "Create MASTER"}
+        </MasterButton>
       </form>
       {temporaryPassword && (
-        <p className="mt-3 rounded-card bg-brand-tint p-3 text-[13px] font-semibold text-brand-dark" role="status">
-          Temporary password (shown once, copy it now): <code>{temporaryPassword}</code>
-        </p>
+        <div className="mt-4">
+          <MasterTemporaryPasswordPanel password={temporaryPassword} label="Temporary password" />
+        </div>
       )}
     </div>
   );

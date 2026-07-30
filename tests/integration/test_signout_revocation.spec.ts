@@ -8,7 +8,12 @@ test("sign-out deletes the underlying Session row", async ({ page }) => {
   const email = uniqueEmail("signout-revoke");
   const password = "correct-horse-battery-staple";
   const account = await prisma.account.create({
-    data: { email, passwordHash: await hashPassword(password), emailVerifiedAt: new Date() },
+    data: {
+      email,
+      passwordHash: await hashPassword(password),
+      emailVerifiedAt: new Date(),
+      displayName: "Revoke Tester",
+    },
   });
 
   await page.goto("/sign-in");
@@ -16,12 +21,13 @@ test("sign-out deletes the underlying Session row", async ({ page }) => {
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL("/");
+  await expect(page.getByText("Revoke Tester")).toBeVisible();
 
   expect(await prisma.session.count({ where: { accountId: account.id } })).toBeGreaterThan(0);
 
   await page.getByRole("button", { name: "Sign out" }).click();
   await page.waitForURL("/");
-  await expect(page.getByText(`Signed in as ${email}`)).toHaveCount(0);
+  await expect(page.getByText("Revoke Tester")).toHaveCount(0);
 
   expect(await prisma.session.count({ where: { accountId: account.id } })).toBe(0);
 });

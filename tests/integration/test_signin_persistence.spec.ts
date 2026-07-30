@@ -8,7 +8,12 @@ test("sign in persists across a simulated app restart", async ({ page, browser }
   const email = uniqueEmail("signin-persist");
   const password = "correct-horse-battery-staple";
   await prisma.account.create({
-    data: { email, passwordHash: await hashPassword(password), emailVerifiedAt: new Date() },
+    data: {
+      email,
+      passwordHash: await hashPassword(password),
+      emailVerifiedAt: new Date(),
+      displayName: "Persist Tester",
+    },
   });
 
   await page.goto("/sign-in");
@@ -16,13 +21,14 @@ test("sign in persists across a simulated app restart", async ({ page, browser }
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL("/");
-  await expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
+  await expect(page.getByText("Persist Tester")).toBeVisible();
+  await expect(page.getByText(email)).toHaveCount(0);
 
   // Simulate an app restart: carry the persisted cookie into a fresh context.
   const storageState = await page.context().storageState();
   const restartedContext = await browser.newContext({ storageState });
   const restartedPage = await restartedContext.newPage();
   await restartedPage.goto("/");
-  await expect(restartedPage.getByText(`Signed in as ${email}`)).toBeVisible();
+  await expect(restartedPage.getByText("Persist Tester")).toBeVisible();
   await restartedContext.close();
 });

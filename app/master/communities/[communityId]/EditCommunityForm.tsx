@@ -2,13 +2,13 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { FormField, FormError, fieldInputClassName } from "../../../_components/FormField";
-import { Button } from "../../../_components/Button";
+import { MasterFormField, MasterFormMessage, masterFieldInputClassName } from "../../_components/MasterFormField";
+import { MasterButton } from "../../_components/MasterButton";
 
 export function EditCommunityForm({ communityId, initialName }: { communityId: string; initialName: string }) {
   const router = useRouter();
   const [name, setName] = useState(initialName);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   async function onSubmit(event: FormEvent) {
@@ -25,22 +25,29 @@ export function EditCommunityForm({ communityId, initialName }: { communityId: s
     setSubmitting(false);
 
     if (data.ok) {
-      setMessage("Saved.");
+      setMessage({ kind: "success", text: "Saved." });
       router.refresh();
       return;
     }
-    setMessage(`Failed: ${data.reason}`);
+    setMessage({ kind: "error", text: `Failed: ${data.reason}` });
   }
 
   return (
     <form onSubmit={onSubmit}>
-      <FormField label="Community name">
-        <input className={fieldInputClassName} required value={name} onChange={(e) => setName(e.target.value)} />
-      </FormField>
-      {message && <FormError role="status">{message}</FormError>}
-      <Button type="submit" variant="secondary" disabled={submitting}>
+      <MasterFormField label="Community name" required>
+        <input
+          className={masterFieldInputClassName}
+          required
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+      </MasterFormField>
+      {message && (
+        <MasterFormMessage tone={message.kind === "error" ? "error" : "success"}>{message.text}</MasterFormMessage>
+      )}
+      <MasterButton type="submit" variant="secondary" disabled={submitting}>
         Save
-      </Button>
+      </MasterButton>
     </form>
   );
 }

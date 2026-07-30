@@ -2,8 +2,9 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { fieldInputClassName } from "../../_components/FormField";
-import { Button } from "../../_components/Button";
+import { masterFieldInputClassName } from "../_components/MasterFormField";
+import { MasterButton } from "../_components/MasterButton";
+import { SearchIcon } from "../../_components/icons";
 
 export function SearchBox() {
   const router = useRouter();
@@ -16,16 +17,19 @@ export function SearchBox() {
 
   return (
     <div className="mb-4 flex gap-2">
-      <input
-        className={`${fieldInputClassName} max-w-sm`}
-        placeholder="Search by email"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && apply()}
-      />
-      <Button variant="secondary" onClick={apply}>
+      <div className="relative max-w-sm flex-1">
+        <SearchIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted" />
+        <input
+          className={`${masterFieldInputClassName} pl-9`}
+          placeholder="Search by email"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && apply()}
+        />
+      </div>
+      <MasterButton type="button" variant="secondary" onClick={apply}>
         Search
-      </Button>
+      </MasterButton>
     </div>
   );
 }

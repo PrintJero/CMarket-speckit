@@ -98,7 +98,9 @@ describe("POST /api/auth/resend-verification (contract)", () => {
     const email = "contract-resend-3@example.com";
     const password = "resend-preserve-password-123";
 
-    const signUpResponse = await signUp(signUpRequest({ email, password }));
+    const signUpResponse = await signUp(
+      signUpRequest({ displayName: "Resend Preserve", email, password }),
+    );
     expect(signUpResponse.status).toBe(202);
     expect(sentEmails).toHaveLength(1);
     const firstToken = extractToken(sentEmails[0].text);

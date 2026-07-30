@@ -1,12 +1,22 @@
 import Link from "next/link";
 import { requireMasterPage } from "../_lib/requireMasterPage";
 import { MasterShell } from "../_components/MasterShell";
-import { PageHeader } from "../../_components/PageHeader";
-import { Card } from "../../_components/Card";
-import { LinkButton } from "../../_components/Button";
+import { MasterPageHeader } from "../_components/MasterPageHeader";
+import { MasterLinkButton } from "../_components/MasterButton";
+import { MasterStatusBadge } from "../_components/MasterStatusBadge";
+import { MasterTable, masterThClassName, masterTdClassName, masterTrClassName } from "../_components/MasterTable";
+import { MasterEmptyState } from "../_components/MasterEmptyState";
+import { BuildingIcon } from "../../_components/icons";
 import { listCommunitiesForMaster } from "@/server/services/masterAdministrationService";
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" });
+
+const STATUS_FILTERS: { key?: "ACTIVE" | "SUSPENDED" | "ARCHIVED"; label: string }[] = [
+  { label: "All" },
+  { key: "ACTIVE", label: "Active" },
+  { key: "SUSPENDED", label: "Suspended" },
+  { key: "ARCHIVED", label: "Archived" },
+];
 
 export default async function CommunitiesPage({
   searchParams,
@@ -21,67 +31,73 @@ export default async function CommunitiesPage({
 
   return (
     <MasterShell master={master}>
-      <PageHeader
+      <MasterPageHeader
         title="Communities"
         subtitle="Create, edit, suspend, archive, and restore — from outside, without becoming a member."
-        actions={<LinkButton href="/master/communities/new">Create community</LinkButton>}
+        primaryAction={<MasterLinkButton href="/master/communities/new">Create community</MasterLinkButton>}
       />
-      <div className="mb-4 flex gap-2 text-[13px] font-semibold">
-        <Link href="/master/communities" className={!status ? "text-brand" : "text-ink-muted"}>
-          All
-        </Link>
-        <Link href="/master/communities?status=ACTIVE" className={status === "ACTIVE" ? "text-brand" : "text-ink-muted"}>
-          Active
-        </Link>
-        <Link href="/master/communities?status=SUSPENDED" className={status === "SUSPENDED" ? "text-brand" : "text-ink-muted"}>
-          Suspended
-        </Link>
-        <Link href="/master/communities?status=ARCHIVED" className={status === "ARCHIVED" ? "text-brand" : "text-ink-muted"}>
-          Archived
-        </Link>
+
+      <div className="mb-5 flex gap-5 border-b border-border" role="tablist">
+        {STATUS_FILTERS.map((filter) => {
+          const isActive = status === filter.key || (!status && !filter.key);
+          const href = filter.key ? `/master/communities?status=${filter.key}` : "/master/communities";
+          return (
+            <Link
+              key={filter.label}
+              href={href}
+              role="tab"
+              aria-selected={isActive}
+              className={`whitespace-nowrap border-b-2 px-0.5 py-2.5 text-[13px] font-semibold transition-colors ${
+                isActive ? "border-master text-master-dark" : "border-transparent text-ink-muted hover:text-ink"
+              }`}
+            >
+              {filter.label}
+            </Link>
+          );
+        })}
       </div>
-      <Card className="min-w-0">
-        {result.communities.length === 0 ? (
-          <p className="py-10 text-center text-ink-muted">No communities match this filter.</p>
-        ) : (
-          <div className="overflow-x-auto rounded-xl border border-border">
-            <table className="w-full min-w-[640px] table-fixed border-collapse text-sm">
-              <thead>
-                <tr>
-                  <th className="whitespace-nowrap border-b border-border bg-bg px-4 py-3 text-left text-[0.6875rem] font-bold uppercase tracking-wider text-ink-muted">
-                    Name
-                  </th>
-                  <th className="whitespace-nowrap border-b border-border bg-bg px-4 py-3 text-left text-[0.6875rem] font-bold uppercase tracking-wider text-ink-muted">
-                    Status
-                  </th>
-                  <th className="whitespace-nowrap border-b border-border bg-bg px-4 py-3 text-left text-[0.6875rem] font-bold uppercase tracking-wider text-ink-muted">
-                    Members
-                  </th>
-                  <th className="whitespace-nowrap border-b border-border bg-bg px-4 py-3 text-left text-[0.6875rem] font-bold uppercase tracking-wider text-ink-muted">
-                    Created at
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {result.communities.map((c) => (
-                  <tr key={c.id}>
-                    <td className="border-b border-border px-4 py-3 last:border-none">
-                      <Link href={`/master/communities/${c.id}`} className="font-semibold text-brand">
-                        {c.name}
-                      </Link>
-                    </td>
-                    <td className="border-b border-border px-4 py-3 last:border-none">{c.status}</td>
-                    <td className="border-b border-border px-4 py-3 last:border-none">{c.memberCount}</td>
-                    <td className="whitespace-nowrap border-b border-border px-4 py-3 last:border-none">
-                      {dateFormatter.format(c.createdAt)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+
+      {result.communities.length === 0 ? (
+        <div className="rounded-xl border border-border bg-surface">
+          <MasterEmptyState
+            icon={BuildingIcon}
+            title="No communities match this filter"
+            description="Try a different status filter, or create a new community."
+            action={
+              <MasterLinkButton href="/master/communities/new" variant="secondary">
+                Create community
+              </MasterLinkButton>
+            }
+          />
+        </div>
+      ) : (
+        <MasterTable>
+          <thead>
+            <tr>
+              <th className={masterThClassName}>Name</th>
+              <th className={masterThClassName}>Status</th>
+              <th className={masterThClassName}>Members</th>
+              <th className={masterThClassName}>Created at</th>
+            </tr>
+          </thead>
+          <tbody>
+            {result.communities.map((c) => (
+              <tr key={c.id} className={masterTrClassName}>
+                <td className={masterTdClassName}>
+                  <Link href={`/master/communities/${c.id}`} className="font-semibold text-master hover:underline">
+                    {c.name}
+                  </Link>
+                </td>
+                <td className={masterTdClassName}>
+                  <MasterStatusBadge status={c.status} />
+                </td>
+                <td className={masterTdClassName}>{c.memberCount}</td>
+                <td className={`${masterTdClassName} whitespace-nowrap`}>{dateFormatter.format(c.createdAt)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </MasterTable>
+      )}
     </MasterShell>
   );
 }

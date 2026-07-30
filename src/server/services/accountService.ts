@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { isValidEmail, normalizeEmail } from "@/lib/validation/email";
 import { validatePassword } from "@/lib/validation/password";
+import { isValidDisplayName, normalizeDisplayName } from "@/lib/validation/displayName";
 import { hashPassword, verifyPassword } from "@/lib/auth/passwordHash";
 import { sendEmail } from "@/lib/email/sendEmail";
 import {
@@ -27,6 +28,7 @@ async function sendVerificationEmail(email: string, rawToken: string): Promise<v
 export type SignUpResult =
   | { ok: true }
   | { ok: false; reason: "invalid_email" }
+  | { ok: false; reason: "invalid_display_name" }
   | { ok: false; reason: "invalid_password"; passwordReason: "too_short" | "breached" };
 
 /**
@@ -40,10 +42,23 @@ export type SignUpResult =
  * consumed (FR-020). Security amendment #3: a repeated sign-up does NOT
  * invalidate any other pending token for that account (FR-019) — subject to
  * the shared per-account rate limit (FR-021).
+ *
+ * displayName (010-registration-form) is required up front and, unlike the
+ * password, is not credential-gated: it is written to the new Account
+ * immediately, since it carries no sign-in authority and doesn't need to
+ * wait for email verification the way passwordHash does.
  */
-export async function signUp(email: string, password: string): Promise<SignUpResult> {
+export async function signUp(
+  email: string,
+  password: string,
+  displayName: string,
+): Promise<SignUpResult> {
   if (!isValidEmail(email)) {
     return { ok: false, reason: "invalid_email" };
+  }
+
+  if (!isValidDisplayName(displayName)) {
+    return { ok: false, reason: "invalid_display_name" };
   }
 
   const passwordCheck = await validatePassword(password);
@@ -64,7 +79,12 @@ export async function signUp(email: string, password: string): Promise<SignUpRes
   }
 
   const created = await prisma.account.create({
-    data: { email: normalized, passwordHash: null, emailVerifiedAt: null },
+    data: {
+      email: normalized,
+      passwordHash: null,
+      emailVerifiedAt: null,
+      displayName: normalizeDisplayName(displayName),
+    },
   });
   const candidatePasswordHash = await hashPassword(password);
   const rawToken = await issueVerificationToken(created.id, candidatePasswordHash);
@@ -124,8 +144,6 @@ export async function signInWithPassword(email: string, password: string): Promi
   return { ok: true, sessionToken: session.sessionToken, expiresAt: session.expiresAt };
 }
 
-const DISPLAY_NAME_MAX_LENGTH = 50;
-
 export type SetDisplayNameResult =
   | { ok: true; account: { id: string; displayName: string } }
   | { ok: false; reason: "invalid_display_name" };
@@ -137,14 +155,13 @@ export type SetDisplayNameResult =
  * account itself" guarantee by construction, not by an authorization check.
  */
 export async function setDisplayName(accountId: string, displayName: string): Promise<SetDisplayNameResult> {
-  const trimmed = displayName.trim();
-  if (trimmed.length === 0 || trimmed.length > DISPLAY_NAME_MAX_LENGTH) {
+  if (!isValidDisplayName(displayName)) {
     return { ok: false, reason: "invalid_display_name" };
   }
 
   const updated = await prisma.account.update({
     where: { id: accountId },
-    data: { displayName: trimmed },
+    data: { displayName: normalizeDisplayName(displayName) },
   });
 
   return { ok: true, account: { id: updated.id, displayName: updated.displayName! } };

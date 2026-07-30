@@ -1,8 +1,22 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import type { CurrentAccountPayload } from "@/lib/auth/currentAccount";
+import { resolveDisplayName } from "@/lib/formatting/displayName";
 import { SignOutButton } from "./SignOutButton";
 import { MenuIcon, CloseIcon } from "./icons";
+
+function isNavPathActive(pathname: string, href: string): boolean {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function navLinkClassName(active: boolean): string {
+  return `mb-0.5 flex items-center rounded-lg px-2.5 py-2 text-[13.5px] font-semibold transition-colors ${
+    active ? "bg-brand-tint text-brand-dark" : "text-ink hover:bg-bg"
+  }`;
+}
 
 /**
  * Persistent navigation shell for every authenticated screen — the sidebar
@@ -17,7 +31,9 @@ export function AppShell({
   account: CurrentAccountPayload | null;
   children: ReactNode;
 }) {
-  const avatarInitial = account ? account.email.charAt(0).toUpperCase() : "C";
+  const pathname = usePathname();
+  const displayName = account ? resolveDisplayName(account.displayName) : "";
+  const avatarInitial = displayName.charAt(0).toUpperCase();
 
   return (
     <div className="min-h-dvh bg-bg md:flex">
@@ -49,8 +65,11 @@ export function AppShell({
           md:sticky md:top-0 md:z-auto md:h-dvh md:w-[260px] md:translate-x-0 md:border-r md:border-border"
       >
         <div className="flex items-center justify-between">
-          <Link href="/" className="text-lg font-extrabold tracking-tight text-brand">
-            CMarket
+          <Link href="/" className="flex items-center gap-2.5">
+            <span className="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-lg bg-[#4c1d95] text-base font-bold text-white">
+              C
+            </span>
+            <span className="text-[15px] font-bold tracking-tight text-ink">CMarket</span>
           </Link>
           <label
             htmlFor="sidebar-toggle"
@@ -63,61 +82,74 @@ export function AppShell({
 
         {account && (
           <>
-            <div className="mt-4 flex items-center gap-2.5">
-              <span
-                title={account.email}
-                className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-brand-tint text-[13px] font-bold text-brand-dark"
-              >
+            <div className="mt-5 flex items-center gap-2.5">
+              <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-brand-tint text-[15px] font-bold text-brand-dark">
                 {avatarInitial}
               </span>
-              <span className="truncate text-[13px] font-semibold">{account.email}</span>
+              <span
+                className="min-w-0 flex-1 truncate text-[14px] font-bold text-ink"
+                title={displayName}
+              >
+                {displayName}
+              </span>
             </div>
 
-            {/* 2026-07-17 amendment: reachable in one step from every authenticated screen (FR-023) */}
-            <nav className="mt-4 flex flex-col gap-1.5 border-t border-border pt-4 text-sm font-semibold">
-              <Link href="/chats" className="text-brand">
+            <nav className="mt-4 border-t border-border pt-4" aria-label="Main">
+              <Link href="/chats" className={navLinkClassName(isNavPathActive(pathname, "/chats"))}>
                 Chats
               </Link>
-              <Link href="/my-listings" className="text-brand">
+              <Link
+                href="/my-listings"
+                className={navLinkClassName(isNavPathActive(pathname, "/my-listings"))}
+              >
                 My listings
               </Link>
+
+              {account.memberships.length > 0 && (
+                <div className="mt-4 border-t border-border pt-4">
+                  <span className="block px-2.5 text-[11px] font-bold uppercase tracking-wider text-ink-muted">
+                    Your communities
+                  </span>
+                  <ul className="mt-2 flex flex-col gap-0.5">
+                    {account.memberships.map((membership) => {
+                      const active = isNavPathActive(pathname, `/communities/${membership.communityId}`);
+                      return (
+                        <li key={membership.communityId}>
+                          <div
+                            className={`flex items-center gap-2 rounded-lg px-2.5 py-2 text-[13.5px] font-semibold transition-colors ${
+                              active ? "bg-brand-tint text-brand-dark" : "text-ink hover:bg-bg"
+                            }`}
+                          >
+                            <Link
+                              href={`/communities/${membership.communityId}/listings`}
+                              className="min-w-0 flex-1 truncate"
+                            >
+                              {membership.communityName}
+                            </Link>
+                            {membership.role === "ADMINISTRATOR" && (
+                              <Link
+                                href={`/communities/${membership.communityId}/admin`}
+                                className="flex-none text-[11px] font-medium text-ink-muted hover:text-ink"
+                              >
+                                Admin
+                              </Link>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+
+              <div className="mt-4 border-t border-border pt-4">
+                <Link href="/account" className={navLinkClassName(isNavPathActive(pathname, "/account"))}>
+                  Account
+                </Link>
+              </div>
             </nav>
 
-            {account.memberships.length > 0 && (
-              <nav className="mt-4 border-t border-border pt-4">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-ink-muted">
-                  Your communities
-                </span>
-                <ul className="mt-2 flex flex-col gap-1.5">
-                  {account.memberships.map((membership) => (
-                    <li key={membership.communityId} className="flex items-center gap-2 text-sm">
-                      <Link
-                        href={`/communities/${membership.communityId}/listings`}
-                        className="font-semibold text-brand"
-                      >
-                        {membership.communityName}
-                      </Link>
-                      {membership.role === "ADMINISTRATOR" && (
-                        <Link
-                          href={`/communities/${membership.communityId}/admin`}
-                          className="text-xs font-medium text-ink-muted hover:text-ink"
-                        >
-                          Admin
-                        </Link>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </nav>
-            )}
-
-            <div className="mt-4 flex flex-col items-start gap-2 border-t border-border pb-2 pt-4 md:mt-auto">
-              <span className="max-w-full truncate text-[11px] font-bold uppercase tracking-wider text-ink-muted">
-                Signed in as {account.email}
-              </span>
-              <Link href="/account" className="text-sm font-semibold text-brand">
-                Account
-              </Link>
+            <div className="mt-4 border-t border-border pb-2 pt-4 md:mt-auto">
               <SignOutButton />
             </div>
           </>

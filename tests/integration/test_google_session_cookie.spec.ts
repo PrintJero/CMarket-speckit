@@ -32,7 +32,11 @@ async function establishGoogleSession(email: string) {
   const adapter = buildPrismaAuthAdapter();
   const providerAccountId = `google-${Math.floor(Math.random() * 1e9)}`;
 
-  const user = await adapter.createUser!({ email, emailVerified: null } as never);
+  const user = await adapter.createUser!({
+    email,
+    emailVerified: null,
+    name: "Cookie Seam Tester",
+  } as never);
   await adapter.linkAccount!({
     provider: "google",
     providerAccountId,
@@ -71,7 +75,8 @@ test("a session established through the Auth.js adapter resolves via getCurrentA
 
   await page.goto("/");
 
-  await expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
+  await expect(page.getByText("Cookie Seam Tester")).toBeVisible();
+  await expect(page.getByText(email)).toHaveCount(0);
 });
 
 test("signing out clears the unified cookie and deletes the Session row for a Google-established session (FR-025, FR-008)", async ({
@@ -93,12 +98,12 @@ test("signing out clears the unified cookie and deletes the Session row for a Go
   ]);
 
   await page.goto("/");
-  await expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
+  await expect(page.getByText("Cookie Seam Tester")).toBeVisible();
   expect(await prisma.session.count({ where: { accountId } })).toBeGreaterThan(0);
 
   await page.getByRole("button", { name: "Sign out" }).click();
   await page.waitForURL("/");
-  await expect(page.getByText(`Signed in as ${email}`)).toHaveCount(0);
+  await expect(page.getByText("Cookie Seam Tester")).toHaveCount(0);
 
   const cookiesAfterSignOut = await page.context().cookies();
   expect(cookiesAfterSignOut.find((cookie) => cookie.name === resolvedAuthJsCookieName())).toBeUndefined();
