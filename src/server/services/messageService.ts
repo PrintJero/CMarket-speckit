@@ -395,7 +395,13 @@ export async function listMyThreads(callerAccountId: string): Promise<ListMyThre
 export type GetThreadResult =
   | {
       ok: true;
-      thread: { id: string; listingId: string; listingTitle: string };
+      thread: {
+        id: string;
+        listingId: string;
+        listingTitle: string;
+        counterpartId: string;
+        counterpartDisplayName: string | null;
+      };
       messages: {
         id: string;
         senderId: string;
@@ -434,7 +440,10 @@ export async function getThread(input: GetThreadInput): Promise<GetThreadResult>
   const thread = await prisma.messageThread.findUnique({
     where: { id: threadId },
     include: {
-      listing: { select: { id: true, title: true, communityId: true, ownerId: true } },
+      listing: {
+        select: { id: true, title: true, communityId: true, ownerId: true, owner: { select: { displayName: true } } },
+      },
+      buyer: { select: { displayName: true } },
       messages: {
         orderBy: { createdAt: "asc" },
         include: { sender: { select: { displayName: true } } },
@@ -449,14 +458,21 @@ export async function getThread(input: GetThreadInput): Promise<GetThreadResult>
     return { ok: false, reason: "not_found" };
   }
 
-  const isParticipant = thread.buyerId === callerAccountId || thread.listing.ownerId === callerAccountId;
+  const isOwner = thread.listing.ownerId === callerAccountId;
+  const isParticipant = thread.buyerId === callerAccountId || isOwner;
   if (!isParticipant) {
     return { ok: false, reason: "not_a_participant" };
   }
 
   return {
     ok: true,
-    thread: { id: thread.id, listingId: thread.listing.id, listingTitle: thread.listing.title },
+    thread: {
+      id: thread.id,
+      listingId: thread.listing.id,
+      listingTitle: thread.listing.title,
+      counterpartId: isOwner ? thread.buyerId : thread.listing.ownerId,
+      counterpartDisplayName: isOwner ? thread.buyer.displayName : thread.listing.owner.displayName,
+    },
     messages: thread.messages.map((message) => ({
       id: message.id,
       senderId: message.senderId,
