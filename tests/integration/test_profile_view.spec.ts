@@ -31,7 +31,8 @@ async function addMember(communityId: string, email: string, password: string, d
   return account;
 }
 
-// T010 (US1) — MVP: a profile is reachable from a listing, a thread, and a transaction.
+// T009 (US2) — MVP: a profile is reachable from a listing, a thread, and a transaction, and
+// shows only the one community shared, without contact data.
 test("a member's profile is reachable from a listing, a thread, and a transaction, showing identity and listings without contact data", async ({
   page,
   browser,
@@ -81,28 +82,75 @@ test("a member's profile is reachable from a listing, a thread, and a transactio
   await page.waitForURL(`**/communities/${community.id}/members/${owner.id}`);
 });
 
-// T010 (US1, Edge Cases): an account with no active listings shows a defined empty state.
-test("a profile with no active listings in the community shows a defined empty state", async ({ page }) => {
+// T009 (US2, FR-014): sharing two communities shows both, each independently scoped, and a
+// community only the viewer belongs to never appears.
+test("a profile shows every community the viewer and the target currently share, never one only the viewer belongs to", async ({
+  page,
+}) => {
   const password = "correct-horse-battery-staple";
-  const ownerEmail = uniqueEmail("profile-view-empty-owner");
-  const viewerEmail = uniqueEmail("profile-view-empty-viewer");
-  const community = await createCommunityWithAdmin(
+  const ownerEmail = uniqueEmail("profile-view-multi-owner");
+  const viewerEmail = uniqueEmail("profile-view-multi-viewer");
+  const communityC = await createCommunityWithAdmin(
     page.request,
-    `Profile View Empty Community ${Date.now()}`,
+    `Profile Multi Community C ${Date.now()}`,
     ownerEmail,
     password,
-    "Empty Listings Owner",
+    "Multi Owner",
   );
-  await addMember(community.id, viewerEmail, password, "Empty Listings Viewer");
+  const viewer = await addMember(communityC.id, viewerEmail, password, "Multi Viewer");
   const owner = await prisma.account.findUniqueOrThrow({ where: { email: ownerEmail } });
 
+  const communityD = await createCommunityWithAdmin(
+    page.request,
+    `Profile Multi Community D ${Date.now()}`,
+    uniqueEmail("profile-view-multi-owner-d"),
+    password,
+    "Multi Owner D Admin",
+  );
+  await prisma.membership.create({ data: { accountId: owner.id, communityId: communityD.id, role: "MEMBER" } });
+  await prisma.membership.create({ data: { accountId: viewer.id, communityId: communityD.id, role: "MEMBER" } });
+
+  const communityViewerOnlyName = `Profile Multi Viewer Only ${Date.now()}`;
+  const communityViewerOnly = await createCommunityWithAdmin(
+    page.request,
+    communityViewerOnlyName,
+    uniqueEmail("profile-view-multi-viewer-only-admin"),
+    password,
+    "Viewer Only Admin",
+  );
+  await prisma.membership.create({ data: { accountId: viewer.id, communityId: communityViewerOnly.id, role: "MEMBER" } });
+
+  const listingC = await prisma.listing.create({
+    data: { communityId: communityC.id, ownerId: owner.id, title: "Multi Listing C", description: "Description", priceCents: 1000, kind: "FOR_SALE", stockQuantity: 5 },
+  });
+
   await signIn(page, viewerEmail, password);
-  await page.goto(`/communities/${community.id}/members/${owner.id}`);
-  await expect(page.getByText("No active listings in this community.")).toBeVisible();
-  await expect(page.getByText("No ratings yet")).toBeVisible();
+  await page.goto(`/communities/${communityC.id}/members/${owner.id}`);
+
+  const communitiesSection = page.getByTestId("profile-communities");
+  await expect(communitiesSection.getByText(communityC.name)).toBeVisible();
+  await expect(communitiesSection.getByText(communityD.name)).toBeVisible();
+  await expect(communitiesSection.getByText("Multi Listing C")).toBeVisible();
+  // communityD has no listing from the owner — a defined empty state, not an error.
+  await expect(communitiesSection.getByText("No active listings in this community.")).toBeVisible();
+
+  // Scoped to the profile's own content (not the viewer's personal sidebar, which legitimately
+  // shows the viewer's own communities regardless of whose profile is being viewed).
+  const mainText = await page.getByRole("main").textContent();
+  expect(mainText).not.toContain(communityViewerOnlyName);
+  expect(mainText).not.toContain(communityViewerOnly.id);
+
+  // Clicking the shared community's name navigates to its listings feed.
+  await communitiesSection.getByRole("link", { name: communityC.name }).click();
+  await page.waitForURL(`**/communities/${communityC.id}/listings`);
+
+  // Clicking a listing card navigates to its detail page.
+  await page.goto(`/communities/${communityC.id}/members/${owner.id}`);
+  await page.getByRole("link", { name: "Multi Listing C" }).click();
+  await page.waitForURL(`**/communities/${communityC.id}/listings/${listingC.id}`);
 });
 
-// T027 (US4, FR-011): a profile's global reputation never names the community a rating came from.
+// T027 (US4, FR-011): a profile's global reputation never names the community a viewer doesn't share.
 test("a profile's combined rating never reveals the community a viewer doesn't share", async ({ page }) => {
   const password = "correct-horse-battery-staple";
   const ownerEmail = uniqueEmail("profile-view-global-owner");
@@ -156,7 +204,29 @@ test("a profile's combined rating never reveals the community a viewer doesn't s
   expect(pageText).not.toContain(communityD.id);
 });
 
-// T010 (US1, FR-006): two accounts sharing no community cannot reach each other's profile.
+// T009 (US1, FR-006, Edge Case): an account with no active listings in a shared community
+// shows a defined empty state.
+test("a profile with no active listings in a shared community shows a defined empty state", async ({ page }) => {
+  const password = "correct-horse-battery-staple";
+  const ownerEmail = uniqueEmail("profile-view-empty-owner");
+  const viewerEmail = uniqueEmail("profile-view-empty-viewer");
+  const community = await createCommunityWithAdmin(
+    page.request,
+    `Profile View Empty Community ${Date.now()}`,
+    ownerEmail,
+    password,
+    "Empty Listings Owner",
+  );
+  await addMember(community.id, viewerEmail, password, "Empty Listings Viewer");
+  const owner = await prisma.account.findUniqueOrThrow({ where: { email: ownerEmail } });
+
+  await signIn(page, viewerEmail, password);
+  await page.goto(`/communities/${community.id}/members/${owner.id}`);
+  await expect(page.getByText("No active listings in this community.")).toBeVisible();
+  await expect(page.getByText("No ratings yet")).toBeVisible();
+});
+
+// T009 (US2, FR-017): two accounts sharing no current community cannot reach each other's profile.
 test("two accounts that do not share a community cannot open each other's profile", async ({ page }) => {
   const password = "correct-horse-battery-staple";
   const ownerEmail = uniqueEmail("profile-view-isolated-owner");
@@ -173,5 +243,74 @@ test("two accounts that do not share a community cannot open each other's profil
 
   await signIn(page, outsiderEmail, password);
   const response = await page.request.get(`/api/communities/${community.id}/members/${owner.id}`);
-  expect(response.status()).toBe(403);
+  expect(response.status()).toBe(404);
+});
+
+// T009 (Edge Case): viewing your own profile link behaves identically, without ever showing email.
+test("opening your own public-profile link behaves like any other profile view, without showing your email", async ({
+  page,
+}) => {
+  const password = "correct-horse-battery-staple";
+  const ownerEmail = uniqueEmail("profile-view-self-owner");
+  const community = await createCommunityWithAdmin(
+    page.request,
+    `Profile View Self Community ${Date.now()}`,
+    ownerEmail,
+    password,
+    "Self View Owner",
+  );
+  const owner = await prisma.account.findUniqueOrThrow({ where: { email: ownerEmail } });
+
+  await signIn(page, ownerEmail, password);
+  await page.goto(`/communities/${community.id}/members/${owner.id}`);
+  await expect(page.getByRole("heading", { name: "Self View Owner" })).toBeVisible();
+  await expect(page.getByText(ownerEmail)).toHaveCount(0);
+});
+
+// T011 (US3): the two entry points not already exercised above — /chats and the global
+// /transactions hub — also open the same shared-community profile.
+test("clicking a counterpart's display name from /chats and the Transactions hub opens their profile", async ({
+  page,
+}) => {
+  const password = "correct-horse-battery-staple";
+  const ownerEmail = uniqueEmail("profile-view-nav-owner");
+  const buyerEmail = uniqueEmail("profile-view-nav-buyer");
+  const community = await createCommunityWithAdmin(
+    page.request,
+    `Profile Nav Community ${Date.now()}`,
+    ownerEmail,
+    password,
+    "Nav Owner",
+  );
+  const buyer = await addMember(community.id, buyerEmail, password, "Nav Buyer");
+  const owner = await prisma.account.findUniqueOrThrow({ where: { email: ownerEmail } });
+
+  const listing = await prisma.listing.create({
+    data: {
+      communityId: community.id,
+      ownerId: owner.id,
+      title: "Profile Nav Bicycle",
+      description: "Description",
+      priceCents: 5000,
+      kind: "FOR_SALE",
+      stockQuantity: 10,
+    },
+  });
+  const thread = await prisma.messageThread.create({ data: { listingId: listing.id, buyerId: buyer.id } });
+  await prisma.message.create({ data: { threadId: thread.id, senderId: buyer.id, body: "Still available?" } });
+
+  await signIn(page, buyerEmail, password);
+
+  // From /chats.
+  await page.goto("/chats");
+  await page.getByRole("link", { name: "Nav Owner" }).first().click();
+  await page.waitForURL(`**/communities/${community.id}/members/${owner.id}`);
+
+  // From the global Transactions hub's Buying view.
+  await page.request.post(`/api/communities/${community.id}/listings/${listing.id}/proposals`, {
+    data: { quantity: 1, totalCents: 5000 },
+  });
+  await page.goto("/transactions");
+  await page.getByRole("link", { name: "Nav Owner" }).click();
+  await page.waitForURL(`**/communities/${community.id}/members/${owner.id}`);
 });

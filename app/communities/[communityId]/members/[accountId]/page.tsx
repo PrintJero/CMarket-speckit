@@ -21,7 +21,7 @@ export default async function MemberProfilePage({
     notFound();
   }
 
-  const result = await getProfile({ communityId, accountId, viewerAccountId: account.accountId });
+  const result = await getProfile({ accountId, viewerAccountId: account.accountId });
   if (!result.ok) {
     notFound();
   }
@@ -34,10 +34,7 @@ export default async function MemberProfilePage({
       <PageHeader title={resolveDisplayName(profile.displayName)} />
 
       <Card className="mb-5 max-w-xl">
-        <p className="text-[13px] text-ink-muted">
-          Member since {new Date(profile.memberSince).toLocaleDateString()}
-        </p>
-        <div className="mt-4 flex gap-8" data-testid="profile-reputation">
+        <div className="flex gap-8" data-testid="profile-reputation">
           <div>
             <p className="text-[22px] font-bold text-ink">{formatAverageRating(profile.averageRating)}</p>
             <p className="text-[12px] text-ink-muted">
@@ -45,33 +42,47 @@ export default async function MemberProfilePage({
             </p>
           </div>
           <div>
-            <p className="text-[22px] font-bold text-ink">{profile.confirmedTransactionCount}</p>
-            <p className="text-[12px] text-ink-muted">Confirmed transactions</p>
+            <p className="text-[22px] font-bold text-ink">{profile.completedTransactionCount}</p>
+            <p className="text-[12px] text-ink-muted">Completed transactions</p>
           </div>
         </div>
       </Card>
 
-      <Card className="max-w-xl">
-        <p className="mb-3 text-[13px] font-bold uppercase tracking-wider text-ink-muted">Active listings</p>
-        {profile.activeListings.length === 0 ? (
-          <p className="text-ink-muted">No active listings in this community.</p>
-        ) : (
-          <div className="flex flex-col gap-3" data-testid="profile-active-listings">
-            {profile.activeListings.map((listing) => (
-              <Link
-                key={listing.id}
-                href={`/communities/${communityId}/listings/${listing.id}`}
-                className="block rounded-card bg-bg p-3 hover:no-underline"
-              >
-                <p className="font-semibold text-ink">{listing.title}</p>
-                <p className="text-[13px] text-ink-muted">
-                  {listing.kind === "WANTED" ? "Wanted" : "For sale"} · {formatListingPrice(listing.priceCents)}
-                </p>
-              </Link>
-            ))}
-          </div>
-        )}
-      </Card>
+      <h2 className="mb-3 text-[15px] font-bold text-ink">Communities you share</h2>
+      <div className="flex flex-col gap-4" data-testid="profile-communities">
+        {profile.communities.map((community) => (
+          <Card key={community.communityId} className="max-w-xl" data-testid="profile-community">
+            <Link
+              href={`/communities/${community.communityId}/listings`}
+              className="text-[15px] font-bold text-ink hover:underline"
+            >
+              {community.communityName}
+            </Link>
+            <p className="mb-3 text-[13px] text-ink-muted">
+              Member since {new Date(community.memberSince).toLocaleDateString()}
+            </p>
+
+            {community.listings.length === 0 ? (
+              <p className="text-ink-muted">No active listings in this community.</p>
+            ) : (
+              <div className="flex flex-col gap-3" data-testid="profile-active-listings">
+                {community.listings.map((listing) => (
+                  <Link
+                    key={listing.id}
+                    href={`/communities/${community.communityId}/listings/${listing.id}`}
+                    className="block rounded-card bg-bg p-3 hover:no-underline"
+                  >
+                    <p className="font-semibold text-ink">{listing.title}</p>
+                    <p className="text-[13px] text-ink-muted">
+                      {listing.kind === "WANTED" ? "Wanted" : "For sale"} · {formatListingPrice(listing.priceCents)}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </Card>
+        ))}
+      </div>
     </AppShell>
   );
 }
