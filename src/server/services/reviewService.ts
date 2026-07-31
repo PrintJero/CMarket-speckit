@@ -26,6 +26,34 @@ export async function getReputationSummary(
   };
 }
 
+/**
+ * 015-navigation-shell-community-selector, research.md #2: batched sibling of
+ * getReputationSummary() above, built on the identical global-aggregate shape
+ * (never a communityId in the where clause), grouped instead of filtered to
+ * one account — avoids one query per feed card. Accounts with zero reviews
+ * are simply absent from the returned map rather than present with zeros,
+ * so callers can distinguish "no reviews yet" without a sentinel value.
+ */
+export async function getReputationSummaries(
+  accountIds: string[],
+): Promise<Map<string, { averageRating: number | null; reviewCount: number }>> {
+  if (accountIds.length === 0) return new Map();
+
+  const grouped = await prisma.review.groupBy({
+    by: ["reviewedId"],
+    where: { reviewedId: { in: accountIds } },
+    _avg: { rating: true },
+    _count: { rating: true },
+  });
+
+  return new Map(
+    grouped.map((row) => [
+      row.reviewedId,
+      { averageRating: row._avg.rating ?? null, reviewCount: row._count.rating },
+    ]),
+  );
+}
+
 export type CreateReviewResult =
   | { ok: true; review: { id: string; rating: number; createdAt: Date } }
   | { ok: false; reason: "invalid_rating" }

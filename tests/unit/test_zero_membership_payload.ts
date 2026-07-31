@@ -31,6 +31,7 @@ describe("toCurrentAccountPayload", () => {
     });
     expect(Object.keys(payload).sort()).toEqual([
       "accountId",
+      "activeCommunityId",
       "displayName",
       "email",
       "memberships",

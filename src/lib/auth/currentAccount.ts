@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { getValidSession } from "@/server/services/sessionService";
 import { SESSION_COOKIE_NAME } from "@/lib/auth/sessionCookie";
 import { prisma } from "@/lib/prisma";
+import { requireCommunityMembership } from "@/server/services/listingService";
 import type { MembershipRole } from "@prisma/client";
 
 export interface MembershipSummary {
@@ -16,6 +17,7 @@ export interface CurrentAccountPayload {
   verified: boolean;
   displayName: string | null;
   memberships: MembershipSummary[];
+  activeCommunityId: string | null;
 }
 
 interface SessionAccount {
@@ -30,11 +32,15 @@ interface SessionAccount {
  * memberships to [] when omitted, so every pre-004 call site (002/003's own
  * tests) is unaffected — only getCurrentAccount() supplies real data.
  * displayName (006-user-display-names) is optional on the input for the same
- * reason, defaulting to null.
+ * reason, defaulting to null. activeCommunityId (015-navigation-shell-
+ * community-selector) is likewise optional/default-null, and is expected to
+ * already be live-verified (resolveLiveActiveCommunityId()) by the caller —
+ * this function stays synchronous and does no verification itself.
  */
 export function toCurrentAccountPayload(
   session: SessionAccount,
   memberships: MembershipSummary[] = [],
+  activeCommunityId: string | null = null,
 ): CurrentAccountPayload {
   return {
     accountId: session.accountId,
@@ -42,7 +48,24 @@ export function toCurrentAccountPayload(
     verified: Boolean(session.emailVerifiedAt),
     displayName: session.displayName ?? null,
     memberships,
+    activeCommunityId,
   };
+}
+
+/**
+ * 015-navigation-shell-community-selector, FR-001b, research.md #3: never
+ * trust a session's stored activeCommunityId as-is — re-verify it as a live,
+ * current membership on every call. Exported standalone (rather than inlined
+ * into getCurrentAccount()) so it's directly testable without next/headers'
+ * request-scoped cookies().
+ */
+export async function resolveLiveActiveCommunityId(
+  accountId: string,
+  storedActiveCommunityId: string | null,
+): Promise<string | null> {
+  if (!storedActiveCommunityId) return null;
+  const isMember = await requireCommunityMembership(accountId, storedActiveCommunityId);
+  return isMember ? storedActiveCommunityId : null;
 }
 
 export async function getCurrentAccount(): Promise<CurrentAccountPayload | null> {
@@ -53,10 +76,13 @@ export async function getCurrentAccount(): Promise<CurrentAccountPayload | null>
   const session = await getValidSession(token);
   if (!session) return null;
 
-  const memberships = await prisma.membership.findMany({
-    where: { accountId: session.accountId },
-    include: { community: { select: { name: true, operationalEpoch: true } } },
-  });
+  const [memberships, activeCommunityId] = await Promise.all([
+    prisma.membership.findMany({
+      where: { accountId: session.accountId },
+      include: { community: { select: { name: true, operationalEpoch: true } } },
+    }),
+    resolveLiveActiveCommunityId(session.accountId, session.activeCommunityId),
+  ]);
 
   return toCurrentAccountPayload(
     session,
@@ -70,5 +96,6 @@ export async function getCurrentAccount(): Promise<CurrentAccountPayload | null>
         communityName: membership.community.name,
         role: membership.role,
       })),
+    activeCommunityId,
   );
 }
