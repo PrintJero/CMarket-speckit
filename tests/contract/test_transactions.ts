@@ -9,7 +9,9 @@ import {
   cancelProposal,
   getTransaction,
   listTransactions,
+  listMyTransactions,
 } from "@/server/services/transactionService";
+import { createReview } from "@/server/services/reviewService";
 
 /** Mirrors tests/contract/test_messaging.ts's own helper. */
 function createVerifiedAccount(email: string) {
@@ -996,6 +998,122 @@ describe("transactionService (contract)", () => {
       noContactFields(accepted);
       noContactFields(detail);
       noContactFields(listed);
+    });
+  });
+
+  describe("listMyTransactions (Transactions nav item, cross-community)", () => {
+    // The single global list backing the "Buying"/"Selling" views: every transaction the
+    // caller is a party to, across every community, newest first, correctly labeled per row.
+    it("returns transactions from every community the caller participates in, newest first, labeled buyer/seller", async () => {
+      const { community: communityOne, admin: sellerOne } = await createCommunityWithAdmin(
+        "Transaction Test Community MyTx One",
+        "transaction-test-mytx-seller-1@example.com",
+      );
+      const buyer = await addMember(communityOne.id, "transaction-test-mytx-buyer@example.com");
+      const listingOne = await createForSaleListing(communityOne.id, sellerOne.id, { stockQuantity: 10 });
+
+      const { community: communityTwo, admin: sellerTwo } = await createCommunityWithAdmin(
+        "Transaction Test Community MyTx Two",
+        "transaction-test-mytx-seller-2@example.com",
+      );
+      await prisma.membership.create({ data: { accountId: buyer.id, communityId: communityTwo.id, role: "MEMBER" } });
+      const listingTwo = await createForSaleListing(communityTwo.id, sellerTwo.id, { stockQuantity: 10 });
+
+      const asBuyerInOne = await proposePurchase({
+        communityId: communityOne.id,
+        listingId: listingOne.id,
+        buyerAccountId: buyer.id,
+        quantity: 1,
+        totalCents: 25000,
+      });
+      const asBuyerInTwo = await proposePurchase({
+        communityId: communityTwo.id,
+        listingId: listingTwo.id,
+        buyerAccountId: buyer.id,
+        quantity: 2,
+        totalCents: 40000,
+      });
+      if (!asBuyerInOne.ok || !asBuyerInTwo.ok) throw new Error("expected both proposals to succeed");
+
+      const buyerView = await listMyTransactions(buyer.id);
+      expect(buyerView.transactions.map((t) => t.id).sort()).toEqual(
+        [asBuyerInOne.transaction.id, asBuyerInTwo.transaction.id].sort(),
+      );
+      expect(buyerView.transactions.every((t) => t.role === "buyer")).toBe(true);
+      // newest first
+      expect(buyerView.transactions[0].id).toBe(asBuyerInTwo.transaction.id);
+
+      const sellerOneView = await listMyTransactions(sellerOne.id);
+      expect(sellerOneView.transactions).toHaveLength(1);
+      expect(sellerOneView.transactions[0]).toMatchObject({ id: asBuyerInOne.transaction.id, role: "seller" });
+    });
+
+    // The list's one new bit of state beyond getTransaction()/getMyReview(): whether the
+    // caller has already rated this ACCEPTED transaction, resolved via a single batched query.
+    it("reports myRating null until the caller rates an ACCEPTED transaction, then reflects it", async () => {
+      const { community, admin: seller } = await createCommunityWithAdmin(
+        "Transaction Test Community MyTx Rating",
+        "transaction-test-mytx-rating-seller@example.com",
+      );
+      const buyer = await addMember(community.id, "transaction-test-mytx-rating-buyer@example.com");
+      const listing = await createForSaleListing(community.id, seller.id, { stockQuantity: 10 });
+
+      const proposed = await proposePurchase({
+        communityId: community.id,
+        listingId: listing.id,
+        buyerAccountId: buyer.id,
+        quantity: 1,
+        totalCents: 25000,
+      });
+      if (!proposed.ok) throw new Error("expected success");
+      const accepted = await acceptProposal({
+        communityId: community.id,
+        transactionId: proposed.transaction.id,
+        callerAccountId: seller.id,
+      });
+      if (!accepted.ok) throw new Error("expected success");
+
+      const beforeRating = await listMyTransactions(buyer.id);
+      expect(beforeRating.transactions.find((t) => t.id === proposed.transaction.id)?.myRating).toBeNull();
+
+      const review = await createReview({
+        communityId: community.id,
+        transactionId: proposed.transaction.id,
+        reviewerAccountId: buyer.id,
+        rating: 4,
+      });
+      expect(review.ok).toBe(true);
+
+      const afterRating = await listMyTransactions(buyer.id);
+      expect(afterRating.transactions.find((t) => t.id === proposed.transaction.id)?.myRating).toBe(4);
+
+      // The seller's own view of the same transaction is unaffected by the buyer's rating of them.
+      const sellerView = await listMyTransactions(seller.id);
+      expect(sellerView.transactions.find((t) => t.id === proposed.transaction.id)?.myRating).toBeNull();
+    });
+
+    // FR-026, SC-005 analog: the cross-community view carries no contact fields either.
+    it("never exposes an email, phone, or address field via listMyTransactions", async () => {
+      const { community, admin: seller } = await createCommunityWithAdmin(
+        "Transaction Test Community MyTx Contact",
+        "transaction-test-mytx-contact-seller@example.com",
+      );
+      const buyer = await addMember(community.id, "transaction-test-mytx-contact-buyer@example.com");
+      const listing = await createForSaleListing(community.id, seller.id, { stockQuantity: 10 });
+
+      await proposePurchase({
+        communityId: community.id,
+        listingId: listing.id,
+        buyerAccountId: buyer.id,
+        quantity: 1,
+        totalCents: 25000,
+      });
+
+      const listed = await listMyTransactions(buyer.id);
+      expect(JSON.stringify(listed)).not.toMatch(/@example\.com/);
+      expect(listed.transactions.some((t) => Object.keys(t).some((k) => /email|phone|address/i.test(k)))).toBe(
+        false,
+      );
     });
   });
 });

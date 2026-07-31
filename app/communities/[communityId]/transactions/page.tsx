@@ -7,8 +7,8 @@ import { AppShell } from "../../../_components/AppShell";
 import { BackLink } from "../../../_components/BackLink";
 import { PageHeader } from "../../../_components/PageHeader";
 import { Card } from "../../../_components/Card";
-import { AcceptRejectButtons } from "../_components/AcceptRejectButtons";
-import { CancelProposalButton } from "../_components/CancelProposalButton";
+import { AcceptRejectButtons } from "../../../_components/AcceptRejectButtons";
+import { CancelProposalButton } from "../../../_components/CancelProposalButton";
 
 export default async function TransactionsPage({
   params,
@@ -100,7 +100,11 @@ export default async function TransactionsPage({
                 · {transaction.state} · {new Date(transaction.createdAt).toLocaleString()}
               </p>
               {transaction.state === "PENDING" && transaction.role === "seller" && (
-                <AcceptRejectButtons communityId={communityId} transactionId={transaction.id} />
+                <AcceptRejectButtons
+                  communityId={communityId}
+                  transactionId={transaction.id}
+                  counterpartDisplayName={transaction.counterpartDisplayName}
+                />
               )}
               {transaction.state === "PENDING" && transaction.role === "buyer" && (
                 <CancelProposalButton communityId={communityId} transactionId={transaction.id} />

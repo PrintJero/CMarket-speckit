@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { FormField, FormError, fieldInputClassName } from "../../../../_components/FormField";
 import { Button } from "../../../../_components/Button";
-import { NonIntermediaryDisclosure } from "../../_components/NonIntermediaryDisclosure";
+import { NonIntermediaryDisclosure } from "../../../../_components/NonIntermediaryDisclosure";
 
 type ProposePurchaseResponse =
   | { ok: true; transaction: { id: string } }

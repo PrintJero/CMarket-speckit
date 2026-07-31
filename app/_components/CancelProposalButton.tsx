@@ -2,8 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { FormError } from "../../../_components/FormField";
-import { Button } from "../../../_components/Button";
+import { FormError } from "./FormField";
+import { Button } from "./Button";
 
 type CancelProposalResponse = { ok: true } | { ok: false; reason: string };
 
