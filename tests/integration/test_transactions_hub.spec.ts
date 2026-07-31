@@ -87,6 +87,9 @@ test("the sidebar's Transactions link opens a Buying/Selling hub aggregating pro
   await proposePurchaseViaApi(page.request, communityOne.id, listingOne.id, 2, 24000);
   await proposePurchaseViaApi(page.request, communityTwo.id, listingTwo.id, 1, 5000);
 
+  // 015-navigation-shell-community-selector: Transactions is a cross-community hub, but
+  // it's only reachable once a community is active — buyer belongs to two, so pick one first.
+  await page.goto(`/communities/${communityOne.id}`);
   await page.getByRole("link", { name: "Transactions", exact: true }).click();
   await page.waitForURL("/transactions");
 

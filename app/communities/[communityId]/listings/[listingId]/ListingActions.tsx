@@ -82,7 +82,7 @@ export function ListingActions({
       method: "DELETE",
     });
     if (response.status === 204) {
-      router.push(`/communities/${communityId}/listings`);
+      router.push(`/communities/${communityId}`);
     } else {
       const data = await response.json();
       setError(data.reason);

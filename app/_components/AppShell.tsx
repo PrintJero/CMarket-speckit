@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState, type ReactNode } from "react";
 import type { CurrentAccountPayload } from "@/lib/auth/currentAccount";
 import { resolveDisplayName } from "@/lib/formatting/displayName";
 import { SignOutButton } from "./SignOutButton";
@@ -32,6 +32,7 @@ export function AppShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const displayName = account ? resolveDisplayName(account.displayName) : "";
   const avatarInitial = displayName.charAt(0).toUpperCase();
   const [switcherOpen, setSwitcherOpen] = useState(false);
@@ -45,6 +46,48 @@ export function AppShell({
   const otherMemberships = account?.memberships.filter(
     (membership) => membership.communityId !== account.activeCommunityId,
   ) ?? [];
+
+  /**
+   * True only on the community-selection screen itself (memberships exist,
+   * but none is active yet) — user feedback, 2026-07-31: the sidebar must not
+   * offer a way to reach Chats/My listings/Transactions/Account before a
+   * community is chosen, since those surfaces would otherwise render with no
+   * community context at all, which read as a bug rather than a deliberate
+   * empty state.
+   */
+  const onSelectorScreen = Boolean(account) && !activeMembership && (account?.memberships.length ?? 0) > 0;
+
+  /** The communityId segment of whatever page AppShell is currently wrapping, if any. */
+  const communityIdInPath = pathname.match(/^\/communities\/([^/]+)/)?.[1];
+
+  /**
+   * 015-navigation-shell-community-selector, research.md #4a (amended
+   * 2026-07-31): AppShell wraps every screen, so this is the one place that
+   * can keep the active community honest no matter how a page was reached —
+   * a direct link, a bookmark, or any in-app link that still points at an
+   * older per-community page (e.g. the pre-existing `/listings` search page).
+   * Without this, visiting a community's page by a route other than the
+   * selector/switcher could leave the sidebar showing a stale, different
+   * community while the page itself shows another — exactly the
+   * "misunderstanding" this feature exists to prevent. Never a write during
+   * render — only after this component has actually mounted in a browser
+   * (see MainViewControls.tsx's own original rationale for why prefetching
+   * makes a render-time write unsafe).
+   */
+  useEffect(() => {
+    if (!communityIdInPath || !account || communityIdInPath === account.activeCommunityId) return;
+    let cancelled = false;
+    fetch("/api/active-community", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ communityId: communityIdInPath }),
+    }).then(() => {
+      if (!cancelled) router.refresh();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [communityIdInPath, account, router]);
 
   /** FR-014: reuses the same validated write path the selector uses (T006). */
   async function switchCommunity(communityId: string) {
@@ -116,21 +159,27 @@ export function AppShell({
             </div>
 
             <nav className="mt-4 border-t border-border pt-4" aria-label="Main">
-              <Link href="/chats" className={navLinkClassName(isNavPathActive(pathname, "/chats"))}>
-                Chats
-              </Link>
-              <Link
-                href="/my-listings"
-                className={navLinkClassName(isNavPathActive(pathname, "/my-listings"))}
-              >
-                My listings
-              </Link>
-              <Link
-                href="/transactions"
-                className={navLinkClassName(isNavPathActive(pathname, "/transactions"))}
-              >
-                Transactions
-              </Link>
+              {onSelectorScreen ? (
+                <p className="px-2.5 py-2 text-[12.5px] text-ink-muted">Choose a community to get started.</p>
+              ) : (
+                <>
+                  <Link href="/chats" className={navLinkClassName(isNavPathActive(pathname, "/chats"))}>
+                    Chats
+                  </Link>
+                  <Link
+                    href="/my-listings"
+                    className={navLinkClassName(isNavPathActive(pathname, "/my-listings"))}
+                  >
+                    My listings
+                  </Link>
+                  <Link
+                    href="/transactions"
+                    className={navLinkClassName(isNavPathActive(pathname, "/transactions"))}
+                  >
+                    Transactions
+                  </Link>
+                </>
+              )}
 
               {activeMembership && (
                 <div className="mt-4 border-t border-border pt-4">
@@ -138,6 +187,7 @@ export function AppShell({
                     type="button"
                     onClick={() => setSwitcherOpen((open) => !open)}
                     aria-expanded={switcherOpen}
+                    aria-label={`Switch community, currently ${activeMembership.communityName}`}
                     className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-[13.5px] font-semibold text-ink hover:bg-bg"
                   >
                     <span className="min-w-0 flex-1 truncate text-left" title={activeMembership.communityName}>
@@ -156,6 +206,7 @@ export function AppShell({
                             <button
                               type="button"
                               onClick={() => switchCommunity(membership.communityId)}
+                              aria-label={`Switch to ${membership.communityName}`}
                               className="w-full truncate rounded-lg px-2.5 py-2 text-left text-[13px] font-semibold text-ink hover:bg-bg"
                             >
                               {membership.communityName}
@@ -178,6 +229,8 @@ export function AppShell({
                     Admin
                   </Link>
                 )}
+                {/* Account is personal, not community-scoped, so it stays reachable even
+                    before a community is chosen (unlike the cross-community hubs above). */}
                 <Link href="/account" className={navLinkClassName(isNavPathActive(pathname, "/account"))}>
                   Account
                 </Link>

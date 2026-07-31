@@ -279,7 +279,9 @@ test("Chats groups threads by community, marks owner vs. buyer, orders by recent
   });
 
   await signIn(page, sharedEmail, password);
-  await page.goto("/"); // a page that is neither a listing nor a thread
+  // 015-navigation-shell-community-selector: Chats is a cross-community hub, but it's
+  // only reachable once a community is active — `shared` belongs to two, so pick one first.
+  await page.goto(`/communities/${communityA.id}`);
   const chatsLink = page.getByRole("link", { name: "Chats", exact: true });
   await expect(chatsLink).toBeVisible();
   await chatsLink.click();

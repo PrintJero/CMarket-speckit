@@ -70,7 +70,6 @@ export default async function CommunityMainViewPage({
 
       <MainViewControls
         communityId={communityId}
-        activeCommunityId={account.activeCommunityId}
         initialQuery={sp.q ?? ""}
         initialKind={kind}
       />

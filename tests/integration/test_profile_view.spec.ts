@@ -140,9 +140,9 @@ test("a profile shows every community the viewer and the target currently share,
   expect(mainText).not.toContain(communityViewerOnlyName);
   expect(mainText).not.toContain(communityViewerOnly.id);
 
-  // Clicking the shared community's name navigates to its listings feed.
+  // Clicking the shared community's name navigates to its main view.
   await communitiesSection.getByRole("link", { name: communityC.name }).click();
-  await page.waitForURL(`**/communities/${communityC.id}/listings`);
+  await page.waitForURL(`**/communities/${communityC.id}`);
 
   // Clicking a listing card navigates to its detail page.
   await page.goto(`/communities/${communityC.id}/members/${owner.id}`);

@@ -95,15 +95,19 @@ test("a member searches their community's listings by keyword (US2)", async ({ p
 
   await signIn(page, adminEmail, password);
   await page.goto(`/communities/${community.id}/listings`);
-  await page.getByLabel("Search").fill("bicycle");
-  await page.getByRole("button", { name: "Search" }).click();
+  // Scoped to `main`: the sidebar's active-community switcher button's accessible
+  // name embeds the community's own name, which — as in this test — can coincidentally
+  // contain words like "Search" that collide with this page's own controls.
+  const main = page.getByRole("main");
+  await main.getByLabel("Search").fill("bicycle");
+  await main.getByRole("button", { name: "Search" }).click();
   await page.waitForURL(/q=bicycle/);
 
   await expect(page.getByText("Mountain bicycle")).toBeVisible();
   await expect(page.getByText("Standing desk")).toHaveCount(0);
 
-  await page.getByLabel("Search").fill("");
-  await page.getByRole("button", { name: "Search" }).click();
+  await main.getByLabel("Search").fill("");
+  await main.getByRole("button", { name: "Search" }).click();
   await page.waitForURL((url) => !url.search.includes("q=bicycle"));
   await expect(page.getByText("Standing desk")).toBeVisible();
 });
