@@ -59,7 +59,9 @@ test("a member creates a product listing with a photo, and sees it in the commun
   });
   await page.getByRole("button", { name: "Create listing" }).click();
 
-  await page.waitForURL(`**/communities/${community.id}/listings`);
+  // 015-navigation-shell-community-selector: creating a listing now returns to the
+  // community's main view (the canonical browsing surface), not the older /listings page.
+  await page.waitForURL(`**/communities/${community.id}`);
   await expect(page.getByText("Bicycle")).toBeVisible();
 
   const listing = await prisma.listing.findFirstOrThrow({ where: { communityId: community.id, title: "Bicycle" } });
@@ -157,16 +159,19 @@ test("the owner pauses and reactivates their listing via the detail page (US3)",
   await page.goto(`/communities/${community.id}/listings`);
   await expect(page.getByText("Pausable item")).toBeVisible();
 
+  // Scoped to `main`: this community's own name ("Listing Pause Community") can
+  // coincidentally collide with the sidebar's active-community switcher button.
+  const main = page.getByRole("main");
   await page.goto(`/communities/${community.id}/listings/${listing.id}`);
-  await page.getByRole("button", { name: "Pause" }).click();
-  await expect(page.getByRole("button", { name: "Reactivate" })).toBeVisible();
+  await main.getByRole("button", { name: "Pause" }).click();
+  await expect(main.getByRole("button", { name: "Reactivate" })).toBeVisible();
 
   await page.goto(`/communities/${community.id}/listings`);
   await expect(page.getByText("Pausable item")).toHaveCount(0);
 
   await page.goto(`/communities/${community.id}/listings/${listing.id}`);
-  await page.getByRole("button", { name: "Reactivate" }).click();
-  await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
+  await main.getByRole("button", { name: "Reactivate" }).click();
+  await expect(main.getByRole("button", { name: "Pause" })).toBeVisible();
 
   await page.goto(`/communities/${community.id}/listings`);
   await expect(page.getByText("Pausable item")).toBeVisible();
@@ -219,10 +224,12 @@ test("the owner deletes their listing (with a photo) via the detail page; the ad
   expect(await prisma.listing.findUnique({ where: { id: listing.id } })).not.toBeNull();
 
   // The owner deletes it via the detail page.
+  // Scoped to `main`: this community's own name ("Listing Delete Community") can
+  // coincidentally collide with the sidebar's active-community switcher button.
   await signIn(page, ownerEmail, password);
   await page.goto(`/communities/${community.id}/listings/${listing.id}`);
-  await page.getByRole("button", { name: "Delete" }).click();
-  await page.waitForURL(`**/communities/${community.id}/listings`);
+  await page.getByRole("main").getByRole("button", { name: "Delete" }).click();
+  await page.waitForURL(`**/communities/${community.id}`);
   await expect(page.getByText("Deletable item")).toHaveCount(0);
 
   expect(await prisma.listing.findUnique({ where: { id: listing.id } })).toBeNull();

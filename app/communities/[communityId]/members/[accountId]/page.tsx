@@ -30,7 +30,7 @@ export default async function MemberProfilePage({
 
   return (
     <AppShell account={account}>
-      <BackLink href={`/communities/${communityId}/listings`}>Back to listings</BackLink>
+      <BackLink href={`/communities/${communityId}`}>Back to community</BackLink>
       <PageHeader title={resolveDisplayName(profile.displayName)} />
 
       <Card className="mb-5 max-w-xl">
@@ -53,7 +53,7 @@ export default async function MemberProfilePage({
         {profile.communities.map((community) => (
           <Card key={community.communityId} className="max-w-xl" data-testid="profile-community">
             <Link
-              href={`/communities/${community.communityId}/listings`}
+              href={`/communities/${community.communityId}`}
               className="text-[15px] font-bold text-ink hover:underline"
             >
               {community.communityName}

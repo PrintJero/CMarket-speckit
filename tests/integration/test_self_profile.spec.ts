@@ -91,9 +91,9 @@ test("Account shows the signed-in member's own profile, communities, and listing
   await expect(communitiesSection.getByText("Self Profile Bicycle")).toBeVisible();
   await expect(communitiesSection.getByText("Self Profile Wanted Desk")).toBeVisible();
 
-  // Community name navigates to that community's listings feed.
+  // Community name navigates to that community's main view.
   await communitiesSection.getByRole("link", { name: communityC.name }).click();
-  await page.waitForURL(`**/communities/${communityC.id}/listings`);
+  await page.waitForURL(`**/communities/${communityC.id}`);
 
   // Listing card navigates to its detail page.
   await page.goto("/account");

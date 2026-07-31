@@ -37,7 +37,7 @@ export default async function ListingDetailPage({
 
   return (
     <AppShell account={account}>
-      <BackLink href={`/communities/${communityId}/listings`}>Back to listings</BackLink>
+      <BackLink href={`/communities/${communityId}`}>Back to community</BackLink>
       <PageHeader
         title={listing.title}
         subtitle={

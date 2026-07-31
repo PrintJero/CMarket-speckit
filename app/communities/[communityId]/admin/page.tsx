@@ -51,7 +51,7 @@ export default async function CommunityAdminPage({
 
   return (
     <AppShell account={account}>
-      <BackLink href={`/communities/${communityId}/listings`}>Back to listings</BackLink>
+      <BackLink href={`/communities/${communityId}`}>Back to community</BackLink>
       <PageHeader title={community.name} subtitle="Administrator panel" />
 
       <div className="grid items-start gap-6 md:grid-cols-[380px_1fr]">

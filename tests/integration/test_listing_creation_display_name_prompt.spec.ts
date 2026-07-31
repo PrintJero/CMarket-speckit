@@ -69,7 +69,7 @@ test("a freshly registered account supplies its display name at sign-up and is n
   await page.getByLabel("Description").fill("Something to sell");
   await page.getByLabel("Price (MXN)").fill("100.00");
   await page.getByRole("button", { name: "Create listing" }).click();
-  await page.waitForURL(`**/communities/${community.id}/listings`);
+  await page.waitForURL(`**/communities/${community.id}`);
 
   const unchangedAccount = await prisma.account.findUniqueOrThrow({ where: { id: account.id } });
   expect(unchangedAccount.displayName).toBe("First Timer"); // untouched by listing creation
@@ -113,7 +113,7 @@ test("an account with no display name from outside the registration form is stil
   await page.getByLabel("Description").fill("Something to sell");
   await page.getByLabel("Price (MXN)").fill("100.00");
   await page.getByRole("button", { name: "Create listing" }).click();
-  await page.waitForURL(`**/communities/${community.id}/listings`);
+  await page.waitForURL(`**/communities/${community.id}`);
 
   const updatedAccount = await prisma.account.findUniqueOrThrow({ where: { id: namelessAccount.id } });
   expect(updatedAccount.displayName).toBe("Now Named");

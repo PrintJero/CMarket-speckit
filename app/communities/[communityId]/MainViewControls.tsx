@@ -1,53 +1,26 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-
 /**
  * 015-navigation-shell-community-selector, FR-006/FR-007. Search input + a
  * two-way For sale/Wanted segmented control, GET-form submission (no client
  * fetch, no client-side filtering — the server component re-reads the query
  * string), matching the existing ListingDiscoveryControls.tsx's own pattern.
  *
- * Also owns the deep-link "become active" sync: a post-hydration effect only,
- * never a write during the page's server render — see contracts/
- * navigation-shell-api.md's `GET /communities/{communityId}` section and
- * research.md #4a for why (Next.js Link prefetching / crawler GETs must never
- * silently reassign a member's active community).
+ * The deep-link "become active" sync used to live here, but now lives in
+ * AppShell.tsx instead (2026-07-31 amendment) — AppShell wraps every
+ * community-scoped page, not just this one, so centralizing it there keeps
+ * the sidebar's shown active community honest no matter which page a member
+ * actually lands on (see AppShell.tsx's own comment and research.md #4a).
  */
 export function MainViewControls({
   communityId,
-  activeCommunityId,
   initialQuery,
   initialKind,
 }: {
   communityId: string;
-  activeCommunityId: string | null;
   initialQuery: string;
   initialKind: "FOR_SALE" | "WANTED";
 }) {
-  const router = useRouter();
-
-  useEffect(() => {
-    if (activeCommunityId === communityId) return;
-    let cancelled = false;
-    fetch("/api/active-community", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ communityId }),
-    }).then(() => {
-      // This page already rendered this community's own data (listListings()
-      // already passed its own requireCommunityMembership() gate) — the
-      // refresh exists only so AppShell's sidebar (which reads the account's
-      // activeCommunityId from the same server render) stops showing the
-      // now-stale previous value instead of this one.
-      if (!cancelled) router.refresh();
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [communityId, activeCommunityId, router]);
-
   return (
     <div className="mb-6 flex flex-wrap items-center gap-4">
       <form method="GET" action={`/communities/${communityId}`} className="min-w-[220px] flex-1">

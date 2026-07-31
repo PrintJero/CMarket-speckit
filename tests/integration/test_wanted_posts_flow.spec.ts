@@ -67,7 +67,9 @@ test("a member creates a wanted post with no price, labeled 'Wanted' and interle
   await page.getByLabel("Description").fill("Any condition, just needs to work");
   await page.getByRole("button", { name: "Create listing" }).click();
 
-  await page.waitForURL(`**/communities/${community.id}/listings`);
+  // 015-navigation-shell-community-selector: the main view's segmented control shows
+  // one kind at a time, so creating a Wanted post lands on the "Wanted" tab specifically.
+  await page.waitForURL(`**/communities/${community.id}?kind=WANTED`);
   await expect(page.getByText("Looking for a used laptop")).toBeVisible();
 
   const wanted = await prisma.listing.findFirstOrThrow({
@@ -76,6 +78,9 @@ test("a member creates a wanted post with no price, labeled 'Wanted' and interle
   expect(wanted.kind).toBe("WANTED");
   expect(wanted.priceCents).toBeNull();
 
+  // The older /listings page has no kind filter by default — still the right place
+  // to confirm both kinds share the same underlying feed, interleaved together.
+  await page.goto(`/communities/${community.id}/listings`);
   const badges = page.locator('[data-testid="listing-kind-badge"]');
   await expect(badges).toHaveCount(2);
   await expect(badges.filter({ hasText: "Wanted" })).toHaveCount(1);
@@ -172,6 +177,6 @@ test("the owner marks a wanted post fulfilled, reverses it, then deletes it (US3
   // Delete it — gone entirely.
   await page.goto(`/communities/${community.id}/listings/${wanted.id}`);
   await page.getByRole("button", { name: "Delete" }).click();
-  await page.waitForURL(`**/communities/${community.id}/listings`);
+  await page.waitForURL(`**/communities/${community.id}`);
   expect(await prisma.listing.findUnique({ where: { id: wanted.id } })).toBeNull();
 });

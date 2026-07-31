@@ -141,7 +141,10 @@ export function ListingForm({
     }
 
     await uploadPhotos(data.listing.id);
-    router.push(`/communities/${communityId}/listings`);
+    // Land on the tab that actually shows what was just created — the main
+    // view defaults to "For sale" (FR-006), which would otherwise hide a
+    // freshly created Wanted post and read as though it had disappeared.
+    router.push(`/communities/${communityId}${kind === "WANTED" ? "?kind=WANTED" : ""}`);
   }
 
   return (

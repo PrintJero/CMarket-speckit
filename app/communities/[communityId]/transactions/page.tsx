@@ -53,7 +53,7 @@ export default async function TransactionsPage({
 
   return (
     <AppShell account={account}>
-      <BackLink href={`/communities/${communityId}/listings`}>Back to listings</BackLink>
+      <BackLink href={`/communities/${communityId}`}>Back to community</BackLink>
       <PageHeader title="Transactions" />
 
       <h2 className="mb-2 text-[15px] font-bold text-ink">Purchase history</h2>

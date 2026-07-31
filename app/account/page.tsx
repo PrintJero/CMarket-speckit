@@ -54,7 +54,7 @@ export default async function AccountPage() {
             <Card key={community.communityId} className="max-w-xl" data-testid="self-profile-community">
               <div className="flex items-center justify-between">
                 <Link
-                  href={`/communities/${community.communityId}/listings`}
+                  href={`/communities/${community.communityId}`}
                   className="text-[15px] font-bold text-ink hover:underline"
                 >
                   {community.communityName}

@@ -27,7 +27,7 @@ export default async function NewListingPage({
 
   return (
     <AppShell account={account}>
-      <BackLink href={`/communities/${communityId}/listings`}>Back to listings</BackLink>
+      <BackLink href={`/communities/${communityId}`}>Back to community</BackLink>
       <PageHeader title="New listing" />
       <Card className="max-w-xl">
         <ListingForm communityId={communityId} currentDisplayName={account.displayName} />
