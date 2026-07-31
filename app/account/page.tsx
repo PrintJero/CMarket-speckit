@@ -8,6 +8,7 @@ import { formatAverageRating } from "@/lib/formatting/rating";
 import { AppShell } from "../_components/AppShell";
 import { PageHeader } from "../_components/PageHeader";
 import { Card } from "../_components/Card";
+import { DisplayNameForm } from "./DisplayNameForm";
 
 export default async function AccountPage() {
   const account = await getCurrentAccount();
@@ -23,7 +24,8 @@ export default async function AccountPage() {
 
       <Card className="mb-5 max-w-xl">
         <p className="text-[16px] font-bold text-ink">{resolveDisplayName(profile.displayName)}</p>
-        <p className="text-[13px] text-ink-muted">{profile.email}</p>
+        <DisplayNameForm currentDisplayName={profile.displayName} />
+        <p className="mt-2 text-[13px] text-ink-muted">{profile.email}</p>
         <p className="mt-1 text-[13px] text-ink-muted">
           Member since {new Date(profile.accountCreatedAt).toLocaleDateString()}
         </p>

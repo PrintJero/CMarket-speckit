@@ -1,6 +1,7 @@
 import { randomBytes, createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import type { Account } from "@prisma/client";
+import { requireCommunityMembership } from "@/server/services/listingService";
 
 /**
  * research.md #2: database-backed sessions. Session tokens are high-entropy
@@ -21,6 +22,7 @@ export interface SessionWithAccount {
   sessionToken: string;
   accountId: string;
   expiresAt: Date;
+  activeCommunityId: string | null;
   account: Account;
 }
 
@@ -59,13 +61,18 @@ export async function findSessionWithAccount(
     sessionToken: rawSessionToken,
     accountId: session.accountId,
     expiresAt: session.expiresAt,
+    activeCommunityId: session.activeCommunityId,
     account: session.account,
   };
 }
 
-export async function getValidSession(
-  rawSessionToken: string,
-): Promise<{ accountId: string; email: string; emailVerifiedAt: Date | null; displayName: string | null } | null> {
+export async function getValidSession(rawSessionToken: string): Promise<{
+  accountId: string;
+  email: string;
+  emailVerifiedAt: Date | null;
+  displayName: string | null;
+  activeCommunityId: string | null;
+} | null> {
   const found = await findSessionWithAccount(rawSessionToken);
   if (!found) return null;
   return {
@@ -73,6 +80,7 @@ export async function getValidSession(
     email: found.account.email,
     emailVerifiedAt: found.account.emailVerifiedAt,
     displayName: found.account.displayName,
+    activeCommunityId: found.activeCommunityId,
   };
 }
 
@@ -87,4 +95,47 @@ export async function extendSession(rawSessionToken: string, expiresAt: Date): P
   await prisma.session
     .update({ where: { sessionToken: hashToken(rawSessionToken) }, data: { expiresAt } })
     .catch(() => undefined);
+}
+
+/**
+ * 015-navigation-shell-community-selector, data-model.md: pure persistence,
+ * mirroring extendSession()'s own shape — no membership validation here (see
+ * setActiveCommunityForAccount() for the validated entry point every caller
+ * actually uses).
+ */
+export async function setActiveCommunity(rawSessionToken: string, communityId: string): Promise<void> {
+  await prisma.session
+    .update({ where: { sessionToken: hashToken(rawSessionToken) }, data: { activeCommunityId: communityId } })
+    .catch(() => undefined);
+}
+
+export type SetActiveCommunityResult =
+  | { ok: true; communityId: string }
+  | { ok: false; reason: "invalid_input" }
+  | { ok: false; reason: "not_a_member" };
+
+/**
+ * 015-navigation-shell-community-selector, FR-002/FR-014, contracts/
+ * navigation-shell-api.md: the one validated write path for "becoming the
+ * active community" — the selector, the sidebar switcher, and the main
+ * view's deep-link sync all resolve here via POST /api/active-community.
+ * Never persists a caller-supplied communityId without re-checking
+ * requireCommunityMembership() first (no allowSuspended — selecting a
+ * community to work in is a growth action, matching createListing()'s own
+ * convention).
+ */
+export async function setActiveCommunityForAccount(
+  accountId: string,
+  rawSessionToken: string,
+  communityId: unknown,
+): Promise<SetActiveCommunityResult> {
+  if (typeof communityId !== "string" || communityId.length === 0) {
+    return { ok: false, reason: "invalid_input" };
+  }
+  const isMember = await requireCommunityMembership(accountId, communityId);
+  if (!isMember) {
+    return { ok: false, reason: "not_a_member" };
+  }
+  await setActiveCommunity(rawSessionToken, communityId);
+  return { ok: true, communityId };
 }

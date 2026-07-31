@@ -73,8 +73,15 @@ model Session {
   sessionToken String   @unique
   createdAt    DateTime @default(now())
   expiresAt    DateTime
+  /// 015-navigation-shell-community-selector, FR-001a/data-model.md: the
+  /// member's remembered active community for this session's lifetime. Never
+  /// trusted as-is by a reader — re-verified as a live membership on every
+  /// getCurrentAccount() call (FR-001b). Not proactively cleared when it goes
+  /// stale; the next explicit selection simply overwrites it.
+  activeCommunityId String?
 
-  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  account         Account    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  activeCommunity Community? @relation(fields: [activeCommunityId], references: [id], onDelete: SetNull)
 
   @@index([accountId])
   @@map("sessions")
@@ -133,6 +140,9 @@ model Community {
   invitations Invitation[]
   listings    Listing[]
   transactions Transaction[]
+  /// 015-navigation-shell-community-selector: sessions with this as their
+  /// currently remembered active community (data-model.md).
+  activeInSessions Session[]
 
   @@map("communities")
 }

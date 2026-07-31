@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { CurrentAccountPayload } from "@/lib/auth/currentAccount";
 import { resolveDisplayName } from "@/lib/formatting/displayName";
 import { SignOutButton } from "./SignOutButton";
@@ -34,6 +34,27 @@ export function AppShell({
   const pathname = usePathname();
   const displayName = account ? resolveDisplayName(account.displayName) : "";
   const avatarInitial = displayName.charAt(0).toUpperCase();
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+
+  /** 015-navigation-shell-community-selector, FR-012/FR-013: the currently
+   * remembered (live-verified) active community's own membership row —
+   * undefined on screens with no active community yet (e.g. the selector). */
+  const activeMembership = account?.memberships.find(
+    (membership) => membership.communityId === account.activeCommunityId,
+  );
+  const otherMemberships = account?.memberships.filter(
+    (membership) => membership.communityId !== account.activeCommunityId,
+  ) ?? [];
+
+  /** FR-014: reuses the same validated write path the selector uses (T006). */
+  async function switchCommunity(communityId: string) {
+    await fetch("/api/active-community", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ communityId }),
+    });
+    window.location.href = `/communities/${communityId}`;
+  }
 
   return (
     <div className="min-h-dvh bg-bg md:flex">
@@ -111,44 +132,52 @@ export function AppShell({
                 Transactions
               </Link>
 
-              {account.memberships.length > 0 && (
+              {activeMembership && (
                 <div className="mt-4 border-t border-border pt-4">
-                  <span className="block px-2.5 text-[11px] font-bold uppercase tracking-wider text-ink-muted">
-                    Your communities
-                  </span>
-                  <ul className="mt-2 flex flex-col gap-0.5">
-                    {account.memberships.map((membership) => {
-                      const active = isNavPathActive(pathname, `/communities/${membership.communityId}`);
-                      return (
-                        <li key={membership.communityId}>
-                          <div
-                            className={`flex items-center gap-2 rounded-lg px-2.5 py-2 text-[13.5px] font-semibold transition-colors ${
-                              active ? "bg-brand-tint text-brand-dark" : "text-ink hover:bg-bg"
-                            }`}
-                          >
-                            <Link
-                              href={`/communities/${membership.communityId}/listings`}
-                              className="min-w-0 flex-1 truncate"
+                  <button
+                    type="button"
+                    onClick={() => setSwitcherOpen((open) => !open)}
+                    aria-expanded={switcherOpen}
+                    className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-[13.5px] font-semibold text-ink hover:bg-bg"
+                  >
+                    <span className="min-w-0 flex-1 truncate text-left" title={activeMembership.communityName}>
+                      {activeMembership.communityName}
+                    </span>
+                    <span className="flex-none text-[11px] text-ink-muted">{switcherOpen ? "▲" : "▼"}</span>
+                  </button>
+
+                  {switcherOpen &&
+                    (otherMemberships.length === 0 ? (
+                      <p className="px-2.5 py-2 text-[12px] text-ink-muted">No other communities to switch to.</p>
+                    ) : (
+                      <ul className="mt-1 flex flex-col gap-0.5">
+                        {otherMemberships.map((membership) => (
+                          <li key={membership.communityId}>
+                            <button
+                              type="button"
+                              onClick={() => switchCommunity(membership.communityId)}
+                              className="w-full truncate rounded-lg px-2.5 py-2 text-left text-[13px] font-semibold text-ink hover:bg-bg"
                             >
                               {membership.communityName}
-                            </Link>
-                            {membership.role === "ADMINISTRATOR" && (
-                              <Link
-                                href={`/communities/${membership.communityId}/admin`}
-                                className="flex-none text-[11px] font-medium text-ink-muted hover:text-ink"
-                              >
-                                Admin
-                              </Link>
-                            )}
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ))}
                 </div>
               )}
 
               <div className="mt-4 border-t border-border pt-4">
+                {activeMembership?.role === "ADMINISTRATOR" && (
+                  <Link
+                    href={`/communities/${activeMembership.communityId}/admin`}
+                    className={navLinkClassName(
+                      isNavPathActive(pathname, `/communities/${activeMembership.communityId}/admin`),
+                    )}
+                  >
+                    Admin
+                  </Link>
+                )}
                 <Link href="/account" className={navLinkClassName(isNavPathActive(pathname, "/account"))}>
                   Account
                 </Link>
