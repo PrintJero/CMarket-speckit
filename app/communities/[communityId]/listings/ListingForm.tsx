@@ -30,6 +30,8 @@ export interface ListingFormProps {
    * it just labels the price field according to the listing's existing kind.
    */
   initialKind?: "FOR_SALE" | "WANTED";
+  /** 013-purchase-flow-stock, FR-001: seller-declared; null/undefined means not specified. */
+  initialStockQuantity?: number | null;
   /**
    * The signed-in account's current display name (006-user-display-names,
    * FR-008). When null in create mode, a required "Display name" field is
@@ -46,6 +48,7 @@ export function ListingForm({
   initialDescription = "",
   initialPriceCents,
   initialKind = "FOR_SALE",
+  initialStockQuantity,
   currentDisplayName = null,
 }: ListingFormProps) {
   const router = useRouter();
@@ -56,6 +59,9 @@ export function ListingForm({
   const [description, setDescription] = useState(initialDescription);
   const [price, setPrice] = useState(
     initialPriceCents !== undefined && initialPriceCents !== null ? (initialPriceCents / 100).toFixed(2) : "",
+  );
+  const [stockQuantity, setStockQuantity] = useState(
+    initialStockQuantity !== undefined && initialStockQuantity !== null ? String(initialStockQuantity) : "",
   );
   const [displayName, setDisplayName] = useState("");
   const [files, setFiles] = useState<FileList | null>(null);
@@ -83,6 +89,9 @@ export function ListingForm({
     // 011-wanted-posts: a blank price is only ever valid for a WANTED post
     // (optional budget) — omit the field entirely rather than sending 0.
     const priceCents = price.trim() === "" ? undefined : Math.round(Number(price) * 100);
+    // 013-purchase-flow-stock: a blank stock field means "not specified" (null),
+    // distinct from a declared 0 — omit the field entirely rather than sending 0.
+    const stockQuantityValue = !isWanted && stockQuantity.trim() !== "" ? Math.round(Number(stockQuantity)) : undefined;
 
     if (needsDisplayName) {
       const nameResponse = await fetch("/api/account/display-name", {
@@ -102,7 +111,7 @@ export function ListingForm({
       const response = await fetch(`/api/communities/${communityId}/listings/${listingId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, description, priceCents }),
+        body: JSON.stringify({ title, description, priceCents, stockQuantity: stockQuantityValue }),
       });
       const data: UpdateListingResponse = await response.json();
 
@@ -121,7 +130,7 @@ export function ListingForm({
     const response = await fetch(`/api/communities/${communityId}/listings`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, description, priceCents, kind }),
+      body: JSON.stringify({ title, description, priceCents, kind, stockQuantity: stockQuantityValue }),
     });
     const data: CreateListingResponse = await response.json();
 
@@ -188,6 +197,18 @@ export function ListingForm({
           onChange={(e) => setPrice(e.target.value)}
         />
       </FormField>
+      {!isWanted && (
+        <FormField label="Stock (seller indicates N available; leave blank if not specified)">
+          <input
+            className={fieldInputClassName}
+            type="number"
+            step="1"
+            min="0"
+            value={stockQuantity}
+            onChange={(e) => setStockQuantity(e.target.value)}
+          />
+        </FormField>
+      )}
       <FormField label="Photos (optional)">
         <input
           className="w-full text-sm text-ink"

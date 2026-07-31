@@ -5,15 +5,15 @@ import { useState } from "react";
 import { FormError } from "../../../_components/FormField";
 import { Button } from "../../../_components/Button";
 
-type RecordTransactionResponse = { ok: true } | { ok: false; reason: string };
+type CancelProposalResponse = { ok: true } | { ok: false; reason: string };
 
-export interface RecordTransactionButtonProps {
+export interface CancelProposalButtonProps {
   communityId: string;
-  threadId: string;
+  transactionId: string;
 }
 
-/** Records a transaction derived entirely from threadId — no counterpart/listing field to fill in (research.md #2, FR-001). */
-export function RecordTransactionButton({ communityId, threadId }: RecordTransactionButtonProps) {
+/** 013-purchase-flow-stock, FR-018: rendered only for the account named as a PENDING proposal's buyer. */
+export function CancelProposalButton({ communityId, transactionId }: CancelProposalButtonProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -21,10 +21,10 @@ export function RecordTransactionButton({ communityId, threadId }: RecordTransac
   async function onClick() {
     setError(null);
     setSubmitting(true);
-    const response = await fetch(`/api/communities/${communityId}/threads/${threadId}/transaction`, {
+    const response = await fetch(`/api/communities/${communityId}/transactions/${transactionId}/cancel`, {
       method: "POST",
     });
-    const data: RecordTransactionResponse = await response.json();
+    const data: CancelProposalResponse = await response.json();
     setSubmitting(false);
     if (!data.ok) {
       setError(`Failed: ${data.reason}`);
@@ -34,10 +34,10 @@ export function RecordTransactionButton({ communityId, threadId }: RecordTransac
   }
 
   return (
-    <div>
+    <div className="mt-2">
       {error && <FormError>{error}</FormError>}
       <Button type="button" variant="secondary" disabled={submitting} onClick={onClick}>
-        Record transaction
+        Cancel
       </Button>
     </div>
   );

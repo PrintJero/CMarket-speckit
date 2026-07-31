@@ -68,14 +68,16 @@ export async function createReview(input: CreateReviewInput): Promise<CreateRevi
     return { ok: false, reason: "not_found" };
   }
 
-  const isRecorder = transaction.recorderId === reviewerAccountId;
-  const isCounterpart = transaction.counterpartId === reviewerAccountId;
-  if (!isRecorder && !isCounterpart) {
+  const isBuyer = transaction.buyerId === reviewerAccountId;
+  const isSeller = transaction.sellerId === reviewerAccountId;
+  if (!isBuyer && !isSeller) {
     return { ok: false, reason: "not_a_participant" };
   }
-  const reviewedAccountId = isRecorder ? transaction.counterpartId : transaction.recorderId;
+  const reviewedAccountId = isBuyer ? transaction.sellerId : transaction.buyerId;
 
-  if (transaction.confirmationState !== "CONFIRMED") {
+  // 013-purchase-flow-stock, research.md #11, FR-029: ACCEPTED is this entity's
+  // replacement for 010's CONFIRMED as the reviewable/reputation-eligible state.
+  if (transaction.state !== "ACCEPTED") {
     return { ok: false, reason: "transaction_not_confirmed" };
   }
 

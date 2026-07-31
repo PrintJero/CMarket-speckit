@@ -2,8 +2,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { createCommunity } from "@/server/services/communityService";
 import { createListing } from "@/server/services/listingService";
-import { sendMessageToListingOwner } from "@/server/services/messageService";
-import { recordTransaction, confirmTransaction } from "@/server/services/transactionService";
+import { proposePurchase, acceptProposal } from "@/server/services/transactionService";
 import { getReputationSummary, createReview } from "@/server/services/reviewService";
 
 function createVerifiedAccount(email: string) {
@@ -25,26 +24,38 @@ async function addMember(communityId: string, email: string) {
   return account;
 }
 
-/** Creates a listing owned by ownerId, a thread from buyerId, and a CONFIRMED transaction between them. */
+/**
+ * 013-purchase-flow-stock, research.md #11: builds the same "reviewable
+ * transaction" fixture 010's confirmed transaction log used to provide, now
+ * via this feature's propose-then-accept flow — an ACCEPTED transaction is
+ * this entity's replacement for a CONFIRMED one as the reviewable state.
+ */
 async function createConfirmedTransaction(communityId: string, ownerId: string, buyerId: string, title = "Item") {
-  const listing = await createListing({ communityId, ownerId, title, description: "Description", priceCents: 1000 });
+  const listing = await createListing({
+    communityId,
+    ownerId,
+    title,
+    description: "Description",
+    priceCents: 1000,
+    kind: "FOR_SALE",
+    stockQuantity: 10,
+  });
   if (!listing.ok) throw new Error("expected listing creation to succeed");
-  const thread = await sendMessageToListingOwner({
+  const proposed = await proposePurchase({
     communityId,
     listingId: listing.listing.id,
     buyerAccountId: buyerId,
-    body: "Interested!",
+    quantity: 1,
+    totalCents: 1000,
   });
-  if (!thread.ok) throw new Error("expected thread creation to succeed");
-  const recorded = await recordTransaction({ communityId, threadId: thread.thread.id, recorderAccountId: ownerId });
-  if (!recorded.ok) throw new Error("expected transaction creation to succeed");
-  const confirmed = await confirmTransaction({
+  if (!proposed.ok) throw new Error("expected proposal creation to succeed");
+  const accepted = await acceptProposal({
     communityId,
-    transactionId: recorded.transaction.id,
-    callerAccountId: buyerId,
+    transactionId: proposed.transaction.id,
+    callerAccountId: ownerId,
   });
-  if (!confirmed.ok) throw new Error("expected transaction confirmation to succeed");
-  return confirmed.transaction;
+  if (!accepted.ok) throw new Error("expected proposal acceptance to succeed");
+  return accepted.transaction;
 }
 
 describe("reviewService (contract)", () => {
@@ -217,8 +228,8 @@ describe("reviewService (contract)", () => {
       expect(await prisma.review.count({ where: { transactionId: transaction.id } })).toBe(0);
     });
 
-    // T021 (US3, FR-014): an UNCONFIRMED transaction cannot be reviewed.
-    it("rejects a review attempt against an unconfirmed transaction", async () => {
+    // T021 (US3, FR-014): a PENDING (not yet ACCEPTED) transaction cannot be reviewed.
+    it("rejects a review attempt against a still-PENDING transaction", async () => {
       const { community, admin: owner } = await createCommunityWithAdmin(
         "Review Test Community Six",
         "review-test-owner-6@example.com",
@@ -230,30 +241,27 @@ describe("reviewService (contract)", () => {
         title: "Item",
         description: "Description",
         priceCents: 1000,
+        kind: "FOR_SALE",
+        stockQuantity: 10,
       });
       if (!listing.ok) throw new Error("expected listing creation to succeed");
-      const thread = await sendMessageToListingOwner({
+      const proposed = await proposePurchase({
         communityId: community.id,
         listingId: listing.listing.id,
         buyerAccountId: buyer.id,
-        body: "Interested!",
+        quantity: 1,
+        totalCents: 1000,
       });
-      if (!thread.ok) throw new Error("expected thread creation to succeed");
-      const recorded = await recordTransaction({
-        communityId: community.id,
-        threadId: thread.thread.id,
-        recorderAccountId: owner.id,
-      });
-      if (!recorded.ok) throw new Error("expected transaction creation to succeed");
+      if (!proposed.ok) throw new Error("expected proposal creation to succeed");
 
       const result = await createReview({
         communityId: community.id,
-        transactionId: recorded.transaction.id,
+        transactionId: proposed.transaction.id,
         reviewerAccountId: owner.id,
         rating: 5,
       });
       expect(result).toEqual({ ok: false, reason: "transaction_not_confirmed" });
-      expect(await prisma.review.count({ where: { transactionId: recorded.transaction.id } })).toBe(0);
+      expect(await prisma.review.count({ where: { transactionId: proposed.transaction.id } })).toBe(0);
     });
 
     // T021 (US3, FR-016): self-review is structurally impossible — the reviewed account is

@@ -50,7 +50,7 @@ test("a member's profile is reachable from a listing, a thread, and a transactio
   const owner = await prisma.account.findUniqueOrThrow({ where: { email: ownerEmail } });
 
   const listing = await prisma.listing.create({
-    data: { communityId: community.id, ownerId: owner.id, title: "Profile View Bicycle", description: "Nice bike", priceCents: 15000 },
+    data: { communityId: community.id, ownerId: owner.id, title: "Profile View Bicycle", description: "Nice bike", priceCents: 15000, kind: "FOR_SALE", stockQuantity: 10 },
   });
   const thread = await prisma.messageThread.create({ data: { listingId: listing.id, buyerId: buyer.id } });
   await prisma.message.create({ data: { threadId: thread.id, senderId: buyer.id, body: "Still available?" } });
@@ -71,10 +71,10 @@ test("a member's profile is reachable from a listing, a thread, and a transactio
   await page.getByRole("link", { name: "Profile Owner" }).first().click();
   await page.waitForURL(`**/communities/${community.id}/members/${owner.id}`);
 
-  // From the transaction detail page (counterpart name), after recording one.
-  await page.goto(`/communities/${community.id}/threads/${thread.id}`);
-  await page.getByRole("button", { name: "Record transaction" }).click();
-  await expect(page.getByText("Unconfirmed transaction")).toBeVisible();
+  // From the transaction detail page (counterpart name), after proposing a purchase (013-purchase-flow-stock).
+  await page.goto(`/communities/${community.id}/listings/${listing.id}`);
+  await page.getByRole("button", { name: "Send purchase proposal" }).click();
+  await expect(page.getByText(/proposal sent/i)).toBeVisible();
   await page.goto(`/communities/${community.id}/transactions`);
   await page.getByText("Profile View Bicycle").click();
   await page.getByRole("link", { name: "Profile Owner" }).click();
@@ -125,19 +125,19 @@ test("a profile's combined rating never reveals the community a viewer doesn't s
 
   async function createRatedConfirmedTransaction(communityId: string, buyerId: string, rating: number) {
     const listing = await prisma.listing.create({
-      data: { communityId, ownerId: owner.id, title: "Global Item", description: "Description", priceCents: 1000 },
+      data: { communityId, ownerId: owner.id, title: "Global Item", description: "Description", priceCents: 1000, kind: "FOR_SALE", stockQuantity: 10 },
     });
-    const thread = await prisma.messageThread.create({ data: { listingId: listing.id, buyerId } });
-    await prisma.message.create({ data: { threadId: thread.id, senderId: buyerId, body: "Hi" } });
     const transaction = await prisma.transaction.create({
       data: {
         communityId,
-        recorderId: owner.id,
-        counterpartId: buyerId,
+        buyerId,
+        sellerId: owner.id,
         listingId: listing.id,
         listingTitle: listing.title,
-        confirmationState: "CONFIRMED",
-        confirmedAt: new Date(),
+        quantity: 1,
+        totalCents: 1000,
+        state: "ACCEPTED",
+        resolvedAt: new Date(),
       },
     });
     await prisma.review.create({ data: { reviewerId: buyerId, reviewedId: owner.id, transactionId: transaction.id, rating } });

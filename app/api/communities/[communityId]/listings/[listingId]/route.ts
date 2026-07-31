@@ -39,6 +39,7 @@ export async function PATCH(
     ...(typeof body?.title === "string" ? { title: body.title } : {}),
     ...(typeof body?.description === "string" ? { description: body.description } : {}),
     ...(typeof body?.priceCents === "number" ? { priceCents: body.priceCents } : {}),
+    ...(typeof body?.stockQuantity === "number" ? { stockQuantity: body.stockQuantity } : {}),
   });
 
   if (result.ok) {

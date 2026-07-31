@@ -2,8 +2,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { createCommunity } from "@/server/services/communityService";
 import { createListing } from "@/server/services/listingService";
-import { sendMessageToListingOwner } from "@/server/services/messageService";
-import { recordTransaction, confirmTransaction } from "@/server/services/transactionService";
+import { proposePurchase, acceptProposal } from "@/server/services/transactionService";
 import { createReview } from "@/server/services/reviewService";
 import { getProfile } from "@/server/services/profileService";
 
@@ -26,25 +25,33 @@ async function addMember(communityId: string, email: string) {
   return account;
 }
 
+/** 013-purchase-flow-stock, research.md #11: an ACCEPTED transaction via propose-then-accept, replacing 010's CONFIRMED fixture. */
 async function createConfirmedTransaction(communityId: string, ownerId: string, buyerId: string, title = "Item") {
-  const listing = await createListing({ communityId, ownerId, title, description: "Description", priceCents: 1000 });
+  const listing = await createListing({
+    communityId,
+    ownerId,
+    title,
+    description: "Description",
+    priceCents: 1000,
+    kind: "FOR_SALE",
+    stockQuantity: 10,
+  });
   if (!listing.ok) throw new Error("expected listing creation to succeed");
-  const thread = await sendMessageToListingOwner({
+  const proposed = await proposePurchase({
     communityId,
     listingId: listing.listing.id,
     buyerAccountId: buyerId,
-    body: "Interested!",
+    quantity: 1,
+    totalCents: 1000,
   });
-  if (!thread.ok) throw new Error("expected thread creation to succeed");
-  const recorded = await recordTransaction({ communityId, threadId: thread.thread.id, recorderAccountId: ownerId });
-  if (!recorded.ok) throw new Error("expected transaction creation to succeed");
-  const confirmed = await confirmTransaction({
+  if (!proposed.ok) throw new Error("expected proposal creation to succeed");
+  const accepted = await acceptProposal({
     communityId,
-    transactionId: recorded.transaction.id,
-    callerAccountId: buyerId,
+    transactionId: proposed.transaction.id,
+    callerAccountId: ownerId,
   });
-  if (!confirmed.ok) throw new Error("expected transaction confirmation to succeed");
-  return confirmed.transaction;
+  if (!accepted.ok) throw new Error("expected proposal acceptance to succeed");
+  return accepted.transaction;
 }
 
 describe("profileService (contract)", () => {

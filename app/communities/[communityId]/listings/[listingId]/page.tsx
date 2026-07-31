@@ -8,6 +8,7 @@ import { resolveDisplayName } from "@/lib/formatting/displayName";
 import { ListingForm } from "../ListingForm";
 import { ListingActions } from "./ListingActions";
 import { MessageOwnerForm } from "./MessageOwnerForm";
+import { BuyForm } from "./BuyForm";
 import { AppShell } from "../../../../_components/AppShell";
 import { BackLink } from "../../../../_components/BackLink";
 import { PageHeader } from "../../../../_components/PageHeader";
@@ -72,14 +73,28 @@ export default async function ListingDetailPage({
             initialDescription={listing.description}
             initialPriceCents={listing.priceCents}
             initialKind={listing.kind}
+            initialStockQuantity={listing.stockQuantity}
           />
         ) : (
           <>
             <p>{listing.description}</p>
             <p>{formatListingPrice(listing.priceCents)}</p>
+            {listing.kind === "FOR_SALE" && (
+              <p data-testid="listing-stock">
+                {listing.stockQuantity === null
+                  ? "Stock not specified"
+                  : `Seller indicates ${listing.stockQuantity} available`}
+              </p>
+            )}
           </>
         )}
       </Card>
+
+      {!isOwner && listing.kind === "FOR_SALE" && listing.status === "ACTIVE" && listing.priceCents !== null && (
+        <Card className="mb-5 max-w-xl">
+          <BuyForm communityId={communityId} listingId={listing.id} priceCents={listing.priceCents} />
+        </Card>
+      )}
 
       {!isOwner && (
         <Card className="mb-5 max-w-xl">

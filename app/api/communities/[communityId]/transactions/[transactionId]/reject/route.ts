@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentAccount } from "@/lib/auth/currentAccount";
-import { confirmTransaction } from "@/server/services/transactionService";
+import { rejectProposal } from "@/server/services/transactionService";
 
 export async function POST(
   request: Request,
@@ -12,15 +12,17 @@ export async function POST(
   }
 
   const { communityId, transactionId } = await params;
-  const result = await confirmTransaction({ communityId, transactionId, callerAccountId: account.accountId });
+  const result = await rejectProposal({ communityId, transactionId, callerAccountId: account.accountId });
 
   if (result.ok) {
     return NextResponse.json(result, { status: 200 });
   }
 
   const status =
-    result.reason === "not_a_member" || result.reason === "not_a_counterpart"
+    result.reason === "not_a_member" || result.reason === "not_a_seller"
       ? 403
-      : 404;
+      : result.reason === "not_found"
+        ? 404
+        : 409; // not_pending
   return NextResponse.json(result, { status });
 }

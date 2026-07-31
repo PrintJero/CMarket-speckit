@@ -31,6 +31,7 @@ async function addMember(communityId: string, email: string, password: string, d
   return account;
 }
 
+/** 013-purchase-flow-stock: an ACCEPTED transaction, replacing 010's CONFIRMED fixture. */
 async function createConfirmedTransaction(
   communityId: string,
   ownerId: string,
@@ -38,42 +39,42 @@ async function createConfirmedTransaction(
   listingTitle: string,
 ) {
   const listing = await prisma.listing.create({
-    data: { communityId, ownerId, title: listingTitle, description: "Description", priceCents: 5000 },
+    data: { communityId, ownerId, title: listingTitle, description: "Description", priceCents: 5000, kind: "FOR_SALE", stockQuantity: 10 },
   });
-  const thread = await prisma.messageThread.create({ data: { listingId: listing.id, buyerId } });
-  await prisma.message.create({ data: { threadId: thread.id, senderId: buyerId, body: "Interested!" } });
-  const recorded = await prisma.transaction.create({
+  return prisma.transaction.create({
     data: {
       communityId,
-      recorderId: ownerId,
-      counterpartId: buyerId,
+      buyerId,
+      sellerId: ownerId,
       listingId: listing.id,
       listingTitle: listing.title,
-      confirmationState: "CONFIRMED",
-      confirmedAt: new Date(),
+      quantity: 1,
+      totalCents: 5000,
+      state: "ACCEPTED",
+      resolvedAt: new Date(),
     },
   });
-  return recorded;
 }
 
-async function createUnconfirmedTransaction(
+/** 013-purchase-flow-stock: a PENDING proposal, replacing 010's UNCONFIRMED fixture. */
+async function createPendingTransaction(
   communityId: string,
   ownerId: string,
   buyerId: string,
   listingTitle: string,
 ) {
   const listing = await prisma.listing.create({
-    data: { communityId, ownerId, title: listingTitle, description: "Description", priceCents: 5000 },
+    data: { communityId, ownerId, title: listingTitle, description: "Description", priceCents: 5000, kind: "FOR_SALE", stockQuantity: 10 },
   });
-  const thread = await prisma.messageThread.create({ data: { listingId: listing.id, buyerId } });
-  await prisma.message.create({ data: { threadId: thread.id, senderId: buyerId, body: "Interested!" } });
   return prisma.transaction.create({
     data: {
       communityId,
-      recorderId: ownerId,
-      counterpartId: buyerId,
+      buyerId,
+      sellerId: ownerId,
       listingId: listing.id,
       listingTitle: listing.title,
+      quantity: 1,
+      totalCents: 5000,
     },
   });
 }
@@ -94,11 +95,12 @@ test("confirming a transaction immediately shows a rating modal; submitting a st
   );
   const buyer = await addMember(community.id, buyerEmail, password, "Modal Buyer");
   const owner = await prisma.account.findUniqueOrThrow({ where: { email: ownerEmail } });
-  const transaction = await createUnconfirmedTransaction(community.id, owner.id, buyer.id, "Review Modal Item");
+  const transaction = await createPendingTransaction(community.id, owner.id, buyer.id, "Review Modal Item");
 
-  await signIn(page, buyerEmail, password);
+  // 013-purchase-flow-stock: the seller is the one who completes the transaction (Accept), not the buyer.
+  await signIn(page, ownerEmail, password);
   await page.goto(`/communities/${community.id}/transactions/${transaction.id}`);
-  await page.getByRole("button", { name: "Confirm transaction" }).click();
+  await page.getByRole("button", { name: "Accept" }).click();
 
   const modal = page.getByRole("dialog", { name: "Rate this transaction" });
   await expect(modal).toBeVisible();
@@ -122,11 +124,11 @@ test("dismissing the rating modal with Maybe later leaves the transaction ratabl
   );
   const buyer = await addMember(community.id, buyerEmail, password, "Modal Later Buyer");
   const owner = await prisma.account.findUniqueOrThrow({ where: { email: ownerEmail } });
-  const transaction = await createUnconfirmedTransaction(community.id, owner.id, buyer.id, "Review Modal Later Item");
+  const transaction = await createPendingTransaction(community.id, owner.id, buyer.id, "Review Modal Later Item");
 
-  await signIn(page, buyerEmail, password);
+  await signIn(page, ownerEmail, password);
   await page.goto(`/communities/${community.id}/transactions/${transaction.id}`);
-  await page.getByRole("button", { name: "Confirm transaction" }).click();
+  await page.getByRole("button", { name: "Accept" }).click();
 
   const modal = page.getByRole("dialog", { name: "Rate this transaction" });
   await expect(modal).toBeVisible();

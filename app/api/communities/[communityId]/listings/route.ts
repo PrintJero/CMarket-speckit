@@ -52,6 +52,7 @@ export async function POST(
   const description = typeof body?.description === "string" ? body.description : "";
   const priceCents = typeof body?.priceCents === "number" ? body.priceCents : undefined;
   const kind = body?.kind === "FOR_SALE" || body?.kind === "WANTED" ? body.kind : undefined;
+  const stockQuantity = typeof body?.stockQuantity === "number" ? body.stockQuantity : undefined;
 
   const result = await createListing({
     communityId,
@@ -60,6 +61,7 @@ export async function POST(
     description,
     priceCents,
     kind,
+    stockQuantity,
   });
 
   if (result.ok) {
