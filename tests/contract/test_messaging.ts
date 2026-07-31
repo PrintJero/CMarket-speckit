@@ -388,6 +388,77 @@ describe("messageService (contract)", () => {
     });
   });
 
+  describe("getThread counterpart identity (016-chat-conversation-redesign US4, research.md #6)", () => {
+    // T007: getThread()'s thread result must expose counterpartId/counterpartDisplayName,
+    // correct from either side, including when the caller has sent every message so far.
+    it("resolves the other participant's identity from either side, even before the counterpart has replied", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Messaging Test Community Sixteen",
+        "messaging-test-admin-16@example.com",
+      );
+      const buyer = await addMember(community.id, "messaging-test-buyer-16@example.com");
+      await setDisplayName(admin.id, "Owner Name");
+      await setDisplayName(buyer.id, "Buyer Name");
+      const listing = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "Bookshelf",
+        description: "Description",
+        priceCents: 3500,
+      });
+      if (!listing.ok) throw new Error("expected listing creation to succeed");
+
+      const first = await sendMessageToListingOwner({
+        communityId: community.id,
+        listingId: listing.listing.id,
+        buyerAccountId: buyer.id,
+        body: "Is this still available?",
+      });
+      if (!first.ok) throw new Error("expected success");
+
+      // Before the owner has ever replied, the buyer has sent every message in the thread so far.
+      const asBuyerBeforeReply = await getThread({
+        communityId: community.id,
+        threadId: first.thread.id,
+        callerAccountId: buyer.id,
+      });
+      expect(asBuyerBeforeReply.ok).toBe(true);
+      if (!asBuyerBeforeReply.ok) throw new Error("expected success");
+      expect(asBuyerBeforeReply.thread.counterpartId).toBe(admin.id);
+      expect(asBuyerBeforeReply.thread.counterpartDisplayName).toBe("Owner Name");
+
+      // From the owner's side, the counterpart is the buyer.
+      const asOwnerBeforeReply = await getThread({
+        communityId: community.id,
+        threadId: first.thread.id,
+        callerAccountId: admin.id,
+      });
+      expect(asOwnerBeforeReply.ok).toBe(true);
+      if (!asOwnerBeforeReply.ok) throw new Error("expected success");
+      expect(asOwnerBeforeReply.thread.counterpartId).toBe(buyer.id);
+      expect(asOwnerBeforeReply.thread.counterpartDisplayName).toBe("Buyer Name");
+
+      // Once the owner replies, both sides' counterpart identity is unaffected.
+      const reply = await sendThreadMessage({
+        communityId: community.id,
+        threadId: first.thread.id,
+        senderAccountId: admin.id,
+        body: "Yes, still available.",
+      });
+      expect(reply.ok).toBe(true);
+
+      const asBuyerAfterReply = await getThread({
+        communityId: community.id,
+        threadId: first.thread.id,
+        callerAccountId: buyer.id,
+      });
+      expect(asBuyerAfterReply.ok).toBe(true);
+      if (!asBuyerAfterReply.ok) throw new Error("expected success");
+      expect(asBuyerAfterReply.thread.counterpartId).toBe(admin.id);
+      expect(asBuyerAfterReply.thread.counterpartDisplayName).toBe("Owner Name");
+    });
+  });
+
   describe("messaging a WANTED post (011-wanted-posts, US2)", () => {
     // T011: regression-lock — messageService.ts has zero kind awareness (research.md #1).
     it("opens a thread against a WANTED post exactly as against a FOR_SALE listing, and rejects self-messaging", async () => {

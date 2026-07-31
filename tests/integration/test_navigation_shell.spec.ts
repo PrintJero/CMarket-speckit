@@ -202,3 +202,80 @@ test("the remembered active community survives a return visit to the top-level e
   await page.goto("/");
   await page.waitForURL(`/communities/${community.id}`);
 });
+
+/**
+ * Regression test: a direct deep-link navigation into a different community's
+ * page (not via the selector/switcher) must still resynchronize the active
+ * community — AppShell.tsx's own deep-link effect (research.md #4a) is the
+ * one place this is enforced regardless of how the page was reached. Covers
+ * both directions (A -> B and back to A) and the Admin sidebar entry updating
+ * with the account's per-community role.
+ */
+test("a direct deep-link navigation into a different community resyncs Session.activeCommunityId and the sidebar, in both directions", async ({
+  page,
+}) => {
+  const password = "correct-horse-battery-staple";
+  const memberEmail = uniqueEmail("navshell-deeplink-member");
+  const communityA = await createCommunityWithAdmin(
+    page.request,
+    `Nav Shell Deeplink A ${Date.now()}`,
+    uniqueEmail("navshell-deeplink-admin-a"),
+    password,
+  );
+  const communityB = await createCommunityWithAdmin(
+    page.request,
+    `Nav Shell Deeplink B ${Date.now()}`,
+    uniqueEmail("navshell-deeplink-admin-b"),
+    password,
+  );
+  const memberAccount = await createVerifiedAccount(memberEmail, password);
+  // MEMBER in A, ADMINISTRATOR in B — so the sidebar's Admin entry must appear
+  // only while B is active, and disappear again once A becomes active.
+  await prisma.membership.createMany({
+    data: [
+      { accountId: memberAccount.id, communityId: communityA.id, role: "MEMBER" },
+      { accountId: memberAccount.id, communityId: communityB.id, role: "ADMINISTRATOR" },
+    ],
+  });
+  await seedListing(communityA.id, memberAccount.id, {
+    title: "Deeplink A exclusive item",
+    description: "generic",
+    priceCents: 1000,
+  });
+  await seedListing(communityB.id, memberAccount.id, {
+    title: "Deeplink B exclusive item",
+    description: "generic",
+    priceCents: 2000,
+  });
+
+  await signIn(page, memberEmail, password);
+
+  // Given: navigate directly into A first (no prior active community at all).
+  await page.goto(`/communities/${communityA.id}/listings`);
+  await expect(page.getByText("Deeplink A exclusive item")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Switch community, currently/ })).toContainText(communityA.name);
+  await expect(page.getByRole("link", { name: "Admin" })).toHaveCount(0);
+  let session = await prisma.session.findFirstOrThrow({ where: { accountId: memberAccount.id } });
+  expect(session.activeCommunityId).toBe(communityA.id);
+
+  // When: navigate directly to a route inside B (a deep link, not the switcher).
+  await page.goto(`/communities/${communityB.id}/listings`);
+
+  // Then: B's content is shown, Session.activeCommunityId becomes B, the sidebar displays B,
+  // and the Admin entry appears since the account is ADMINISTRATOR only in B.
+  await expect(page.getByText("Deeplink B exclusive item")).toBeVisible();
+  await expect(page.getByText("Deeplink A exclusive item")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Switch community, currently/ })).toContainText(communityB.name);
+  await expect(page.getByRole("link", { name: "Admin" })).toBeVisible();
+  session = await prisma.session.findFirstOrThrow({ where: { accountId: memberAccount.id } });
+  expect(session.activeCommunityId).toBe(communityB.id);
+
+  // Then, in reverse: navigating back to A resyncs everything back.
+  await page.goto(`/communities/${communityA.id}/listings`);
+  await expect(page.getByText("Deeplink A exclusive item")).toBeVisible();
+  await expect(page.getByText("Deeplink B exclusive item")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Switch community, currently/ })).toContainText(communityA.name);
+  await expect(page.getByRole("link", { name: "Admin" })).toHaveCount(0);
+  session = await prisma.session.findFirstOrThrow({ where: { accountId: memberAccount.id } });
+  expect(session.activeCommunityId).toBe(communityA.id);
+});

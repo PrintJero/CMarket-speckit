@@ -65,7 +65,7 @@ export function ThreadReplyForm({ communityId, threadId, currentDisplayName = nu
   }
 
   return (
-    <form onSubmit={onSubmit}>
+    <form onSubmit={onSubmit} className="flex flex-col gap-3">
       {needsDisplayName && (
         <FormField label="Display name">
           <input
@@ -76,19 +76,23 @@ export function ThreadReplyForm({ communityId, threadId, currentDisplayName = nu
           />
         </FormField>
       )}
-      <FormField label="Reply">
-        <textarea
-          className={fieldTextareaClassName}
-          required
-          rows={3}
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-        />
-      </FormField>
       {error && <FormError>{error}</FormError>}
-      <Button type="submit" fullWidth disabled={submitting}>
-        Send reply
-      </Button>
+      <div className="flex items-end gap-3">
+        <div className="flex-1">
+          <FormField label="Reply">
+            <textarea
+              className={fieldTextareaClassName}
+              required
+              rows={2}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+            />
+          </FormField>
+        </div>
+        <Button type="submit" disabled={submitting}>
+          Send reply
+        </Button>
+      </div>
     </form>
   );
 }
