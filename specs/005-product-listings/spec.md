@@ -4,7 +4,7 @@
 
 **Created**: 2026-07-17
 
-**Status**: Draft
+**Status**: Finished
 
 **Input**: User description: "Product Listings: An administrator or member of a community can create a product listing scoped to that community (communityId is mandatory and every query MUST be scoped by it, per Constitution Principle II). A listing has a status represented as an enum (not a free-text/boolean flag) with at least ACTIVE and PAUSED states. The listing owner can create, edit, pause (toggle back to active), and delete their own listing. Listings support photos (one or more images attached to a listing). Out of scope for this feature: nested/hierarchical categories, product variants (size/color/etc.), inventory/stock tracking, draft state before publishing, and dynamic/scheduled pricing. This is a critical flow (product listing) per Constitution Principle VIII, so tests are mandatory and must be written before implementation (red before green). Constitution gates to satisfy: Principle II (Community Isolation — every access path scoped by community membership), Principle VII (Simplicity & MVP-First — no speculative scope beyond what's listed above), Principle VIII (Test Discipline for Critical Flows). Clarification: administrator moderation over listings they don't own IS in scope, satisfying Principle III's 'moderate (edit visibility of, take down) listings' guarantee — implemented as an administrator's ability to pause/reactivate any listing within their own community; deletion remains the owner's sole authority."
 

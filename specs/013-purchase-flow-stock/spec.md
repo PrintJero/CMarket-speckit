@@ -4,7 +4,7 @@
 
 **Created**: 2026-07-30
 
-**Status**: Draft
+**Status**: Finished
 
 **Input**: User description: "Purchase Flow with Stock and Dual Transaction History: This feature replaces the earlier abstract \"transaction logging\" draft (010) with the concrete purchase flow the product actually needs. CMarket is a marketplace for sellers with inventory (not one-off used items). Listings therefore carry a stock quantity, and buyers purchase quantities from that stock through a two-sided proposal-and-acceptance flow that produces a traceable record for both parties. Buyer taps Buy, a proposal opens pre-filled with quantity and total, buyer may adjust both; system validates same-community membership and quantity against stock, creates the proposal PENDING; seller sees buyer name, quantity, total and can Accept (re-validates stock, decrements it, writes buyer PURCHASE HISTORY and seller SALES HISTORY, marks ACCEPTED) or Reject (marks REJECTED, touches nothing); buyer can cancel a PENDING proposal (CANCELLED). No payment-method step; payment is off-platform and CMarket's non-intermediary role must be disclosed. No message-thread prerequisite to buy. Critical flow per Principle VIII: cross-community rejection, stock validation at creation and acceptance, state-machine integrity, ACCEPTED-record immutability, and non-exposure of contact data must have tests written first, failing first, blocking merge in CI."
 

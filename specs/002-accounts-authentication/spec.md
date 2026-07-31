@@ -4,7 +4,7 @@
 
 **Created**: 2026-07-15
 
-**Status**: Draft
+**Status**: Finished
 
 **Input**: User description: "Accounts and authentication in CMarket. Anyone may create a CMarket account on their own, without a prior invitation, using email and password or federated identity with Google. A newly created account belongs to no community, and in that state it can see and do nothing at all: no listings, no members, no activity, and it cannot discover or enumerate which communities exist. An account with no memberships is a valid, permanent state. Sign up with email and password. Sign up and sign in with Google. Mandatory email verification for accounts created with email and password; an unverified account may exist and sign in but MUST NOT accept any community invitation; Google accounts inherit verification from the provider. Sign in, sign out, and persistent session. Sign-up attempts against an already-registered email MUST NOT reveal that the account exists. Passwords are never stored or compared in plaintext, and no alternative authentication path bypasses verification against the stored password. Out of scope: profiles/avatars, password recovery, two-factor authentication, global platform roles, account deletion, and anything related to communities, invitations, or memberships."
 

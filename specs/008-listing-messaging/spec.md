@@ -4,7 +4,7 @@
 
 **Created**: 2026-07-17
 
-**Status**: Draft
+**Status**: Finished
 
 **Input**: User description: "Messaging within a community. A member can message a listing's owner from that listing. A thread opens between those two people, tied to that product. Text only. Why: today someone sees a product and has no way to ask anything about it. Without this, there is no transaction. Scope: One thread per (listing, interested buyer). The owner sees every thread on their listings; a buyer sees only their own. Text only, one message at a time. Each message shows who wrote it (the display name from spec 006) and when. Both people MUST hold a current membership in that listing's community. If someone loses their membership, they lose access to that community's threads. An account with no display name MUST choose one before sending its first message, exactly as it must before creating its first listing (spec 006, FR-008). A thread where nobody has a name is useless. Never show anyone's email, phone, or any contact data (Principle VI). Display name only. Messages load when the page loads. No real-time delivery. Out of scope: attachments, photos, reactions, editing or deleting messages, notifications, read receipts, typing indicators, threads not attached to a listing, and real-time. Constraints: Every query is scoped by community in the database query itself, and the caller MUST hold a current membership there (Principle II). No new dependencies, no new services. Postgres and what already exists is enough. If a listing is deleted, decide and state what happens to its threads."
 

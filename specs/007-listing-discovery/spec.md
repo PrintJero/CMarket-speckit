@@ -4,7 +4,7 @@
 
 **Created**: 2026-07-17
 
-**Status**: Draft
+**Status**: Finished
 
 **Input**: User description: "Listing Discovery: community listing feed, search, basic filters, and pagination — all implemented via Prisma/SQL queries, never filtered/paginated in application memory. Out of scope: saved searches, recommendations, advanced full-text search, external search index. Must satisfy Constitution Principle II (community scoping enforced on every access path) and Principle VII (simplicity/MVP-first — no new dependencies beyond existing Prisma/PostgreSQL stack)."
 
