@@ -38,7 +38,10 @@ export interface GetProfileInput {
  * member-since date from). Member-since date and active listings are scoped
  * to communityId (FR-007); confirmed-transaction count and the reputation
  * summary are global across every community (FR-008, FR-009, Clarifications)
- * — never filtered by communityId.
+ * — never filtered by communityId. 013-purchase-flow-stock, research.md #11,
+ * FR-029: "confirmed" now means `Transaction.state === "ACCEPTED"` — this
+ * feature's evolved entity replaces 010's `confirmationState === "CONFIRMED"`
+ * in that role, same query shape, no other behavior change.
  */
 export async function getProfile(input: GetProfileInput): Promise<GetProfileResult> {
   const { communityId, accountId, viewerAccountId } = input;
@@ -69,8 +72,8 @@ export async function getProfile(input: GetProfileInput): Promise<GetProfileResu
     }),
     prisma.transaction.count({
       where: {
-        confirmationState: "CONFIRMED",
-        OR: [{ recorderId: accountId }, { counterpartId: accountId }],
+        state: "ACCEPTED",
+        OR: [{ buyerId: accountId }, { sellerId: accountId }],
       },
     }),
     getReputationSummary(accountId),

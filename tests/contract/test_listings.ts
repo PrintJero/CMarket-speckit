@@ -843,6 +843,106 @@ describe("listingService (contract)", () => {
     });
   });
 
+  describe("stockQuantity (013-purchase-flow-stock, T002, FR-001, FR-002)", () => {
+    it("defaults to null (stock not specified) when not provided at creation", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Listing Test Community Stock One",
+        "listing-test-admin-stock-1@example.com",
+      );
+      const created = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "Title",
+        description: "Description",
+        priceCents: 500,
+      });
+      expect(created.ok).toBe(true);
+      if (!created.ok) throw new Error("expected success");
+      expect(created.listing.stockQuantity).toBeNull();
+    });
+
+    it("persists a valid non-negative integer stockQuantity at creation and lets the owner edit it", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Listing Test Community Stock Two",
+        "listing-test-admin-stock-2@example.com",
+      );
+      const created = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "Title",
+        description: "Description",
+        priceCents: 500,
+        stockQuantity: 10,
+      });
+      expect(created.ok).toBe(true);
+      if (!created.ok) throw new Error("expected success");
+      expect(created.listing.stockQuantity).toBe(10);
+
+      const updated = await updateListing({
+        listingId: created.listing.id,
+        callerAccountId: admin.id,
+        stockQuantity: 0,
+      });
+      expect(updated.ok).toBe(true);
+      if (!updated.ok) throw new Error("expected success");
+      expect(updated.listing.stockQuantity).toBe(0);
+    });
+
+    it("rejects a negative or non-integer stockQuantity at creation and at update, writing nothing", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Listing Test Community Stock Three",
+        "listing-test-admin-stock-3@example.com",
+      );
+
+      const negativeAtCreate = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "Title",
+        description: "Description",
+        priceCents: 500,
+        stockQuantity: -1,
+      });
+      expect(negativeAtCreate).toEqual({ ok: false, reason: "invalid_input" });
+
+      const fractionalAtCreate = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "Title",
+        description: "Description",
+        priceCents: 500,
+        stockQuantity: 1.5,
+      });
+      expect(fractionalAtCreate).toEqual({ ok: false, reason: "invalid_input" });
+
+      const created = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "Title",
+        description: "Description",
+        priceCents: 500,
+        stockQuantity: 5,
+      });
+      if (!created.ok) throw new Error("expected listing creation to succeed");
+
+      const negativeAtUpdate = await updateListing({
+        listingId: created.listing.id,
+        callerAccountId: admin.id,
+        stockQuantity: -1,
+      });
+      expect(negativeAtUpdate).toEqual({ ok: false, reason: "invalid_input" });
+
+      const fractionalAtUpdate = await updateListing({
+        listingId: created.listing.id,
+        callerAccountId: admin.id,
+        stockQuantity: 2.7,
+      });
+      expect(fractionalAtUpdate).toEqual({ ok: false, reason: "invalid_input" });
+
+      const unchanged = await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } });
+      expect(unchanged.stockQuantity).toBe(5);
+    });
+  });
+
   describe("removeListingPhoto", () => {
     // T016 (US2)
     it("lets the owner remove an existing photo", async () => {
@@ -1028,6 +1128,73 @@ describe("listingService (contract)", () => {
 
       expect(result).toEqual({ ok: false, reason: "not_owner" });
       expect(await prisma.listing.findUnique({ where: { id: created.listing.id } })).not.toBeNull();
+    });
+
+    // T003 (013-purchase-flow-stock, Foundational, FR-028, research.md #9)
+    it("cancels a PENDING transaction referencing the listing, but leaves an ACCEPTED one untouched", async () => {
+      const { community, admin } = await createCommunityWithAdmin(
+        "Listing Test Community Stock Delete",
+        "listing-test-admin-stock-delete@example.com",
+      );
+      const buyer = await addMember(community.id, "listing-test-member-stock-delete@example.com");
+      const pendingListing = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "Pending Target",
+        description: "Description",
+        priceCents: 500,
+        stockQuantity: 10,
+      });
+      if (!pendingListing.ok) throw new Error("expected listing creation to succeed");
+      const acceptedListing = await createListing({
+        communityId: community.id,
+        ownerId: admin.id,
+        title: "Accepted Target",
+        description: "Description",
+        priceCents: 500,
+        stockQuantity: 10,
+      });
+      if (!acceptedListing.ok) throw new Error("expected listing creation to succeed");
+
+      // Seeded directly (proposePurchase()/acceptProposal() don't exist yet at this
+      // point in the task sequence, tasks.md T003) using T001's new nullable columns.
+      const pendingTransaction = await prisma.transaction.create({
+        data: {
+          communityId: community.id,
+          buyerId: buyer.id,
+          sellerId: admin.id,
+          listingId: pendingListing.listing.id,
+          listingTitle: pendingListing.listing.title,
+          quantity: 1,
+          totalCents: 500,
+          state: "PENDING",
+        },
+      });
+      const acceptedTransaction = await prisma.transaction.create({
+        data: {
+          communityId: community.id,
+          buyerId: buyer.id,
+          sellerId: admin.id,
+          listingId: acceptedListing.listing.id,
+          listingTitle: acceptedListing.listing.title,
+          quantity: 1,
+          totalCents: 500,
+          state: "ACCEPTED",
+          resolvedAt: new Date(),
+        },
+      });
+
+      const deletePending = await deleteListing({ listingId: pendingListing.listing.id, callerAccountId: admin.id });
+      expect(deletePending).toEqual({ ok: true });
+      const cancelledTransaction = await prisma.transaction.findUniqueOrThrow({ where: { id: pendingTransaction.id } });
+      expect(cancelledTransaction.state).toBe("CANCELLED");
+      expect(cancelledTransaction.resolvedAt).not.toBeNull();
+
+      const deleteAccepted = await deleteListing({ listingId: acceptedListing.listing.id, callerAccountId: admin.id });
+      expect(deleteAccepted).toEqual({ ok: true });
+      const untouchedTransaction = await prisma.transaction.findUniqueOrThrow({ where: { id: acceptedTransaction.id } });
+      expect(untouchedTransaction.state).toBe("ACCEPTED");
+      expect(untouchedTransaction.resolvedAt?.getTime()).toBe(acceptedTransaction.resolvedAt?.getTime());
     });
   });
 

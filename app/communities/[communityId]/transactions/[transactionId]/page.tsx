@@ -9,7 +9,8 @@ import { BackLink } from "../../../../_components/BackLink";
 import { PageHeader } from "../../../../_components/PageHeader";
 import { Card } from "../../../../_components/Card";
 import { NonIntermediaryDisclosure } from "../../_components/NonIntermediaryDisclosure";
-import { ConfirmTransactionButton } from "../../_components/ConfirmTransactionButton";
+import { AcceptRejectButtons } from "../../_components/AcceptRejectButtons";
+import { CancelProposalButton } from "../../_components/CancelProposalButton";
 import { ReviewForm } from "./ReviewForm";
 
 export default async function TransactionDetailPage({
@@ -30,7 +31,7 @@ export default async function TransactionDetailPage({
 
   const { transaction } = result;
   const myReview =
-    transaction.confirmationState === "CONFIRMED" ? await getMyReview(transaction.id, account.accountId) : null;
+    transaction.state === "ACCEPTED" ? await getMyReview(transaction.id, account.accountId) : null;
 
   return (
     <AppShell account={account}>
@@ -39,11 +40,9 @@ export default async function TransactionDetailPage({
 
       <Card className="max-w-xl">
         <NonIntermediaryDisclosure />
-        <p className="mb-1 text-[15px] font-semibold">
-          {transaction.confirmationState === "CONFIRMED" ? "Confirmed" : "Unconfirmed"} transaction
-        </p>
+        <p className="mb-1 text-[15px] font-semibold">{transaction.state} transaction</p>
         <p className="mb-3 text-[13px] text-ink-muted">
-          {transaction.role === "recorder" ? "You recorded this with" : "Recorded by"}{" "}
+          {transaction.role === "buyer" ? "Purchase from" : "Sale to"}{" "}
           <Link
             href={`/communities/${communityId}/members/${transaction.counterpartId}`}
             className="hover:underline"
@@ -52,10 +51,13 @@ export default async function TransactionDetailPage({
           </Link>{" "}
           on {new Date(transaction.createdAt).toLocaleString()}
         </p>
-        {transaction.confirmationState === "UNCONFIRMED" && transaction.role === "counterpart" && (
-          <ConfirmTransactionButton communityId={communityId} transactionId={transaction.id} />
+        {transaction.state === "PENDING" && transaction.role === "seller" && (
+          <AcceptRejectButtons communityId={communityId} transactionId={transaction.id} />
         )}
-        {transaction.confirmationState === "CONFIRMED" &&
+        {transaction.state === "PENDING" && transaction.role === "buyer" && (
+          <CancelProposalButton communityId={communityId} transactionId={transaction.id} />
+        )}
+        {transaction.state === "ACCEPTED" &&
           (myReview ? (
             <p className="mt-3 text-[13px] text-ink-muted" data-testid="my-review">
               You rated this transaction {myReview.rating} out of 5.

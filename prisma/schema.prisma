@@ -40,8 +40,8 @@ model Account {
   listings            Listing[]
   messageThreads      MessageThread[]      @relation("MessageThreadsAsBuyer")
   messagesSent        Message[]            @relation("MessagesSent")
-  transactionsRecorded     Transaction[]   @relation("TransactionsRecorded")
-  transactionsAsCounterpart Transaction[]  @relation("TransactionsAsCounterpart")
+  transactionsAsBuyer      Transaction[]   @relation("TransactionsAsBuyer")
+  transactionsAsSeller     Transaction[]   @relation("TransactionsAsSeller")
   reviewsWritten            Review[]       @relation("ReviewsWritten")
   reviewsReceived           Review[]       @relation("ReviewsReceived")
 
@@ -225,6 +225,12 @@ model Listing {
   priceCents    Int?
   kind          ListingKind   @default(FOR_SALE)
   status        ListingStatus @default(ACTIVE)
+  /// 013-purchase-flow-stock, FR-001/FR-002, research.md #8: seller-declared,
+  /// non-negative integer (validated in listingService.ts, not by the
+  /// database); null means the seller has not declared stock yet (a distinct
+  /// state from a declared 0), which blocks every purchase proposal against
+  /// the listing. Meaningful only for kind = FOR_SALE.
+  stockQuantity Int?
   coverPhotoId  String?       @unique
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -315,43 +321,55 @@ enum TransactionPaymentPath {
   OFF_PLATFORM
 }
 
-/// 010-transaction-logging, FR-004/FR-005: closed set, never a bare boolean —
-/// mirrors ListingStatus's own rationale.
-enum TransactionConfirmationState {
-  UNCONFIRMED
-  CONFIRMED
+/// 013-purchase-flow-stock, research.md #1: the proposal-and-acceptance state
+/// machine, replacing 010-transaction-logging's retired TransactionConfirmationState
+/// (FR-021). PENDING -> ACCEPTED | REJECTED | CANCELLED; no other transition,
+/// no path back out of a terminal state.
+enum TransactionState {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
 }
 
-/// A permanent, traceable record that a transaction occurred between two
-/// co-members against a specific listing (010-transaction-logging,
-/// Constitution Principle IV). No relation to Listing or MessageThread —
-/// research.md #1: listingId/listingTitle are an unconstrained snapshot so
-/// the log survives listing deletion unaltered (FR-017). communityId is a
+/// A permanent, traceable record of a purchase (010-transaction-logging,
+/// Constitution Principle IV; evolved by 013-purchase-flow-stock into a
+/// proposal-and-acceptance model, research.md #1 there — this is the same
+/// entity 012-profiles-reputation reads from, not a second one). No relation
+/// to Listing — listingId/listingTitle are an unconstrained snapshot so the
+/// record survives listing deletion unaltered (FR-028). communityId is a
 /// first-class column, never inferred through a joinable-but-deletable
 /// Listing (research.md #1, Constitution Tenancy constraint).
 model Transaction {
-  id                String                        @id @default(cuid())
-  communityId       String
-  recorderId        String
-  counterpartId     String
-  listingId         String
-  listingTitle      String
-  paymentPath       TransactionPaymentPath        @default(OFF_PLATFORM)
-  confirmationState TransactionConfirmationState  @default(UNCONFIRMED)
-  createdAt         DateTime                      @default(now())
-  confirmedAt       DateTime?
+  id            String                 @id @default(cuid())
+  communityId   String
+  /// 013-purchase-flow-stock, research.md #2: the proposing account.
+  buyerId       String
+  /// 013-purchase-flow-stock, research.md #2/#3: derived as listing.ownerId at creation — never client-supplied.
+  sellerId      String
+  listingId     String
+  listingTitle  String
+  /// FR-001/FR-008/FR-014: fixed at creation, never changed by accept/reject/cancel.
+  quantity      Int
+  /// FR-004: self-reported total in cents, matching Listing.priceCents's convention; not validated against price x quantity.
+  totalCents    Int
+  paymentPath   TransactionPaymentPath @default(OFF_PLATFORM)
+  state         TransactionState       @default(PENDING)
+  createdAt     DateTime               @default(now())
+  /// data-model.md: set once, whenever state leaves PENDING (to ACCEPTED, REJECTED, or CANCELLED).
+  resolvedAt    DateTime?
   /// research.md #6: stamped for consistency with every other per-community
   /// row; deliberately never used to filter this model out of any view.
-  operationalEpoch  Int                            @default(1)
+  operationalEpoch Int                 @default(1)
 
-  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  recorder    Account   @relation("TransactionsRecorded", fields: [recorderId], references: [id], onDelete: Cascade)
-  counterpart Account   @relation("TransactionsAsCounterpart", fields: [counterpartId], references: [id], onDelete: Cascade)
-  reviews     Review[]
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  buyer     Account   @relation("TransactionsAsBuyer", fields: [buyerId], references: [id], onDelete: Cascade)
+  seller    Account   @relation("TransactionsAsSeller", fields: [sellerId], references: [id], onDelete: Cascade)
+  reviews   Review[]
 
   @@index([communityId])
-  @@index([recorderId])
-  @@index([counterpartId])
+  @@index([buyerId])
+  @@index([sellerId])
   @@map("transactions")
 }
 

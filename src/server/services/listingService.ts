@@ -43,6 +43,16 @@ function isValidPriceCents(value: number): boolean {
   return Number.isInteger(value) && value >= 0;
 }
 
+/**
+ * 013-purchase-flow-stock, FR-001, research.md #8 (clarify session): a
+ * non-negative integer, mirroring isValidPriceCents(). `undefined`/absent is
+ * handled separately by callers as "not specified" (null in storage) — this
+ * only validates a value the caller actually provided.
+ */
+function isValidStockQuantity(value: number): boolean {
+  return Number.isInteger(value) && value >= 0;
+}
+
 export type CreateListingResult =
   | {
       ok: true;
@@ -55,6 +65,7 @@ export type CreateListingResult =
         priceCents: number | null;
         kind: "FOR_SALE" | "WANTED";
         status: "ACTIVE" | "PAUSED" | "FULFILLED";
+        stockQuantity: number | null;
       };
     }
   | { ok: false; reason: "invalid_input" }
@@ -69,6 +80,8 @@ export interface CreateListingInput {
   priceCents?: number;
   /** 011-wanted-posts, research.md #1/#5: defaults to FOR_SALE; immutable after creation. */
   kind?: "FOR_SALE" | "WANTED";
+  /** 013-purchase-flow-stock, FR-001: seller-declared; absent/undefined leaves it null ("not specified"). */
+  stockQuantity?: number;
 }
 
 /**
@@ -90,11 +103,14 @@ export async function createListing(input: CreateListingInput): Promise<CreateLi
   const priceRequired = kind === "FOR_SALE";
   const priceProvided = input.priceCents !== undefined;
 
+  const stockProvided = input.stockQuantity !== undefined;
+
   if (
     isBlank(input.title) ||
     isBlank(input.description) ||
     (priceRequired && !priceProvided) ||
-    (priceProvided && !isValidPriceCents(input.priceCents!))
+    (priceProvided && !isValidPriceCents(input.priceCents!)) ||
+    (stockProvided && !isValidStockQuantity(input.stockQuantity!))
   ) {
     return { ok: false, reason: "invalid_input" };
   }
@@ -121,6 +137,7 @@ export async function createListing(input: CreateListingInput): Promise<CreateLi
       description: input.description,
       priceCents: priceProvided ? input.priceCents : null,
       kind,
+      stockQuantity: stockProvided ? input.stockQuantity : null,
       operationalEpoch: community?.operationalEpoch ?? 1,
     },
   });
@@ -136,6 +153,7 @@ export async function createListing(input: CreateListingInput): Promise<CreateLi
       priceCents: listing.priceCents,
       kind: listing.kind,
       status: listing.status,
+      stockQuantity: listing.stockQuantity,
     },
   };
 }
@@ -210,6 +228,7 @@ export type ListListingsResult =
         createdAt: Date;
         coverPhotoId: string | null;
         ownerDisplayName: string | null;
+        stockQuantity: number | null;
       }[];
       page: number;
       pageSize: number;
@@ -313,6 +332,7 @@ export async function listListings(
       createdAt: listing.createdAt,
       coverPhotoId: listing.coverPhotoId,
       ownerDisplayName: listing.owner.displayName,
+      stockQuantity: listing.stockQuantity,
     })),
     page,
     pageSize,
@@ -335,6 +355,7 @@ export type GetListingResult =
         coverPhotoId: string | null;
         ownerDisplayName: string | null;
         photos: { id: string; position: number }[];
+        stockQuantity: number | null;
       };
     }
   | { ok: false; reason: "not_a_member" }
@@ -389,6 +410,7 @@ export async function getListing(
       coverPhotoId: listing.coverPhotoId,
       ownerDisplayName: listing.owner.displayName,
       photos: listing.photos.map((photo) => ({ id: photo.id, position: photo.position })),
+      stockQuantity: listing.stockQuantity,
     },
   };
 }
@@ -435,6 +457,7 @@ export type UpdateListingResult =
         priceCents: number | null;
         kind: "FOR_SALE" | "WANTED";
         status: "ACTIVE" | "PAUSED" | "FULFILLED";
+        stockQuantity: number | null;
       };
     }
   | { ok: false; reason: "not_found" }
@@ -448,6 +471,8 @@ export interface UpdateListingInput {
   title?: string;
   description?: string;
   priceCents?: number;
+  /** 013-purchase-flow-stock, FR-001: editable afterward like any other listing field. */
+  stockQuantity?: number;
 }
 
 /**
@@ -472,6 +497,9 @@ export async function updateListing(input: UpdateListingInput): Promise<UpdateLi
   if (input.priceCents !== undefined && !isValidPriceCents(input.priceCents)) {
     return { ok: false, reason: "invalid_input" };
   }
+  if (input.stockQuantity !== undefined && !isValidStockQuantity(input.stockQuantity)) {
+    return { ok: false, reason: "invalid_input" };
+  }
 
   const updated = await prisma.listing.update({
     where: { id: input.listingId },
@@ -479,6 +507,7 @@ export async function updateListing(input: UpdateListingInput): Promise<UpdateLi
       ...(input.title !== undefined ? { title: input.title } : {}),
       ...(input.description !== undefined ? { description: input.description } : {}),
       ...(input.priceCents !== undefined ? { priceCents: input.priceCents } : {}),
+      ...(input.stockQuantity !== undefined ? { stockQuantity: input.stockQuantity } : {}),
     },
   });
 
@@ -493,6 +522,7 @@ export async function updateListing(input: UpdateListingInput): Promise<UpdateLi
       priceCents: updated.priceCents,
       kind: updated.kind,
       status: updated.status,
+      stockQuantity: updated.stockQuantity,
     },
   };
 }
@@ -711,16 +741,31 @@ export interface DeleteListingInput {
 /**
  * FR-008, FR-010: ownership check alone — never requireCommunityAdministrator,
  * by design. Cascades to ListingPhoto via onDelete: Cascade (no $transaction
- * needed — data-model.md's Atomicity note). Not restricted by community
- * suspension (spec.md Edge Cases names only pausing as explicitly permitted;
- * deletion is left unrestricted rather than speculatively gated).
+ * needed for that part — data-model.md's Atomicity note). Not restricted by
+ * community suspension (spec.md Edge Cases names only pausing as explicitly
+ * permitted; deletion is left unrestricted rather than speculatively gated).
+ *
+ * 013-purchase-flow-stock, FR-028, research.md #9: `Transaction.listingId` has
+ * no FK/relation to `Listing` (010 research.md #1's snapshot pattern), so
+ * deleting the listing triggers no cascade against it on its own — any
+ * `PENDING` proposal referencing this listing is explicitly cancelled here,
+ * in the same `$transaction` as the delete, since there is nothing left to
+ * fulfill. An already-`ACCEPTED`/`REJECTED`/`CANCELLED` row is untouched (the
+ * `updateMany`'s `state: "PENDING"` filter never matches it).
  */
 export async function deleteListing(input: DeleteListingInput): Promise<DeleteListingResult> {
   const listing = await prisma.listing.findUnique({ where: { id: input.listingId } });
   if (!listing) return { ok: false, reason: "not_found" };
   if (listing.ownerId !== input.callerAccountId) return { ok: false, reason: "not_owner" };
 
-  await prisma.listing.delete({ where: { id: input.listingId } });
+  await prisma.$transaction(async (tx) => {
+    await tx.transaction.updateMany({
+      where: { listingId: input.listingId, state: "PENDING" },
+      data: { state: "CANCELLED", resolvedAt: new Date() },
+    });
+    await tx.listing.delete({ where: { id: input.listingId } });
+  });
+
   return { ok: true };
 }
 
