@@ -9,6 +9,7 @@ import { resolveDisplayName } from "@/lib/formatting/displayName";
 import { MainViewControls } from "./MainViewControls";
 import { AppShell } from "../../_components/AppShell";
 import { PageHeader } from "../../_components/PageHeader";
+import { LinkButton } from "../../_components/Button";
 
 /**
  * 015-navigation-shell-community-selector, User Story 2 (FR-006–FR-008),
@@ -66,7 +67,10 @@ export default async function CommunityMainViewPage({
 
   return (
     <AppShell account={account}>
-      <PageHeader title={community?.communityName ?? "Community"} />
+      <PageHeader
+        title={community?.communityName ?? "Community"}
+        actions={<LinkButton href={`/communities/${communityId}/listings/new`}>New listing</LinkButton>}
+      />
 
       <MainViewControls
         communityId={communityId}
