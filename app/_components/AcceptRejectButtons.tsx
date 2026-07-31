@@ -2,8 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { FormError } from "../../../_components/FormField";
-import { Button } from "../../../_components/Button";
+import { FormError } from "./FormField";
+import { Button } from "./Button";
 import { RatingModal } from "./RatingModal";
 
 type ResolveProposalResponse = { ok: true } | { ok: false; reason: string };
@@ -11,6 +11,8 @@ type ResolveProposalResponse = { ok: true } | { ok: false; reason: string };
 export interface AcceptRejectButtonsProps {
   communityId: string;
   transactionId: string;
+  /** The buyer's displayName, shown in the post-accept rating prompt. */
+  counterpartDisplayName?: string | null;
 }
 
 /**
@@ -21,7 +23,11 @@ export interface AcceptRejectButtonsProps {
  * uniqueness, confirmation, or reputation rule"), reusing the exact same
  * review-creation action. Rejecting has no further prompt (FR-016).
  */
-export function AcceptRejectButtons({ communityId, transactionId }: AcceptRejectButtonsProps) {
+export function AcceptRejectButtons({
+  communityId,
+  transactionId,
+  counterpartDisplayName,
+}: AcceptRejectButtonsProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -66,7 +72,12 @@ export function AcceptRejectButtons({ communityId, transactionId }: AcceptReject
         Reject
       </Button>
       {showRatingModal && (
-        <RatingModal communityId={communityId} transactionId={transactionId} onClose={onModalClose} />
+        <RatingModal
+          communityId={communityId}
+          transactionId={transactionId}
+          counterpartDisplayName={counterpartDisplayName}
+          onClose={onModalClose}
+        />
       )}
     </div>
   );

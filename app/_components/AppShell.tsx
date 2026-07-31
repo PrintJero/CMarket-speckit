@@ -104,6 +104,12 @@ export function AppShell({
               >
                 My listings
               </Link>
+              <Link
+                href="/transactions"
+                className={navLinkClassName(isNavPathActive(pathname, "/transactions"))}
+              >
+                Transactions
+              </Link>
 
               {account.memberships.length > 0 && (
                 <div className="mt-4 border-t border-border pt-4">

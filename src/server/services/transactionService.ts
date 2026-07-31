@@ -353,6 +353,61 @@ export async function getTransaction(input: GetTransactionInput): Promise<GetTra
   };
 }
 
+export type ListMyTransactionsResult = {
+  ok: true;
+  transactions: (TransactionRecord & {
+    communityId: string;
+    communityName: string;
+    role: PartyRole;
+    counterpartId: string;
+    counterpartDisplayName: string | null;
+    /** The caller's own rating of the counterpart, if any — null when not ACCEPTED or not yet rated. */
+    myRating: number | null;
+  })[];
+};
+
+/**
+ * Powers the top-level Transactions nav item (Buying/Selling views): every
+ * transaction the caller is a party to, across every community, newest
+ * first — mirrors listMyThreads()'s/listMyListings()'s own cross-community
+ * shape. `myRating` is resolved with one batched Review lookup rather than
+ * a query per row, and is the one bit of new state this view needs beyond
+ * what getMyReview() already exposes per-transaction on the detail page.
+ */
+export async function listMyTransactions(callerAccountId: string): Promise<ListMyTransactionsResult> {
+  const rows = await prisma.transaction.findMany({
+    where: { OR: [{ buyerId: callerAccountId }, { sellerId: callerAccountId }] },
+    orderBy: { createdAt: "desc" },
+    include: { ...PARTY_INCLUDE, community: { select: { name: true } } },
+  });
+
+  const acceptedIds = rows.filter((row) => row.state === "ACCEPTED").map((row) => row.id);
+  const myReviews = acceptedIds.length
+    ? await prisma.review.findMany({
+        where: { reviewerId: callerAccountId, transactionId: { in: acceptedIds } },
+        select: { transactionId: true, rating: true },
+      })
+    : [];
+  const myRatingByTransactionId = new Map(myReviews.map((review) => [review.transactionId, review.rating]));
+
+  return {
+    ok: true,
+    // The `where` OR clause above already guarantees the caller is buyerId or sellerId,
+    // so deriveParty() always succeeds here.
+    transactions: rows.map((row) => {
+      const party = deriveParty(row, callerAccountId);
+      if (!party.ok) throw new Error("unreachable: row matched the party OR clause but deriveParty() rejected it");
+      return {
+        ...toRecord(row),
+        communityId: row.communityId,
+        communityName: row.community.name,
+        ...party,
+        myRating: myRatingByTransactionId.get(row.id) ?? null,
+      };
+    }),
+  };
+}
+
 export type ListTransactionsResult =
   | {
       ok: true;

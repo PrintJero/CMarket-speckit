@@ -1,14 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FormError } from "../../../_components/FormField";
-import { Button } from "../../../_components/Button";
+import { FormError } from "./FormField";
+import { Button } from "./Button";
+import { resolveDisplayName } from "@/lib/formatting/displayName";
 
 type CreateReviewResponse = { ok: true } | { ok: false; reason: string };
 
 export interface RatingModalProps {
   communityId: string;
   transactionId: string;
+  /** Shown in the prompt copy; falls back to the neutral placeholder when absent. */
+  counterpartDisplayName?: string | null;
   /** Called after a successful submit, and also when dismissed via "Maybe later", Escape, or the backdrop — the caller decides what to refresh. */
   onClose: () => void;
 }
@@ -19,9 +22,11 @@ export interface RatingModalProps {
  * optional: dismissing via "Maybe later" leaves the transaction unrated, still
  * ratable afterward from the transaction page's own inline form — this modal
  * calls the exact same review-creation endpoint, no new eligibility/uniqueness
- * rule is introduced.
+ * rule is introduced. The aria-label stays a generic "Rate this transaction"
+ * (not personalized) so it remains a stable accessible name regardless of
+ * which counterpart is being rated.
  */
-export function RatingModal({ communityId, transactionId, onClose }: RatingModalProps) {
+export function RatingModal({ communityId, transactionId, counterpartDisplayName, onClose }: RatingModalProps) {
   const [rating, setRating] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,8 +69,9 @@ export function RatingModal({ communityId, transactionId, onClose }: RatingModal
         onClick={(event) => event.stopPropagation()}
         className="w-full max-w-sm rounded-card bg-surface p-6 shadow-card"
       >
-        <p className="mb-1 text-center text-[16px] font-bold text-ink">Rate this transaction</p>
-        <p className="mb-5 text-center text-[13px] text-ink-muted">How did it go with the other person?</p>
+        <p className="mb-5 text-center text-[16px] font-bold text-ink">
+          How was your experience with {resolveDisplayName(counterpartDisplayName ?? null)}?
+        </p>
 
         <div className="mb-5 flex justify-center gap-1.5" role="radiogroup" aria-label="Rating, 1 to 5 stars">
           {[1, 2, 3, 4, 5].map((value) => (
@@ -89,7 +95,7 @@ export function RatingModal({ communityId, transactionId, onClose }: RatingModal
 
         <div className="flex flex-col gap-2">
           <Button type="button" fullWidth disabled={rating === null || submitting} onClick={onSubmit}>
-            Submit
+            Submit rating
           </Button>
           <Button type="button" variant="secondary" fullWidth disabled={submitting} onClick={() => onClose()}>
             Maybe later

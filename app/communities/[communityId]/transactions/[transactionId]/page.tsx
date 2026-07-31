@@ -4,13 +4,15 @@ import { getCurrentAccount } from "@/lib/auth/currentAccount";
 import { getTransaction } from "@/server/services/transactionService";
 import { getMyReview } from "@/server/services/reviewService";
 import { resolveDisplayName } from "@/lib/formatting/displayName";
+import { formatListingPrice } from "@/lib/formatting/currency";
+import { transactionStateLabel, transactionResolvedCaption, paymentPathLabel } from "@/lib/formatting/transactionState";
 import { AppShell } from "../../../../_components/AppShell";
 import { BackLink } from "../../../../_components/BackLink";
 import { PageHeader } from "../../../../_components/PageHeader";
 import { Card } from "../../../../_components/Card";
-import { NonIntermediaryDisclosure } from "../../_components/NonIntermediaryDisclosure";
-import { AcceptRejectButtons } from "../../_components/AcceptRejectButtons";
-import { CancelProposalButton } from "../../_components/CancelProposalButton";
+import { NonIntermediaryDisclosure } from "../../../../_components/NonIntermediaryDisclosure";
+import { AcceptRejectButtons } from "../../../../_components/AcceptRejectButtons";
+import { CancelProposalButton } from "../../../../_components/CancelProposalButton";
 import { ReviewForm } from "./ReviewForm";
 
 export default async function TransactionDetailPage({
@@ -32,6 +34,7 @@ export default async function TransactionDetailPage({
   const { transaction } = result;
   const myReview =
     transaction.state === "ACCEPTED" ? await getMyReview(transaction.id, account.accountId) : null;
+  const resolvedCaption = transactionResolvedCaption(transaction.state, transaction.resolvedAt);
 
   return (
     <AppShell account={account}>
@@ -40,19 +43,38 @@ export default async function TransactionDetailPage({
 
       <Card className="max-w-xl">
         <NonIntermediaryDisclosure />
-        <p className="mb-1 text-[15px] font-semibold">{transaction.state} transaction</p>
-        <p className="mb-3 text-[13px] text-ink-muted">
+
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="rounded-pill bg-brand-tint px-2.5 py-1 text-[12px] font-bold uppercase tracking-wider text-brand-dark">
+            {transactionStateLabel(transaction.state)}
+          </span>
+          <span className="text-[13px] text-ink-muted">{paymentPathLabel(transaction.paymentPath)}</span>
+        </div>
+
+        <p className="mb-1 text-[13px] text-ink-muted">
           {transaction.role === "buyer" ? "Purchase from" : "Sale to"}{" "}
           <Link
             href={`/communities/${communityId}/members/${transaction.counterpartId}`}
             className="hover:underline"
           >
             {resolveDisplayName(transaction.counterpartDisplayName)}
-          </Link>{" "}
-          on {new Date(transaction.createdAt).toLocaleString()}
+          </Link>
         </p>
+        <p className="mb-1 text-[13px] text-ink-muted">
+          {transaction.quantity} {transaction.quantity === 1 ? "unit" : "units"} ·{" "}
+          {formatListingPrice(transaction.totalCents)}
+        </p>
+        <p className="mb-3 text-[13px] text-ink-muted">
+          Proposed on {new Date(transaction.createdAt).toLocaleString()}
+          {resolvedCaption ? ` · ${resolvedCaption}` : ""}
+        </p>
+
         {transaction.state === "PENDING" && transaction.role === "seller" && (
-          <AcceptRejectButtons communityId={communityId} transactionId={transaction.id} />
+          <AcceptRejectButtons
+            communityId={communityId}
+            transactionId={transaction.id}
+            counterpartDisplayName={transaction.counterpartDisplayName}
+          />
         )}
         {transaction.state === "PENDING" && transaction.role === "buyer" && (
           <CancelProposalButton communityId={communityId} transactionId={transaction.id} />
