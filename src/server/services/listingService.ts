@@ -1,9 +1,16 @@
 import { prisma } from "@/lib/prisma";
 import { requireCommunityAdministrator } from "@/server/services/invitationService";
+import { enqueueCleanup, renumberListingPhotos } from "@/server/services/mediaCleanupService";
 
-const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
-const MAX_PHOTOS_PER_LISTING = 6;
-const ALLOWED_PHOTO_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+/**
+ * 017-cloudinary-listing-media, FR-004: raised from 6 to 8.
+ *
+ * MAX_PHOTO_BYTES and ALLOWED_PHOTO_MIME_TYPES are deliberately gone — upload
+ * bytes never reach this server any more, so format and size are enforced by
+ * signed Cloudinary upload params instead, where a tampering client invalidates
+ * the signature (research.md #5, FR-033).
+ */
+export const MAX_PHOTOS_PER_LISTING = 8;
 
 export interface CommunityGateOptions {
   /** FR-052: viewing existing content and replying in existing threads tolerate SUSPENDED. */
@@ -159,24 +166,35 @@ export async function createListing(input: CreateListingInput): Promise<CreateLi
 }
 
 export type AddListingPhotoResult =
-  | { ok: true; photo: { id: string; position: number } }
+  | { ok: true; photo: { id: string; displayOrder: number } }
   | { ok: false; reason: "not_found" }
   | { ok: false; reason: "not_owner" }
-  | { ok: false; reason: "invalid_photo" }
   | { ok: false; reason: "photo_limit_reached" }
   | { ok: false; reason: "community_not_active" };
 
 export interface AddListingPhotoInput {
   listingId: string;
   callerAccountId: string;
-  data: Buffer;
-  mimeType: string;
+  /** Verified Cloudinary asset metadata. Bytes never reach this server (FR-021). */
+  cloudinaryAssetId: string;
+  cloudinaryPublicId: string;
+  width: number;
+  height: number;
+  format: string;
+  bytes: number;
 }
 
 /**
- * FR-003, FR-006. sizeBytes is derived from `data`, never trusted from the
- * caller. 009-platform-administration, FR-053: adding a photo is a listing
- * content edit, blocked while the community is SUSPENDED or ARCHIVED.
+ * 017-cloudinary-listing-media: append one already-uploaded, already-verified
+ * Cloudinary asset to a listing.
+ *
+ * The `invalid_photo` branch is gone. Format and size are enforced by signed
+ * upload params before the asset exists (FR-033), and provenance is established
+ * by listingMediaService before this is called — there is nothing left here for
+ * a caller to get wrong about the bytes, because there are no bytes.
+ *
+ * 009-platform-administration, FR-053: adding a photo is a listing content
+ * edit, blocked while the community is SUSPENDED or ARCHIVED.
  */
 export async function addListingPhoto(input: AddListingPhotoInput): Promise<AddListingPhotoResult> {
   const listing = await prisma.listing.findUnique({ where: { id: input.listingId } });
@@ -184,10 +202,6 @@ export async function addListingPhoto(input: AddListingPhotoInput): Promise<AddL
   if (listing.ownerId !== input.callerAccountId) return { ok: false, reason: "not_owner" };
   if (!(await isCommunityActive(listing.communityId))) {
     return { ok: false, reason: "community_not_active" };
-  }
-
-  if (!ALLOWED_PHOTO_MIME_TYPES.has(input.mimeType) || input.data.length > MAX_PHOTO_BYTES) {
-    return { ok: false, reason: "invalid_photo" };
   }
 
   const existingCount = await prisma.listingPhoto.count({ where: { listingId: input.listingId } });
@@ -198,10 +212,13 @@ export async function addListingPhoto(input: AddListingPhotoInput): Promise<AddL
   const photo = await prisma.listingPhoto.create({
     data: {
       listingId: input.listingId,
-      data: Uint8Array.from(input.data),
-      mimeType: input.mimeType,
-      sizeBytes: input.data.length,
-      position: existingCount,
+      cloudinaryAssetId: input.cloudinaryAssetId,
+      cloudinaryPublicId: input.cloudinaryPublicId,
+      width: input.width,
+      height: input.height,
+      format: input.format,
+      bytes: input.bytes,
+      displayOrder: existingCount,
     },
   });
 
@@ -212,7 +229,7 @@ export async function addListingPhoto(input: AddListingPhotoInput): Promise<AddL
     });
   }
 
-  return { ok: true, photo: { id: photo.id, position: photo.position } };
+  return { ok: true, photo: { id: photo.id, displayOrder: photo.displayOrder } };
 }
 
 export type ListListingsResult =
@@ -227,6 +244,13 @@ export type ListListingsResult =
         ownerId: string;
         createdAt: Date;
         coverPhotoId: string | null;
+        /**
+         * 017-cloudinary-listing-media, FR-063/FR-068: the cover's stored
+         * dimensions, so a card can reserve the right proportion. No Cloudinary
+         * identifier — a persisted public ID does not belong in a listing read
+         * (FR-056).
+         */
+        coverPhoto: { id: string; width: number; height: number } | null;
         ownerDisplayName: string | null;
         stockQuantity: number | null;
       }[];
@@ -314,7 +338,13 @@ export async function listListings(
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     skip: (page - 1) * pageSize,
     take: pageSize + 1,
-    include: { owner: { select: { displayName: true } } },
+    include: {
+      owner: { select: { displayName: true } },
+      // 017-cloudinary-listing-media: the cover's dimensions ride along on the
+      // same findMany — never a second query per listing (this file's existing
+      // "never an N+1" discipline).
+      coverPhoto: { select: { id: true, width: true, height: true } },
+    },
   });
 
   const hasMore = listings.length > pageSize;
@@ -331,6 +361,13 @@ export async function listListings(
       ownerId: listing.ownerId,
       createdAt: listing.createdAt,
       coverPhotoId: listing.coverPhotoId,
+      coverPhoto: listing.coverPhoto
+        ? {
+            id: listing.coverPhoto.id,
+            width: listing.coverPhoto.width,
+            height: listing.coverPhoto.height,
+          }
+        : null,
       ownerDisplayName: listing.owner.displayName,
       stockQuantity: listing.stockQuantity,
     })),
@@ -354,7 +391,13 @@ export type GetListingResult =
         status: "ACTIVE" | "PAUSED" | "FULFILLED";
         coverPhotoId: string | null;
         ownerDisplayName: string | null;
-        photos: { id: string; position: number }[];
+        /**
+         * 017-cloudinary-listing-media, FR-063: everything ListingImage needs to
+         * build a proxy URL and reserve layout space — and deliberately NO
+         * cloudinaryPublicId or cloudinaryAssetId, keeping persisted Cloudinary
+         * identifiers out of listing reads (FR-056).
+         */
+        photos: { id: string; width: number; height: number; displayOrder: number }[];
         stockQuantity: number | null;
       };
     }
@@ -384,7 +427,7 @@ export async function getListing(
   const listing = await prisma.listing.findUnique({
     where: { id: listingId },
     include: {
-      photos: { orderBy: { position: "asc" } },
+      photos: { orderBy: { displayOrder: "asc" } },
       owner: { select: { displayName: true } },
     },
   });
@@ -409,24 +452,60 @@ export async function getListing(
       status: listing.status,
       coverPhotoId: listing.coverPhotoId,
       ownerDisplayName: listing.owner.displayName,
-      photos: listing.photos.map((photo) => ({ id: photo.id, position: photo.position })),
+      photos: listing.photos.map((photo) => ({
+        id: photo.id,
+        width: photo.width,
+        height: photo.height,
+        displayOrder: photo.displayOrder,
+      })),
       stockQuantity: listing.stockQuantity,
     },
   };
 }
 
 export type GetListingPhotoResult =
-  | { ok: true; photo: { data: Buffer; mimeType: string } }
+  | {
+      ok: true;
+      /**
+       * SERVER-INTERNAL ONLY (017-cloudinary-listing-media, T031).
+       *
+       * `cloudinaryAssetId` is here because the delivery ETag is derived from it
+       * (W/"{cloudinaryAssetId}-{variant}"), and `cloudinaryPublicId` because the
+       * signed fetch resolves by it. FR-056 forbids either reaching a proxy
+       * response, a response header, or any listing-read payload — the route
+       * uses them to build a header and a URL, and emits neither.
+       */
+      photo: {
+        cloudinaryAssetId: string;
+        cloudinaryPublicId: string;
+        width: number;
+        height: number;
+      };
+    }
   | { ok: false; reason: "not_a_member" }
   | { ok: false; reason: "not_found" };
 
 /**
- * FR-003, FR-012: streams a photo's bytes, gated by membership in communityId.
- * 009-platform-administration, FR-052: tolerates a SUSPENDED community.
+ * FR-051–FR-053: resolve a photo for authenticated delivery, gated by current
+ * membership in communityId.
+ *
+ * 017-cloudinary-listing-media: RETAINED from the previous byte-serving
+ * implementation, with only its result shape changed. The authorization gate
+ * below is deliberately unchanged — it is exactly what the delivery proxy needs,
+ * and deleting this function to reinvent the same gate inside a route handler
+ * would have been the worse move (research.md #12).
+ *
+ * The `listingId` parameter is gone: a photoId already determines its listing,
+ * so the delivery route is community-scoped and photo-addressed. The community
+ * segment still earns its place — it makes the isolation check assertable
+ * against the request's own claim rather than inferred from the record.
+ *
+ * 009-platform-administration, FR-052: tolerates a SUSPENDED community, and a
+ * pre-restoration listing (stale operationalEpoch) reads as not_found —
+ * indistinguishable from a photo that never existed (FR-054).
  */
 export async function getListingPhoto(
   communityId: string,
-  listingId: string,
   photoId: string,
   callerAccountId: string,
 ): Promise<GetListingPhotoResult> {
@@ -434,15 +513,32 @@ export async function getListingPhoto(
     return { ok: false, reason: "not_a_member" };
   }
 
+  const community = await prisma.community.findUnique({
+    where: { id: communityId },
+    select: { operationalEpoch: true },
+  });
+
   const photo = await prisma.listingPhoto.findUnique({
     where: { id: photoId },
     include: { listing: true },
   });
-  if (!photo || photo.listingId !== listingId || photo.listing.communityId !== communityId) {
+  if (
+    !photo ||
+    photo.listing.communityId !== communityId ||
+    photo.listing.operationalEpoch !== (community?.operationalEpoch ?? 1)
+  ) {
     return { ok: false, reason: "not_found" };
   }
 
-  return { ok: true, photo: { data: Buffer.from(photo.data), mimeType: photo.mimeType } };
+  return {
+    ok: true,
+    photo: {
+      cloudinaryAssetId: photo.cloudinaryAssetId,
+      cloudinaryPublicId: photo.cloudinaryPublicId,
+      width: photo.width,
+      height: photo.height,
+    },
+  };
 }
 
 export type UpdateListingResult =
@@ -540,9 +636,22 @@ export interface RemoveListingPhotoInput {
 }
 
 /**
- * FR-006. Same ownership check as updateListing. Leaves a gap in position (data-model.md).
- * FR-017 (2026-07-17 amendment): if the removed photo was the cover, promotes the remaining
- * photo with the lowest position, or clears coverPhotoId if none remain.
+ * FR-006. Same ownership check as updateListing.
+ *
+ * 017-cloudinary-listing-media, FR-020: display order is now rewritten
+ * CONTIGUOUS after removal — a change from the previous implementation, which
+ * deliberately left a gap. The rewrite goes through a temporary negative offset
+ * because @@unique([listingId, displayOrder]) makes an in-place renumber
+ * transiently collide with itself.
+ *
+ * FR-079: the removed asset is enqueued for Cloudinary deletion in the SAME
+ * transaction, so a provider outage cannot lose the record that it needs
+ * deleting — and cannot block this edit either (FR-085). Cloudinary is never
+ * called from here.
+ *
+ * FR-018 (2026-07-17 amendment): if the removed photo was the cover, promotes the
+ * remaining photo with the lowest display order, or clears coverPhotoId if none
+ * remain.
  * 009-platform-administration, FR-053: blocked while the community is SUSPENDED/ARCHIVED.
  */
 export async function removeListingPhoto(input: RemoveListingPhotoInput): Promise<RemoveListingPhotoResult> {
@@ -559,10 +668,16 @@ export async function removeListingPhoto(input: RemoveListingPhotoInput): Promis
   await prisma.$transaction(async (tx) => {
     await tx.listingPhoto.delete({ where: { id: input.photoId } });
 
+    // FR-079: enqueue before anything can go wrong downstream.
+    await enqueueCleanup(tx, [photo.cloudinaryPublicId]);
+
+    // FR-020: renumber the survivors contiguously from 0.
+    await renumberListingPhotos(tx, input.listingId);
+
     if (listing.coverPhotoId === input.photoId) {
       const nextCover = await tx.listingPhoto.findFirst({
         where: { listingId: input.listingId },
-        orderBy: { position: "asc" },
+        orderBy: { displayOrder: "asc" },
       });
       await tx.listing.update({
         where: { id: input.listingId },
@@ -759,6 +874,22 @@ export async function deleteListing(input: DeleteListingInput): Promise<DeleteLi
   if (listing.ownerId !== input.callerAccountId) return { ok: false, reason: "not_owner" };
 
   await prisma.$transaction(async (tx) => {
+    // 017-cloudinary-listing-media, FR-080 — ORDER IS LOAD-BEARING.
+    //
+    // ListingPhoto has onDelete: Cascade, so tx.listing.delete() below destroys
+    // the photo rows — the only record of which Cloudinary assets exist. Reading
+    // and enqueueing them MUST happen first. Reversing these two steps silently
+    // orphans every asset of every deleted listing, with nothing left to say
+    // they were ever there (data-model.md §4).
+    const photos = await tx.listingPhoto.findMany({
+      where: { listingId: input.listingId },
+      select: { cloudinaryPublicId: true },
+    });
+    await enqueueCleanup(
+      tx,
+      photos.map((photo) => photo.cloudinaryPublicId),
+    );
+
     await tx.transaction.updateMany({
       where: { listingId: input.listingId, state: "PENDING" },
       data: { state: "CANCELLED", resolvedAt: new Date() },

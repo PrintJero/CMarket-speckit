@@ -4,6 +4,17 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { FormField, FormError, fieldInputClassName } from "../../../_components/FormField";
 import { Button } from "../../../_components/Button";
+import { ListingMediaUploader, type SavedPhoto } from "./ListingMediaUploader";
+
+interface MediaState {
+  photos: { publicId: string; displayOrder: number }[];
+  coverPublicId?: string;
+  savedPhotoIds: string[];
+  coverSavedPhotoId?: string;
+  busy: boolean;
+  hasFailures: boolean;
+  draftId: string;
+}
 
 type CreateListingResponse =
   | { ok: true; listing: { id: string } }
@@ -33,6 +44,12 @@ export interface ListingFormProps {
   /** 013-purchase-flow-stock, FR-001: seller-declared; null/undefined means not specified. */
   initialStockQuantity?: number | null;
   /**
+   * 017-cloudinary-listing-media: already-saved Cloudinary photos, in display
+   * order. Edit mode only — they preview through the authenticated proxy while
+   * newly selected files preview from local object URLs.
+   */
+  initialPhotos?: SavedPhoto[];
+  /**
    * The signed-in account's current display name (006-user-display-names,
    * FR-008). When null in create mode, a required "Display name" field is
    * shown and set before the listing itself is created — never in edit mode,
@@ -49,6 +66,7 @@ export function ListingForm({
   initialPriceCents,
   initialKind = "FOR_SALE",
   initialStockQuantity,
+  initialPhotos = [],
   currentDisplayName = null,
 }: ListingFormProps) {
   const router = useRouter();
@@ -64,26 +82,66 @@ export function ListingForm({
     initialStockQuantity !== undefined && initialStockQuantity !== null ? String(initialStockQuantity) : "",
   );
   const [displayName, setDisplayName] = useState("");
-  const [files, setFiles] = useState<FileList | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const isWanted = kind === "WANTED";
 
-  async function uploadPhotos(targetListingId: string) {
-    if (!files) return;
-    for (const file of Array.from(files)) {
-      const formData = new FormData();
-      formData.append("photo", file);
-      await fetch(`/api/communities/${communityId}/listings/${targetListingId}/photos`, {
+  /**
+   * 017-cloudinary-listing-media: the uploader owns per-file state and reports
+   * the ordered result up. The old per-file `POST` of raw bytes is gone —
+   * uploads now go browser-to-Cloudinary directly, and this form only
+   * ASSOCIATES the results after the listing is saved.
+   */
+  const [media, setMedia] = useState<MediaState>({
+    photos: [],
+    savedPhotoIds: [],
+    busy: false,
+    hasFailures: false,
+    draftId: listingId ?? "",
+  });
+
+  async function associatePhotos(targetListingId: string) {
+    // Nothing selected and nothing saved: no association call is needed.
+    if (media.photos.length === 0 && media.savedPhotoIds.length === 0) return;
+
+    const response = await fetch(
+      `/api/communities/${communityId}/listings/${targetListingId}/photos`,
+      {
         method: "POST",
-        body: formData,
-      });
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          draftId: media.draftId || targetListingId,
+          photos: media.photos,
+          ...(media.coverPublicId ? { coverPublicId: media.coverPublicId } : {}),
+        }),
+      },
+    );
+
+    if (!response.ok) {
+      // FR-077: successful uploads are NOT lost. The pending rows survive until
+      // they expire, so resubmitting succeeds without re-uploading anything.
+      throw new Error(
+        "Your photos uploaded, but saving them to the listing failed. Try submitting again — they will not need to be re-uploaded.",
+      );
     }
   }
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+
+    // FR-012, FR-076: the form MUST NOT finish while any image is waiting or
+    // uploading, and a failed image must be retried or removed first. The two
+    // cases get distinct messages because they need different actions.
+    if (media.busy) {
+      setError("Photos are still uploading. Wait for them to finish before saving.");
+      return;
+    }
+    if (media.hasFailures) {
+      setError("One or more photos failed to upload. Retry or remove them before saving.");
+      return;
+    }
+
     setSubmitting(true);
 
     // 011-wanted-posts: a blank price is only ever valid for a WANTED post
@@ -121,7 +179,13 @@ export function ListingForm({
         return;
       }
 
-      await uploadPhotos(listingId);
+      try {
+        await associatePhotos(listingId);
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : "Saving photos failed.");
+        setSubmitting(false);
+        return;
+      }
       setSubmitting(false);
       router.refresh();
       return;
@@ -140,7 +204,13 @@ export function ListingForm({
       return;
     }
 
-    await uploadPhotos(data.listing.id);
+    try {
+      await associatePhotos(data.listing.id);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Saving photos failed.");
+      setSubmitting(false);
+      return;
+    }
     // Land on the tab that actually shows what was just created — the main
     // view defaults to "For sale" (FR-006), which would otherwise hide a
     // freshly created Wanted post and read as though it had disappeared.
@@ -212,17 +282,14 @@ export function ListingForm({
           />
         </FormField>
       )}
-      <FormField label="Photos (optional)">
-        <input
-          className="w-full text-sm text-ink"
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          multiple
-          onChange={(e) => setFiles(e.target.files)}
-        />
-      </FormField>
+      <ListingMediaUploader
+        communityId={communityId}
+        listingId={listingId}
+        initialPhotos={initialPhotos}
+        onChange={setMedia}
+      />
       {error && <FormError>{error}</FormError>}
-      <Button type="submit" fullWidth disabled={submitting}>
+      <Button type="submit" fullWidth disabled={submitting || media.busy || media.hasFailures}>
         {isEditMode ? "Save changes" : "Create listing"}
       </Button>
     </form>

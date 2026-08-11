@@ -13,6 +13,7 @@ import { AppShell } from "../../../../_components/AppShell";
 import { BackLink } from "../../../../_components/BackLink";
 import { PageHeader } from "../../../../_components/PageHeader";
 import { Card } from "../../../../_components/Card";
+import { ListingImage } from "../../../../_components/ListingImage";
 
 export default async function ListingDetailPage({
   params,
@@ -52,12 +53,18 @@ export default async function ListingDetailPage({
 
       {listing.photos.length > 0 && (
         <div data-testid="listing-gallery" className="mb-5 flex flex-wrap gap-3">
-          {listing.photos.map((photo) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+          {listing.photos.map((photo, index) => (
+            <ListingImage
               key={photo.id}
-              src={`/api/communities/${communityId}/listings/${listing.id}/photos/${photo.id}`}
-              alt=""
+              communityId={communityId}
+              photoId={photo.id}
+              variant="thumbnail"
+              width={photo.width}
+              height={photo.height}
+              alt={`${listing.title} — photo ${index + 1} of ${listing.photos.length}`}
+              // FR-067: the first tile is the one most likely above the fold;
+              // every subsequent gallery image loads lazily.
+              loading={index === 0 ? "eager" : "lazy"}
               className="h-[105px] w-[140px] rounded-[10px] border border-border object-cover"
             />
           ))}
@@ -74,6 +81,12 @@ export default async function ListingDetailPage({
             initialPriceCents={listing.priceCents}
             initialKind={listing.kind}
             initialStockQuantity={listing.stockQuantity}
+            initialPhotos={listing.photos.map((photo) => ({
+              id: photo.id,
+              width: photo.width,
+              height: photo.height,
+              isCover: photo.id === listing.coverPhotoId,
+            }))}
           />
         ) : (
           <>

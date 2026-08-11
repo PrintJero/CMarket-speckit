@@ -10,6 +10,7 @@ import { MainViewControls } from "./MainViewControls";
 import { AppShell } from "../../_components/AppShell";
 import { PageHeader } from "../../_components/PageHeader";
 import { LinkButton } from "../../_components/Button";
+import { ListingImage, ListingImagePlaceholder } from "../../_components/ListingImage";
 
 /**
  * 015-navigation-shell-community-selector, User Story 2 (FR-006–FR-008),
@@ -95,20 +96,18 @@ export default async function CommunityMainViewPage({
                   className="block text-inherit hover:no-underline"
                 >
                   <div className="aspect-[4/3] bg-bg">
-                    {listing.coverPhotoId ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={`/api/communities/${communityId}/listings/${listing.id}/photos/${listing.coverPhotoId}`}
-                        alt=""
+                    {listing.coverPhoto ? (
+                      <ListingImage
+                        communityId={communityId}
+                        photoId={listing.coverPhoto.id}
+                        variant="card"
+                        width={listing.coverPhoto.width}
+                        height={listing.coverPhoto.height}
+                        alt={`${listing.title} — cover photo`}
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <div
-                        data-testid="listing-cover-placeholder"
-                        className="flex h-full w-full items-center justify-center text-[13px] font-semibold text-ink-muted"
-                      >
-                        No photo
-                      </div>
+                      <ListingImagePlaceholder />
                     )}
                   </div>
                   <div className="px-4 pt-3.5">

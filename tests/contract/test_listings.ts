@@ -46,7 +46,25 @@ async function addMember(communityId: string, email: string) {
   return account;
 }
 
-const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0]);
+/**
+ * 017-cloudinary-listing-media: the JPEG byte fixture has NO successor — upload
+ * bytes never reach this server any more. Photos are appended from already-
+ * verified Cloudinary metadata instead, so each call needs its own unique asset
+ * and public id (both are @unique).
+ */
+let cloudinaryFixtureCounter = 0;
+function cloudinaryFixture() {
+  cloudinaryFixtureCounter += 1;
+  const n = String(cloudinaryFixtureCounter).padStart(6, "0");
+  return {
+    cloudinaryAssetId: `asset-${n}`,
+    cloudinaryPublicId: `cmarket/test/listings/draft/${n}`,
+    width: 3024,
+    height: 4032,
+    format: "jpg",
+    bytes: 2_345_678,
+  };
+}
 
 describe("listingService (contract)", () => {
   beforeEach(async () => {
@@ -306,12 +324,11 @@ describe("listingService (contract)", () => {
       const photo = await addListingPhoto({
         listingId: created.listing.id,
         callerAccountId: admin.id,
-        data: JPEG,
-        mimeType: "image/jpeg",
+        ...cloudinaryFixture(),
       });
       expect(photo.ok).toBe(true);
       if (!photo.ok) throw new Error("expected success");
-      expect(photo.photo.position).toBe(0);
+      expect(photo.photo.displayOrder).toBe(0);
       expect(
         (await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).coverPhotoId,
       ).toBe(photo.photo.id);
@@ -337,60 +354,40 @@ describe("listingService (contract)", () => {
       const first = await addListingPhoto({
         listingId: created.listing.id,
         callerAccountId: admin.id,
-        data: JPEG,
-        mimeType: "image/jpeg",
+        ...cloudinaryFixture(),
       });
       expect(first.ok).toBe(true);
       if (!first.ok) throw new Error("expected success");
-      expect(first.photo.position).toBe(0);
+      expect(first.photo.displayOrder).toBe(0);
 
       const second = await addListingPhoto({
         listingId: created.listing.id,
         callerAccountId: admin.id,
-        data: JPEG,
-        mimeType: "image/png",
+        ...cloudinaryFixture(),
+        format: "png",
       });
       expect(second.ok).toBe(true);
       if (!second.ok) throw new Error("expected success");
-      expect(second.photo.position).toBe(1);
+      expect(second.photo.displayOrder).toBe(1);
     });
 
-    // T004 (research.md #1)
-    it("rejects an oversized photo or an unsupported MIME type, writing nothing", async () => {
-      const { community, admin } = await createCommunityWithAdmin(
-        "Listing Test Community Five",
-        "listing-test-admin-5@example.com",
-      );
-      const created = await createListing({
-        communityId: community.id,
-        ownerId: admin.id,
-        title: "Lamp",
-        description: "Desk lamp",
-        priceCents: 2000,
-      });
-      if (!created.ok) throw new Error("expected listing creation to succeed");
-
-      const oversized = await addListingPhoto({
-        listingId: created.listing.id,
-        callerAccountId: admin.id,
-        data: Buffer.alloc(6_000_000),
-        mimeType: "image/jpeg",
-      });
-      expect(oversized).toEqual({ ok: false, reason: "invalid_photo" });
-
-      const wrongType = await addListingPhoto({
-        listingId: created.listing.id,
-        callerAccountId: admin.id,
-        data: JPEG,
-        mimeType: "image/gif",
-      });
-      expect(wrongType).toEqual({ ok: false, reason: "invalid_photo" });
-
-      expect(await prisma.listingPhoto.count({ where: { listingId: created.listing.id } })).toBe(0);
-    });
+    // 017-cloudinary-listing-media, FR-096: the former "rejects an oversized
+    // photo or an unsupported MIME type" test is DELETED WITH NO SUCCESSOR at
+    // this layer, and that is the correct outcome rather than a coverage gap.
+    //
+    // Size and format are now enforced by SIGNED Cloudinary upload parameters
+    // (allowed_formats, max_file_size), which a tampering client cannot alter
+    // without invalidating the signature (FR-033). The bytes never reach this
+    // server, so addListingPhoto() has nothing to validate and no
+    // `invalid_photo` branch to exercise. The enforcement is covered instead by
+    // the signed-parameter assertions in tests/unit/test_cloudinary_signature.ts.
+    //
+    // Deliberately NOT preserved by keeping a legacy validation path alive just
+    // to satisfy an old test.
 
     // T004 (photo cap)
-    it("rejects a 7th photo on a listing that already has 6", async () => {
+    // 017-cloudinary-listing-media, FR-004: the ceiling rose from 6 to 8.
+    it("rejects a 9th photo on a listing that already has 8", async () => {
       const { community, admin } = await createCommunityWithAdmin(
         "Listing Test Community Six",
         "listing-test-admin-6@example.com",
@@ -404,24 +401,22 @@ describe("listingService (contract)", () => {
       });
       if (!created.ok) throw new Error("expected listing creation to succeed");
 
-      for (let i = 0; i < 6; i += 1) {
+      for (let i = 0; i < 8; i += 1) {
         const added = await addListingPhoto({
           listingId: created.listing.id,
           callerAccountId: admin.id,
-          data: JPEG,
-          mimeType: "image/jpeg",
+          ...cloudinaryFixture(),
         });
         expect(added.ok).toBe(true);
       }
 
-      const seventh = await addListingPhoto({
+      const ninth = await addListingPhoto({
         listingId: created.listing.id,
         callerAccountId: admin.id,
-        data: JPEG,
-        mimeType: "image/jpeg",
+        ...cloudinaryFixture(),
       });
-      expect(seventh).toEqual({ ok: false, reason: "photo_limit_reached" });
-      expect(await prisma.listingPhoto.count({ where: { listingId: created.listing.id } })).toBe(6);
+      expect(ninth).toEqual({ ok: false, reason: "photo_limit_reached" });
+      expect(await prisma.listingPhoto.count({ where: { listingId: created.listing.id } })).toBe(8);
     });
 
     // T004 (FR-006/FR-010)
@@ -443,8 +438,7 @@ describe("listingService (contract)", () => {
       const result = await addListingPhoto({
         listingId: created.listing.id,
         callerAccountId: admin.id,
-        data: JPEG,
-        mimeType: "image/jpeg",
+        ...cloudinaryFixture(),
       });
       expect(result).toEqual({ ok: false, reason: "not_owner" });
     });
@@ -588,8 +582,7 @@ describe("listingService (contract)", () => {
       const first = await addListingPhoto({
         listingId: created.listing.id,
         callerAccountId: admin.id,
-        data: JPEG,
-        mimeType: "image/jpeg",
+        ...cloudinaryFixture(),
       });
       if (!first.ok) throw new Error("expected photo to be added");
       const afterFirst = await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } });
@@ -598,8 +591,7 @@ describe("listingService (contract)", () => {
       const second = await addListingPhoto({
         listingId: created.listing.id,
         callerAccountId: admin.id,
-        data: JPEG,
-        mimeType: "image/jpeg",
+        ...cloudinaryFixture(),
       });
       if (!second.ok) throw new Error("expected photo to be added");
       const afterSecond = await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } });
@@ -624,14 +616,12 @@ describe("listingService (contract)", () => {
       const first = await addListingPhoto({
         listingId: created.listing.id,
         callerAccountId: admin.id,
-        data: JPEG,
-        mimeType: "image/jpeg",
+        ...cloudinaryFixture(),
       });
       const second = await addListingPhoto({
         listingId: created.listing.id,
         callerAccountId: admin.id,
-        data: JPEG,
-        mimeType: "image/jpeg",
+        ...cloudinaryFixture(),
       });
       if (!first.ok || !second.ok) throw new Error("expected both photos to be added");
 
@@ -676,8 +666,7 @@ describe("listingService (contract)", () => {
         const added = await addListingPhoto({
           listingId: created.listing.id,
           callerAccountId: admin.id,
-          data: JPEG,
-          mimeType: "image/jpeg",
+          ...cloudinaryFixture(),
         });
         if (!added.ok) throw new Error("expected photo to be added");
         photos.push(added.photo);
@@ -724,8 +713,7 @@ describe("listingService (contract)", () => {
       const photoOnB = await addListingPhoto({
         listingId: listingB.listing.id,
         callerAccountId: admin.id,
-        data: JPEG,
-        mimeType: "image/jpeg",
+        ...cloudinaryFixture(),
       });
       if (!photoOnB.ok) throw new Error("expected photo to be added");
 
@@ -761,8 +749,7 @@ describe("listingService (contract)", () => {
       const photo = await addListingPhoto({
         listingId: withPhoto.listing.id,
         callerAccountId: admin.id,
-        data: JPEG,
-        mimeType: "image/jpeg",
+        ...cloudinaryFixture(),
       });
       if (!photo.ok) throw new Error("expected photo to be added");
 
@@ -961,8 +948,7 @@ describe("listingService (contract)", () => {
       const added = await addListingPhoto({
         listingId: created.listing.id,
         callerAccountId: admin.id,
-        data: JPEG,
-        mimeType: "image/jpeg",
+        ...cloudinaryFixture(),
       });
       if (!added.ok) throw new Error("expected photo to be added");
 
@@ -994,8 +980,7 @@ describe("listingService (contract)", () => {
       const added = await addListingPhoto({
         listingId: created.listing.id,
         callerAccountId: admin.id,
-        data: JPEG,
-        mimeType: "image/jpeg",
+        ...cloudinaryFixture(),
       });
       if (!added.ok) throw new Error("expected photo to be added");
 
@@ -1096,8 +1081,7 @@ describe("listingService (contract)", () => {
       const added = await addListingPhoto({
         listingId: created.listing.id,
         callerAccountId: admin.id,
-        data: JPEG,
-        mimeType: "image/jpeg",
+        ...cloudinaryFixture(),
       });
       if (!added.ok) throw new Error("expected photo to be added");
 
@@ -1381,8 +1365,7 @@ describe("listingService (contract)", () => {
       const photo = await addListingPhoto({
         listingId: created.listing.id,
         callerAccountId: admin.id,
-        data: JPEG,
-        mimeType: "image/jpeg",
+        ...cloudinaryFixture(),
       });
       if (!photo.ok) throw new Error("expected photo to be added");
       const thread = await prisma.messageThread.create({
@@ -1673,8 +1656,7 @@ describe("listingService (contract)", () => {
         await addListingPhoto({
           listingId: created.listing.id,
           callerAccountId: admin.id,
-          data: JPEG,
-          mimeType: "image/jpeg",
+          ...cloudinaryFixture(),
         }),
       ).toEqual({ ok: false, reason: "community_not_active" });
     });

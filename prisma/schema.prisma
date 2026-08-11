@@ -1,5 +1,10 @@
 generator client {
   provider = "prisma-client-js"
+  /// The Docker image runs on Debian slim (glibc), not the developer's host, so
+  /// the Linux query engine must be generated alongside the native one.
+  /// Debian is chosen over Alpine because @node-rs/argon2 is a native module
+  /// whose glibc prebuild is the better-trodden path than its musl one.
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -44,6 +49,10 @@ model Account {
   transactionsAsSeller     Transaction[]   @relation("TransactionsAsSeller")
   reviewsWritten            Review[]       @relation("ReviewsWritten")
   reviewsReceived           Review[]       @relation("ReviewsReceived")
+  /// 017-cloudinary-listing-media: in-flight authorized uploads. Cascades on
+  /// account delete so no permanently unattributable rows survive; the assets
+  /// themselves are swept by expiresAt regardless, so none is orphaned.
+  pendingListingMedia       PendingListingMedia[]
 
   @@map("accounts")
 }
@@ -263,23 +272,99 @@ model Listing {
   @@map("listings")
 }
 
-/// An image attached to exactly one Listing; removed automatically when its
-/// parent listing is deleted (FR-008, SC-006).
+/// A Cloudinary-hosted image attached to exactly one Listing
+/// (017-cloudinary-listing-media). Stores references and presentation metadata
+/// only — never bytes (FR-045) — and deliberately never a delivery URL
+/// (FR-044): the authenticated proxy signs one from cloudinaryPublicId at
+/// request time. Removed automatically when its parent listing is deleted; see
+/// mediaCleanupService for the Cloudinary side, which MUST be enqueued BEFORE
+/// that cascade fires (data-model.md §4).
 model ListingPhoto {
-  id         String   @id @default(cuid())
-  listingId  String
-  data       Bytes
-  mimeType   String
-  sizeBytes  Int
-  position   Int
-  createdAt  DateTime @default(now())
+  id                 String   @id @default(cuid())
+  listingId          String
+  /// Cloudinary's stable asset_id. Survives a public-ID rename, which is why it
+  /// exists alongside cloudinaryPublicId. Also the identifier half of the
+  /// delivery ETag (W/"{cloudinaryAssetId}-{variant}") — server-internal only.
+  cloudinaryAssetId  String   @unique
+  /// The identifier delivery signs and fetches, and deletion uses. Its
+  /// uniqueness is what makes FR-019 (no duplicate association on repeated
+  /// submit) structural rather than policed.
+  cloudinaryPublicId String   @unique
+  /// Original intrinsic dimensions. Used as the rendered element's width/height
+  /// so the browser reserves space in the correct proportion (FR-068); the
+  /// served variant is smaller but preserves this ratio via c_limit.
+  width              Int
+  height             Int
+  /// Cloudinary's normalized source format. Diagnostic — delivery format is
+  /// negotiated by f_auto.
+  format             String
+  bytes              Int
+  displayOrder       Int
+  createdAt          DateTime @default(now())
 
   listing        Listing  @relation("ListingPhotos", fields: [listingId], references: [id], onDelete: Cascade)
   /// Back-relation only, for Listing.coverPhotoId (2026-07-17 amendment) — never queried from this side.
   coverOfListing Listing? @relation("ListingCoverPhoto")
 
+  /// FR-020: display order is contiguous and unambiguous. A partial renumber
+  /// fails loudly here instead of leaving a half-rewritten gallery. Reorders
+  /// must assign to a temporary offset first, since an in-place swap transiently
+  /// violates this.
+  @@unique([listingId, displayOrder])
   @@index([listingId])
   @@map("listing_photos")
+}
+
+/// An authorized-but-not-yet-associated Cloudinary upload
+/// (017-cloudinary-listing-media, FR-030, FR-031, FR-083). Written when the
+/// server signs upload params in INITIAL mode; re-read in RETRY mode to reissue
+/// params for the same asset; deleted when the asset is associated with a
+/// listing, or swept by mediaCleanupService once expired.
+///
+/// This row is the ONLY thing that makes a client-supplied public ID
+/// trustworthy — the association step matches on cloudinaryPublicId AND
+/// accountId, so a forged draftId finds nothing.
+model PendingListingMedia {
+  id                 String   @id @default(cuid())
+  accountId          String
+  communityId        String
+  /// Client-generated per-form-session id. On the edit path this is the real
+  /// listingId; on the create path the listing does not exist yet.
+  draftId            String
+  /// Set only on the edit path, so ownership is re-checkable at association.
+  listingId          String?
+  cloudinaryPublicId String   @unique
+  /// 30 minutes — deliberately longer than the client's 10-minute refresh
+  /// threshold, so a file queued past the threshold always has a valid row for
+  /// retry-mode authorization to match against (research.md #7).
+  expiresAt          DateTime
+  createdAt          DateTime @default(now())
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, draftId])
+  @@index([expiresAt])
+  @@map("pending_listing_media")
+}
+
+/// A Cloudinary asset that must be deleted, retried until it succeeds
+/// (017-cloudinary-listing-media, FR-079, FR-082, FR-085).
+///
+/// Deliberately NOT community-scoped: it holds only an opaque public ID and
+/// outlives the listing — and possibly the community — it came from, so scoping
+/// would be both impossible and meaningless. No listingId for the same reason:
+/// by drain time that listing may not exist, and a dangling id would invite a
+/// join that cannot be satisfied.
+model MediaCleanupTask {
+  id                 String   @id @default(cuid())
+  cloudinaryPublicId String   @unique
+  attempts           Int      @default(0)
+  lastError          String?
+  nextAttemptAt      DateTime @default(now())
+  createdAt          DateTime @default(now())
+
+  @@index([nextAttemptAt])
+  @@map("media_cleanup_tasks")
 }
 
 /// A conversation between exactly one Listing's owner and one interested buyer,
