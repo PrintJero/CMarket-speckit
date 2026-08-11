@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth/passwordHash";
-import { uniqueEmail, signIn } from "./helpers";
+import { uniqueEmail, signIn, stubCloudinaryUpload } from "./helpers";
 
 async function createVerifiedAccount(email: string, password: string) {
   return prisma.account.create({
@@ -40,6 +40,11 @@ test("a member creates a product listing with a photo, and sees it in the commun
   const memberEmail = uniqueEmail("listing-member");
   const community = await createCommunityWithAdmin(page.request, `Listing Flow Community ${Date.now()}`, adminEmail, password);
   await addMember(community.id, memberEmail, password);
+
+  // 017-cloudinary-listing-media: uploads now go browser-to-Cloudinary directly,
+  // so the upload leg must be intercepted or the file lands in a `failed` state
+  // and the submit button is correctly disabled (FR-012).
+  await stubCloudinaryUpload(page);
 
   await signIn(page, memberEmail, password);
   await page.goto(`/communities/${community.id}/listings`);
@@ -199,10 +204,14 @@ test("the owner deletes their listing (with a photo) via the detail page; the ad
   await prisma.listingPhoto.create({
     data: {
       listingId: listing.id,
-      data: Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
-      mimeType: "image/jpeg",
-      sizeBytes: 4,
-      position: 0,
+      // 017-cloudinary-listing-media: a Cloudinary reference, not bytes.
+      cloudinaryAssetId: `flow-asset-0001-${Date.now()}`,
+      cloudinaryPublicId: `cmarket/test/listings/flow-0001/${Date.now()}`,
+      width: 1600,
+      height: 1200,
+      format: "jpg",
+      bytes: 4,
+      displayOrder: 0,
     },
   });
 
@@ -301,10 +310,14 @@ test("the feed renders cards with a cover photo or placeholder and MXN prices; t
   const photo = await prisma.listingPhoto.create({
     data: {
       listingId: listingWithPhoto.id,
-      data: Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
-      mimeType: "image/jpeg",
-      sizeBytes: 4,
-      position: 0,
+      // 017-cloudinary-listing-media: a Cloudinary reference, not bytes.
+      cloudinaryAssetId: `flow-asset-0002-${Date.now()}`,
+      cloudinaryPublicId: `cmarket/test/listings/flow-0002/${Date.now()}`,
+      width: 1600,
+      height: 1200,
+      format: "jpg",
+      bytes: 4,
+      displayOrder: 0,
     },
   });
   await prisma.listing.update({
@@ -329,14 +342,18 @@ test("the feed renders cards with a cover photo or placeholder and MXN prices; t
   const cardWithPhoto = page.locator('[data-testid="listing-card"]', { hasText: "Has a photo" });
   await expect(cardWithPhoto).toBeVisible();
   await expect(cardWithPhoto.locator("img")).toBeVisible();
+  // 017-cloudinary-listing-media: images are delivered through the authenticated
+  // community-scoped proxy, not the removed per-listing byte endpoint (FR-049).
   await expect(cardWithPhoto.locator("img")).toHaveAttribute(
     "src",
-    `/api/communities/${community.id}/listings/${listingWithPhoto.id}/photos/${photo.id}`,
+    `/api/communities/${community.id}/listing-photos/${photo.id}?v=card`,
   );
   const coverImageResponse = await page.request.get(
-    `/api/communities/${community.id}/listings/${listingWithPhoto.id}/photos/${photo.id}`,
+    `/api/communities/${community.id}/listing-photos/${photo.id}?v=card`,
   );
   expect(coverImageResponse.status()).toBe(200);
+  // FR-058: revalidated on every reuse, never a max-age.
+  expect(coverImageResponse.headers()["cache-control"]).toBe("private, no-cache");
   await expect(cardWithPhoto).toContainText(expectedPrice);
 
   const cardWithoutPhoto = page.locator('[data-testid="listing-card"]', { hasText: "Has no photo" });
@@ -350,7 +367,7 @@ test("the feed renders cards with a cover photo or placeholder and MXN prices; t
   const galleryImage = page.locator('[data-testid="listing-gallery"] img');
   await expect(galleryImage).toHaveAttribute(
     "src",
-    `/api/communities/${community.id}/listings/${listingWithPhoto.id}/photos/${photo.id}`,
+    `/api/communities/${community.id}/listing-photos/${photo.id}?v=thumbnail`,
   );
 
   // A different member (non-owner) also sees the gallery.
@@ -360,7 +377,7 @@ test("the feed renders cards with a cover photo or placeholder and MXN prices; t
   await memberPage.goto(`/communities/${community.id}/listings/${listingWithPhoto.id}`);
   await expect(memberPage.locator('[data-testid="listing-gallery"] img')).toHaveAttribute(
     "src",
-    `/api/communities/${community.id}/listings/${listingWithPhoto.id}/photos/${photo.id}`,
+    `/api/communities/${community.id}/listing-photos/${photo.id}?v=thumbnail`,
   );
   await memberContext.close();
 });

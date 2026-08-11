@@ -1,0 +1,90 @@
+# CMarket production stack (Dokploy or any Compose host).
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# NO SECRETS LIVE IN THIS FILE. Every value below is `${VAR}`, supplied by the
+# deployment platform's environment (Dokploy's Environment tab, or a .env beside
+# this file that is never committed). Baking CLOUDINARY_API_SECRET into an image
+# layer or a tracked file violates FR-100 and the constitution's
+# no-secret-in-image rule.
+#
+# The app container applies `prisma migrate deploy` on startup and refuses to
+# start if it fails — see docker-entrypoint.sh. Take a verified database backup
+# before deploying a destructive migration; 017-cloudinary-listing-media's
+# migration deletes every pre-existing listing photo irreversibly.
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      NEXTAUTH_URL: ${NEXTAUTH_URL}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+
+      # Google sign-in (optional; omit to disable that provider)
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+
+      # Outbound email
+      EMAIL_FROM: ${EMAIL_FROM:-CMarket <no-reply@cmarket.example>}
+      EMAIL_WEBHOOK_URL: ${EMAIL_WEBHOOK_URL:-}
+      EMAIL_WEBHOOK_TOKEN: ${EMAIL_WEBHOOK_TOKEN:-}
+
+      # Listing media (017-cloudinary-listing-media).
+      # Requires OUTBOUND network access to Cloudinary at READ time, not only at
+      # write time: images are proxied through the app, so if egress is blocked
+      # listing images stop rendering entirely.
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
+      CLOUDINARY_ENV_FOLDER: ${CLOUDINARY_ENV_FOLDER:-production}
+      LISTING_IMAGE_CACHE_MODE: ${LISTING_IMAGE_CACHE_MODE:-no-cache}
+      CLEANUP_TOKEN: ${CLEANUP_TOKEN}
+
+      # These MUST stay unset in production. Listed explicitly, pinned empty, so
+      # a stray value in the platform's environment cannot switch them on:
+      # OPERATOR_PANEL_ENABLED exposes community creation, GOOGLE_OAUTH_MOCK_*
+      # replaces the real identity provider, EMAIL_TEST_CAPTURE swallows mail,
+      # and CLOUDINARY_TEST_STUB bypasses asset verification.
+      OPERATOR_PANEL_ENABLED: ""
+      GOOGLE_OAUTH_MOCK_ENABLED: ""
+      EMAIL_TEST_CAPTURE: ""
+      CLOUDINARY_TEST_STUB: ""
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 40s
+      retries: 3
+
+  # Using a MANAGED Postgres instead? Delete this service and the volume, drop
+  # the `depends_on` above, and point DATABASE_URL at the managed instance.
+  # Nothing else changes.
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - cmarket-pgdata-prod:/var/lib/postgresql/data
+    # Deliberately NOT published to the host. The app reaches it over the
+    # compose network; exposing 5432 publicly is how databases get found.
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  cmarket-pgdata-prod:

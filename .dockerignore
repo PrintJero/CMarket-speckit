@@ -1,11 +1,46 @@
+# Build inputs only. Everything excluded here either bloats the context, or —
+# in the case of .env — must never reach an image layer.
+
+# Secrets. `.env.*` with a re-include for the committed template only: an image
+# that carries CLOUDINARY_API_SECRET violates FR-100 and the constitution's
+# no-secret-in-image rule, and layers are readable by anyone who pulls it.
+.env
+.env.*
+!.env.example
+
+# Installed and generated
 node_modules
 .next
 out
 coverage
+
+# Tests and their artifacts — never run inside the production image
+tests
 playwright-report
 test-results
+blob-report
+playwright.config.ts
+vitest.config.ts
+
+# Specs, tooling and docs: large, and irrelevant to a running container
+specs
+.specify
+.claude
+.github
+README.md
+
+# Local development only
+docker-compose.yml
+docker-compose.override.yml
+Dockerfile
+.dockerignore
+
+# VCS, editors, OS
 .git
-.env
-.env.*
-!.env.example
+.gitignore
+.vscode
+.idea
+.DS_Store
+Thumbs.db
 *.log
+*.tsbuildinfo

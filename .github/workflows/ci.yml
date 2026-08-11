@@ -1,0 +1,105 @@
+# CMarket CI (added by 017-cloudinary-listing-media, T096).
+#
+# Constitution Principle VIII: critical-flow tests "MUST run automatically in CI
+# on every pull request and MUST block merge on failure. A quality gate that
+# depends on someone remembering to run it manually is not a gate."
+#
+# Product listing — which this feature's media flow is part of — is one of the
+# named critical flows, so this workflow is a constitutional requirement rather
+# than a convenience.
+#
+# Every Cloudinary value here is a DETERMINISTIC DUMMY. No real credential
+# belongs in this file, and none is needed: every Cloudinary call is stubbed at
+# the src/lib/cloudinary/ boundary.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: cmarket
+          POSTGRES_PASSWORD: localdev
+          POSTGRES_DB: cmarket_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U cmarket -d cmarket_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://cmarket:localdev@localhost:5433/cmarket_test?schema=public
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: ci-secret-not-for-production-0000000000
+      EMAIL_FROM: CMarket <no-reply@cmarket.example>
+      EMAIL_TEST_CAPTURE: "true"
+      OPERATOR_PANEL_ENABLED: "true"
+      GOOGLE_OAUTH_MOCK_ENABLED: "true"
+      GOOGLE_OAUTH_MOCK_URL: http://localhost:4310
+      # 017-cloudinary-listing-media. Dummies only — see the header note.
+      CLOUDINARY_CLOUD_NAME: test-cloud
+      CLOUDINARY_API_KEY: "000000000000000"
+      CLOUDINARY_API_SECRET: test-secret-not-a-real-credential
+      CLOUDINARY_ENV_FOLDER: test
+      LISTING_IMAGE_CACHE_MODE: no-cache
+      CLEANUP_TOKEN: test-cleanup-token-not-a-real-credential
+      # Replaces ONLY the Admin API network call during Playwright runs; the
+      # public-ID prefix and provenance checks still run. Never set in a real
+      # deployment.
+      CLOUDINARY_TEST_STUB: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Apply migrations
+        # migrate deploy, never db push --accept-data-loss (FR-095).
+        run: npx prisma migrate deploy
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit and contract tests
+        run: npm run test:unit
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Integration tests
+        run: npm run test:e2e
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

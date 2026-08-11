@@ -1,4 +1,45 @@
+# Local development stack.
+#
+# Two ways to run the app against these databases, and they need DIFFERENT
+# database hostnames — this is the thing that trips people up:
+#
+#   npm run dev        -> app on the host      -> DATABASE_URL must use localhost:5432
+#   docker compose up  -> app in a container   -> DATABASE_URL must use cmarket-db:5432
+#
+# So `.env` should hold the LOCALHOST form (it is what `npm run dev`, the tests,
+# and the scripts all read), and the `app` service below overrides it with the
+# container form. An `environment:` entry always wins over `env_file:`, so the
+# container is correct regardless of what `.env` happens to say.
 services:
+  # Opt-in: `docker compose --profile app up --build`. Left out of the default
+  # `docker compose up` so the usual "just give me the databases" workflow is
+  # unchanged and does not pay for an image build.
+  app:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cmarket-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Container-side hostname. Overrides whatever .env holds (see note above).
+      DATABASE_URL: postgresql://cmarket:localdev@cmarket-db:5432/cmarket_dev?schema=public
+      NEXTAUTH_URL: http://localhost:3000
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 40s
+      retries: 3
+
   postgres:
     image: postgres:16-alpine
     container_name: cmarket-db
