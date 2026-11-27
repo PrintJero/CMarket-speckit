@@ -52,6 +52,9 @@ test("a freshly registered account supplies its display name at sign-up and is n
 
   const link = await getVerificationLink(request, email);
   await page.goto(link);
+  // Verification is a client-side fetch fired after the page mounts; wait for
+  // it to finish before reading the account or navigating away.
+  await expect(page.getByText("Your email is verified.")).toBeVisible();
 
   const account = await prisma.account.findUniqueOrThrow({ where: { email } });
   expect(account.displayName).toBe("First Timer"); // set at registration itself

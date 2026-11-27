@@ -13,6 +13,10 @@ export interface AcceptRejectButtonsProps {
   transactionId: string;
   /** The buyer's displayName, shown in the post-accept rating prompt. */
   counterpartDisplayName?: string | null;
+  /** Whether the proposal is still PENDING (the buttons only show then). The
+   *  parent keeps this component mounted after acceptance so an open rating
+   *  prompt is not torn down by a refresh that lands mid-flow. */
+  pending?: boolean;
 }
 
 /**
@@ -27,6 +31,7 @@ export function AcceptRejectButtons({
   communityId,
   transactionId,
   counterpartDisplayName,
+  pending = true,
 }: AcceptRejectButtonsProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -62,15 +67,23 @@ export function AcceptRejectButtons({
     router.refresh();
   }
 
+  // Once accepted (locally or per the server), only the rating prompt remains.
+  const showButtons = pending && !showRatingModal;
+  if (!showButtons && !showRatingModal) return null;
+
   return (
     <div className="mt-2 flex gap-2">
       {error && <FormError>{error}</FormError>}
-      <Button type="button" disabled={submitting} onClick={() => resolve("accept")}>
-        Accept
-      </Button>
-      <Button type="button" variant="secondary" disabled={submitting} onClick={() => resolve("reject")}>
-        Reject
-      </Button>
+      {showButtons && (
+        <>
+          <Button type="button" disabled={submitting} onClick={() => resolve("accept")}>
+            Accept
+          </Button>
+          <Button type="button" variant="secondary" disabled={submitting} onClick={() => resolve("reject")}>
+            Reject
+          </Button>
+        </>
+      )}
       {showRatingModal && (
         <RatingModal
           communityId={communityId}
