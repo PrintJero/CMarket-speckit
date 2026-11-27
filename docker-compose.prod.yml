@@ -1,6 +1,15 @@
 # CMarket production stack (Dokploy or any Compose host).
 #
-#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# The app runs the image .github/workflows/deploy.yml publishes to GHCR after CI
+# passes. It is NOT built on the server: what runs is exactly the commit CI
+# validated. CMARKET_IMAGE selects the tag per environment:
+#   production: ghcr.io/printjero/cmarket-speckit:main     (the default)
+#   develop:    ghcr.io/printjero/cmarket-speckit:develop
+#   rollback:   ghcr.io/printjero/cmarket-speckit:sha-<commit>
+# If the GHCR package is private, add a GHCR registry (a token with
+# read:packages) in Dokploy so the host can pull it.
 #
 # NO SECRETS LIVE IN THIS FILE. Every value below is `${VAR}`, supplied by the
 # deployment platform's environment (Dokploy's Environment tab, or a .env beside
@@ -14,9 +23,9 @@
 # migration deletes every pre-existing listing photo irreversibly.
 services:
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ${CMARKET_IMAGE:-ghcr.io/printjero/cmarket-speckit:main}
+    # Always pull on (re)deploy: the branch tag moves with every release.
+    pull_policy: always
     restart: unless-stopped
     environment:
       DATABASE_URL: ${DATABASE_URL}
@@ -50,6 +59,7 @@ services:
       # and CLOUDINARY_TEST_STUB bypasses asset verification.
       OPERATOR_PANEL_ENABLED: ""
       GOOGLE_OAUTH_MOCK_ENABLED: ""
+      GOOGLE_OAUTH_MOCK_URL: ""
       EMAIL_TEST_CAPTURE: ""
       CLOUDINARY_TEST_STUB: ""
     ports:
@@ -70,9 +80,28 @@ services:
       start_period: 40s
       retries: 3
 
+  # Operations container: idle, no ports. The runtime image above has no
+  # scripts/ and no tsx, so one-off and scheduled operations run here, e.g.
+  #   docker exec <tools-container> npx tsx scripts/bootstrap-master.ts --master-id <id> --email <email>
+  #   docker exec <tools-container> npm run create-community -- --name "<name>" --email <email> --operator jero
+  #   docker exec <tools-container> npx tsx scripts/archive-suspended-communities.ts   # daily (Dokploy Schedule)
+  # Image: the Dockerfile `builder` stage, published by deploy.yml as `-tools`.
+  # It only needs the database; it never receives Cloudinary, auth or email secrets.
+  tools:
+    image: ${CMARKET_TOOLS_IMAGE:-ghcr.io/printjero/cmarket-speckit:main-tools}
+    pull_policy: always
+    restart: unless-stopped
+    command: ["sleep", "infinity"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   # Using a MANAGED Postgres instead? Delete this service and the volume, drop
-  # the `depends_on` above, and point DATABASE_URL at the managed instance.
-  # Nothing else changes.
+  # the `depends_on` entries (app and tools), and point DATABASE_URL at the
+  # managed instance. Nothing else changes.
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
