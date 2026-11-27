@@ -1,23 +1,27 @@
-# CMarket deploy: publish the production image to GHCR, then ask Dokploy to
-# redeploy.
+# CMarket CD: build the production image on GitHub's runners, push it to GHCR,
+# ask Dokploy to redeploy, then wait for the app to report healthy.
 #
-# Runs ONLY after the CI workflow has passed on a push to develop or main, so a
-# commit that failed any quality gate is never published or deployed.
+# The Dokploy server must NEVER build (3.8 GB RAM: a Next.js build there runs
+# out of memory during npm ci). It only pulls the image published here;
+# docker-compose.prod.yml has no `build:` section.
 #
-#   develop -> ghcr.io/<owner>/<repo>:develop  -> GitHub Environment "develop"
-#   main    -> ghcr.io/<owner>/<repo>:main     -> GitHub Environment "production"
-#   both    -> also tagged :sha-<full commit sha> (immutable, for rollback)
+# Triggers:
+#   - automatically after the CI workflow SUCCEEDS on a push to develop or main
+#     (pull-request CI runs never deploy);
+#   - manually (workflow_dispatch) on develop or main.
 #
-# Secrets (decided 2026-11-27):
-#   - GHCR uses the built-in GITHUB_TOKEN (packages: write). No PAT is stored.
-#   - Each GitHub Environment holds exactly one secret, DOKPLOY_WEBHOOK_URL,
-#     the redeploy webhook of that environment's Dokploy application.
-#   - Application runtime secrets (DATABASE_URL, NEXTAUTH_SECRET, CLOUDINARY_*,
-#     EMAIL_*, CLEANUP_TOKEN, ...) live ONLY in Dokploy's Environment tab. They
-#     are never passed to this workflow or baked into the image (FR-100).
+# Image: ghcr.io/printjero/cmarket-speckit
+#   tags: <branch> (develop | main), sha-<short commit>, latest (main only)
+#   plus the operations image (Dockerfile `builder` stage) with a -tools suffix.
 #
-# If an environment has no DOKPLOY_WEBHOOK_URL yet, the image is still
-# published and the deploy step is skipped with a notice, not a failure.
+# Environments (GitHub > Settings > Environments):
+#   develop -> "develop"      main -> "production"
+#   secret   DOKPLOY_WEBHOOK_URL  that environment's Dokploy redeploy webhook
+#   variable APP_URL              e.g. https://cmarket.example (no trailing slash)
+# Missing webhook -> the deploy and health check are skipped with a notice.
+#
+# Runtime secrets (DATABASE_URL, NEXTAUTH_SECRET, CLOUDINARY_*, ...) live only
+# in Dokploy's Environment tab. No Bella Baxter.
 
 name: Deploy
 
@@ -26,46 +30,86 @@ on:
     workflows: [CI]
     types: [completed]
     branches: [develop, main]
+  workflow_dispatch:
 
 concurrency:
-  group: deploy-${{ github.event.workflow_run.head_branch }}
+  group: deploy-${{ github.event.workflow_run.head_branch || github.ref_name }}
   cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/printjero/cmarket-speckit
 
 jobs:
   publish:
-    # Only a SUCCESSFUL CI run triggered by a PUSH (merge) deploys; CI runs on
-    # pull requests never do.
     if: >-
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push'
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
       packages: write
     outputs:
+      branch: ${{ steps.target.outputs.branch }}
       environment: ${{ steps.target.outputs.environment }}
-      image: ${{ steps.target.outputs.image }}
+      short_sha: ${{ steps.target.outputs.short_sha }}
     steps:
-      - name: Resolve target
+      - name: Resolve branch, commit and environment
         id: target
+        env:
+          RUN_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          branch="${{ github.event.workflow_run.head_branch }}"
+          branch="${RUN_BRANCH:-$GITHUB_REF_NAME}"
+          sha="${RUN_SHA:-$GITHUB_SHA}"
           case "$branch" in
             main)    environment=production ;;
             develop) environment=develop ;;
-            *) echo "unexpected branch: $branch" >&2; exit 1 ;;
+            *) echo "::error::Deploy runs only for develop or main (got '$branch')."; exit 1 ;;
           esac
-          repo="$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')"
-          echo "environment=$environment" >> "$GITHUB_OUTPUT"
-          echo "image=ghcr.io/$repo" >> "$GITHUB_OUTPUT"
-          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          {
+            echo "branch=$branch"
+            echo "sha=$sha"
+            echo "short_sha=${sha:0:7}"
+            echo "environment=$environment"
+          } >> "$GITHUB_OUTPUT"
 
-      # Build exactly the commit CI validated, not whatever the branch points
-      # to now.
+      # Build exactly the commit CI validated (or the dispatched ref).
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ steps.target.outputs.sha }}
+
+      # workflow_run events carry the DEFAULT branch as their ref, so tags are
+      # computed explicitly instead of from the event context.
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          # latest only via the explicit main-only rule below, never automatically.
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=${{ steps.target.outputs.branch }}
+            type=raw,value=sha-${{ steps.target.outputs.short_sha }}
+            type=raw,value=latest,enable=${{ steps.target.outputs.branch == 'main' }}
+          labels: |
+            org.opencontainers.image.revision=${{ steps.target.outputs.sha }}
+
+      - name: Tools image metadata
+        id: meta_tools
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          flavor: |
+            latest=false
+            suffix=-tools,onlatest=true
+          tags: |
+            type=raw,value=${{ steps.target.outputs.branch }}
+            type=raw,value=sha-${{ steps.target.outputs.short_sha }}
+          labels: |
+            org.opencontainers.image.revision=${{ steps.target.outputs.sha }}
 
       - uses: docker/setup-buildx-action@v3
 
@@ -75,56 +119,85 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push
-        uses: docker/build-push-action@v6
+      - name: Build and push app image
+        uses: docker/build-push-action@v5
         with:
           context: .
+          file: Dockerfile
           push: true
-          tags: |
-            ${{ steps.target.outputs.image }}:${{ steps.target.outputs.branch }}
-            ${{ steps.target.outputs.image }}:sha-${{ github.event.workflow_run.head_sha }}
-          labels: |
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.event.workflow_run.head_sha }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Operations image: the Dockerfile's `builder` stage (source, full
-      # node_modules incl. tsx, generated Prisma client). The standalone runtime
-      # image ships no scripts/ and no tsx, so bootstrap-master, create-community
-      # and the scheduled archive-suspended-communities job run from this one
-      # (docker-compose.prod.yml `tools` service). It carries no secrets:
-      # .dockerignore keeps every .env out of the build context.
+      # Operations image: the Dockerfile `builder` stage (source, full
+      # node_modules incl. tsx). The standalone runtime image has no scripts/,
+      # so bootstrap-master, create-community and the daily
+      # archive-suspended-communities job run from this one
+      # (docker-compose.prod.yml `tools`). No secrets: .dockerignore keeps .env
+      # out of the build context.
       - name: Build and push tools image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v5
         with:
           context: .
+          file: Dockerfile
           target: builder
           push: true
-          tags: |
-            ${{ steps.target.outputs.image }}:${{ steps.target.outputs.branch }}-tools
-            ${{ steps.target.outputs.image }}:sha-${{ github.event.workflow_run.head_sha }}-tools
-          labels: |
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.event.workflow_run.head_sha }}
+          tags: ${{ steps.meta_tools.outputs.tags }}
+          labels: ${{ steps.meta_tools.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
   deploy:
     needs: publish
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     environment: ${{ needs.publish.outputs.environment }}
     permissions: {}
     steps:
-      - name: Trigger Dokploy redeploy
+      # Same contract as infra/pipelines_notify_dokploy.sh in the original
+      # CMarket repo: POST the webhook and fail unless it answers exactly 200.
+      - name: Notify Dokploy
+        id: notify
         env:
           DOKPLOY_WEBHOOK_URL: ${{ secrets.DOKPLOY_WEBHOOK_URL }}
+          ENVIRONMENT: ${{ needs.publish.outputs.environment }}
         run: |
-          if [ -z "$DOKPLOY_WEBHOOK_URL" ]; then
-            echo "::notice::DOKPLOY_WEBHOOK_URL is not set for environment '${{ needs.publish.outputs.environment }}'; image published, deploy skipped."
+          if [ -z "${DOKPLOY_WEBHOOK_URL}" ]; then
+            echo "::notice title=Deploy skipped::DOKPLOY_WEBHOOK_URL is not set in the '${ENVIRONMENT}' environment. The image was published to GHCR; Dokploy was not notified and the health check is skipped."
+            echo "notified=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          # The URL is a secret: never echo it. -f fails the step on an HTTP error.
-          curl -fsS -X POST --max-time 30 --retry 2 --retry-delay 5 "$DOKPLOY_WEBHOOK_URL" > /dev/null
-          echo "Dokploy redeploy requested for ${{ needs.publish.outputs.environment }} (${{ needs.publish.outputs.image }}:${{ github.event.workflow_run.head_branch }})."
+          # The URL is a secret: never print it.
+          status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 -X POST "${DOKPLOY_WEBHOOK_URL}")
+          if [ "$status" -ne 200 ]; then
+            echo "::error::Dokploy notification failed. HTTP status: ${status}"
+            exit 1
+          fi
+          echo "Dokploy notified (HTTP 200). Deployment in progress."
+          echo "notified=true" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for /api/health (up to 5 minutes)
+        if: steps.notify.outputs.notified == 'true'
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+        run: |
+          if [ -z "${APP_URL}" ]; then
+            echo "::error::Dokploy was notified but the '${{ needs.publish.outputs.environment }}' environment has no APP_URL variable, so the deploy cannot be verified. Set APP_URL (e.g. https://cmarket.example)."
+            exit 1
+          fi
+          url="${APP_URL%/}/api/health"
+          deadline=$(( $(date +%s) + 300 ))
+          while :; do
+            status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$url" || true)
+            if [ "$status" = "200" ]; then
+              echo "Healthy: ${url} answered 200."
+              exit 0
+            fi
+            if [ "$(date +%s)" -ge "$deadline" ]; then
+              echo "::error::${url} did not answer 200 within 5 minutes (last status: ${status:-none})."
+              exit 1
+            fi
+            echo "Not healthy yet (status: ${status:-none}); retrying in 10s..."
+            sleep 10
+          done

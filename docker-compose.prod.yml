@@ -7,7 +7,7 @@
 # validated. CMARKET_IMAGE selects the tag per environment:
 #   production: ghcr.io/printjero/cmarket-speckit:main     (the default)
 #   develop:    ghcr.io/printjero/cmarket-speckit:develop
-#   rollback:   ghcr.io/printjero/cmarket-speckit:sha-<commit>
+#   rollback:   ghcr.io/printjero/cmarket-speckit:sha-<7-char commit>
 # If the GHCR package is private, add a GHCR registry (a token with
 # read:packages) in Dokploy so the host can pull it.
 #
