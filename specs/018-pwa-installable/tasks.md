@@ -28,9 +28,9 @@ worker registers only in production.
 
 **Purpose**: static assets and the deployment fix every story depends on.
 
-- [ ] T001 [P] Create the original, provisional "CM" wordmark icon as `public/icons/icon.svg`: a 512×512 viewBox, a full-bleed `#7c1ff2` (brand) background, and a white bold "CM" centred inside the central 80% circle (maskable safe zone, research #2). Add an XML comment marking it provisional until an official logo exists.
-- [ ] T002 Create `scripts/generate-pwa-icons.ts`. It launches the already-installed Playwright Chromium (`import { chromium } from "@playwright/test"`), renders `public/icons/icon.svg` and screenshots it to `public/icons/icon-192.png` (192×192, rounded corners), `public/icons/icon-512.png` (512×512, rounded corners), `public/icons/icon-maskable-512.png` (512×512, full-bleed) and `public/icons/apple-touch-icon.png` (180×180, full-bleed, since iOS applies its own mask). Run it once with `npx tsx scripts/generate-pwa-icons.ts` and commit the PNGs. No new dependency (SC-006).
-- [ ] T003 [P] In `Dockerfile`, runner stage, add `COPY --from=builder --chown=node:node /app/public ./public` next to the `.next/static` copy, with a comment explaining that Next's standalone output excludes `public/`, and that without it `/sw.js` and `/icons/*` would 404 in production (research #8).
+- [X] T001 [P] Create the original, provisional "CM" wordmark icon as `public/icons/icon.svg`: a 512×512 viewBox, a full-bleed `#7c1ff2` (brand) background, and a white bold "CM" centred inside the central 80% circle (maskable safe zone, research #2). Add an XML comment marking it provisional until an official logo exists.
+- [X] T002 Create `scripts/generate-pwa-icons.ts`. It launches the already-installed Playwright Chromium (`import { chromium } from "@playwright/test"`), renders `public/icons/icon.svg` and screenshots it to `public/icons/icon-192.png` (192×192, rounded corners), `public/icons/icon-512.png` (512×512, rounded corners), `public/icons/icon-maskable-512.png` (512×512, full-bleed) and `public/icons/apple-touch-icon.png` (180×180, full-bleed, since iOS applies its own mask). Run it once with `npx tsx scripts/generate-pwa-icons.ts` and commit the PNGs. No new dependency (SC-006).
+- [X] T003 [P] In `Dockerfile`, runner stage, add `COPY --from=builder --chown=node:node /app/public ./public` next to the `.next/static` copy, with a comment explaining that Next's standalone output excludes `public/`, and that without it `/sw.js` and `/icons/*` would 404 in production (research #8).
 
 ---
 
@@ -39,7 +39,7 @@ worker registers only in production.
 **Purpose**: the worker's install step precaches `/offline`. If that page 404s, worker
 installation fails, and with it every story.
 
-- [ ] T004 Create `app/offline/page.tsx` per contracts/service-worker.md: `export const dynamic = "force-static"`, `metadata.title = "Offline · CMarket"`, no `AppShell`, no data access. Content: the CMarket wordmark, an `<h1>` "You're offline", the paragraph "CMarket needs a connection to show your communities.", and a "Try again" control as a plain `<a href="">` (reloads the current URL without JavaScript). Mobile-first layout using existing design tokens (`text-ink`, `bg-bg`, `text-brand`), with no horizontal overflow at 320px.
+- [X] T004 Create `app/offline/page.tsx` per contracts/service-worker.md: `export const dynamic = "force-static"`, `metadata.title = "Offline · CMarket"`, no `AppShell`, no data access. Content: the CMarket wordmark, an `<h1>` "You're offline", the paragraph "CMarket needs a connection to show your communities.", and a "Try again" control as a plain `<a href="">` (reloads the current URL without JavaScript). Mobile-first layout using existing design tokens (`text-ink`, `bg-bg`, `text-brand`), with no horizontal overflow at 320px.
 
 **Checkpoint**: `npm run build` lists `/offline` as a static (○) route.
 
