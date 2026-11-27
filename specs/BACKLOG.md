@@ -5,7 +5,7 @@ Principle VII (Simplicity & MVP-First), new ideas are captured here instead of b
 the current scope. An item leaves this file only by becoming a feature spec under `specs/###-name/`
 (through `/speckit-specify`), never by being built ad hoc.
 
-_Last updated: 2026-11-27 (release v1.0.0; production deployment)._
+_Last updated: 2026-11-27 (release v1.0.0; production deployment and manual smoke)._
 
 ---
 
@@ -157,3 +157,35 @@ with a bucket and access keys. Dokploy's database backups write only to an S3 de
 The constitution cited the direct-invitation path as "spec 001", a folder that never existed. It
 now cites `specs/004-invitations-membership`. Bumped **4.1.0 → 4.1.1 (PATCH)**, with a Sync Impact
 Report entry and a new "Last Amended" date.
+
+---
+
+## 9. Email deliverability to institutional domains
+
+**Found:** production manual smoke, 2026-11-27. Emails sent through Resend reach other mailboxes,
+but an `@anahuac.mx` address does not receive them. Communities are expected to be universities
+and companies, so this blocks onboarding exactly the users CMarket targets.
+
+**Work:**
+
+1. Check the sender domain (`EMAIL_FROM`) in Resend. SPF, DKIM and DMARC must all pass, and the
+   domain must be verified, not Resend's shared test sender. Confirm with a header check (for
+   example, mail-tester or a Gmail "Show original").
+2. Use Resend's per-message log to see whether the destination accepted, deferred, bounced or
+   silently dropped the message.
+3. Ask the institution's IT team to check the quarantine (Microsoft 365 / Defender or Google
+   Workspace) and, if needed, allowlist the sender domain.
+4. Document in the README what a community's IT team should allowlist, as part of community
+   onboarding.
+
+---
+
+## 10. Show dates in the user's time zone
+
+**Found:** production manual smoke, 2026-11-27. Dates and times are rendered in UTC (the server's
+time zone), not in the user's, so a user outside UTC sees shifted times.
+
+**Work:** format timestamps for display in the viewer's time zone. Either render them in a small
+client component that uses the browser's `Intl.DateTimeFormat`, or store a time zone on the account
+or community and format on the server with it. Watch for hydration mismatches if the server and
+client render the same date. Stored values stay UTC; this changes only how they are displayed.

@@ -24,7 +24,7 @@ CMarket v1.0.0 queda **cerrado, probado y publicado como release**. Las cinco qu
 
 Se adoptó gitflow con ramas protegidas. Se completó la spec 018 (PWA instalable), que era el único principio de la constitución sin cumplir. Al estabilizar las pruebas aparecieron **dos bugs reales de producto**, ambos corregidos con prueba de regresión. El más grave renombraba cuentas ajenas entre comunidades.
 
-**Producción está desplegada y funcionando** en Dokploy (sección 8). El smoke test automatizado pasó 9/9 contra la URL de producción, y Jero verificó a mano el registro con correo real, la verificación por Resend y el inicio de sesión con Google. Quedan el bootstrap de datos, las tareas programadas y los backups automáticos (secciones 8 y 11).
+**Producción está desplegada y funcionando** en Dokploy (sección 8). El smoke test automatizado pasó 9/9 contra la URL de producción, y Jero verificó a mano el registro con correo real, la verificación por Resend y el inicio de sesión con Google. El 27/11/2026 también quedaron hechos el bootstrap, las dos tareas programadas y el smoke manual: invitación, listing con foto, mensajes, transacción completa con calificación y aislamiento entre comunidades. Lo principal que falta son los backups automáticos (secciones 8 y 11).
 
 ---
 
@@ -204,7 +204,8 @@ Después del primer despliegue, los correos de verificación fallaban. La causa 
 | Pipeline            | Solo `main` despliega: secret `DOKPLOY_WEBHOOK_URL` y variable `APP_URL` en el Environment `production`; `develop` no despliega (un solo servidor). El servidor nunca construye (3.8 GB de RAM)                                                                                                                                                                                                                                         |
 | Fecha del deploy    | **v1.0.0:** 27/11/2026, hecho por Jero directamente en Dokploy con `:main` (`sha-5b651cb`). **v1.0.1:** 27/11/2026, a partir de las 11:46 UTC, por el pipeline completo: merge a `main` → CI verde → Deploy (run 45993628675) → Dokploy notificado (HTTP 200) → `/api/health` 200. Además se verificó que producción sirve esa build: el `BUILD_ID` `o7u3FaYkafIaApK_h9p3K` de la imagen `sha-63cb92e` aparece en el HTML de producción |
 | Incidente de correo | Los correos de verificación fallaban: `EMAIL_WEBHOOK_TOKEN` se pegó como `RESEND_API_KEY="…"` (con prefijo y comillas, copiado de Bella). Jero lo corrigió. El hotfix v1.0.1 hace que este tipo de error sea diagnosticable                                                                                                                                                                                                             |
-| Tareas programadas  | Configuración exacta documentada en el README ("Scheduled jobs"): cleanup cada 15 minutos en `Cmarket-SpecKit` y archivado diario en `cmarket-tools`. **Pendiente de crearlas en Dokploy**                                                                                                                                                                                                                                              |
+| Bootstrap           | 27/11/2026, por Jero: servicio `cmarket-tools`, MASTER `jero` y comunidad piloto. La contraseña temporal del MASTER se regeneró directamente en la base por un error de copiado; es una acción de operador que **no quedó en el audit log**                                                                                                                                                                                             |
+| Tareas programadas  | **Configuradas y probadas en Dokploy** el 27/11/2026 (configuración en el README, "Scheduled jobs"): `listing-media-cleanup` cada 15 minutos en `Cmarket-SpecKit`, que respondió `{"ok":true}`, y `archive-suspended-communities` diario a las 03:00 UTC en `cmarket-tools`                                                                                                                                                             |
 | Backups             | **Pendientes:** requieren un destino S3 (ver BACKLOG)                                                                                                                                                                                                                                                                                                                                                                                   |
 
 **Smoke test (sección 8.6), 14 puntos.** La parte automatizada se ejecutó con `npm run test:smoke` contra producción el 27/11/2026: a las 11:27 UTC sobre v1.0.0 y a las 11:56 UTC sobre v1.0.1. **9/9 en verde las dos veces.**
@@ -215,16 +216,33 @@ Después del primer despliegue, los correos de verificación fallaban. La causa 
 | 2   | Home y login sin errores de consola                            | ✅ Automatizado: `/`, `/sign-in` y `/sign-up` sin errores                                                         |
 | 3   | Registro, correo real, verificación e inicio de sesión         | ✅ Verificado por Jero (Resend), tras corregir el token                                                           |
 | 4   | Inicio de sesión con Google                                    | ✅ Verificado por Jero. OAuth en modo **Prueba** (solo usuarios de prueba; ver BACKLOG)                           |
-| 5   | Invitación, aceptación y feed                                  | ⏳ Pendiente: requiere el bootstrap (comunidad piloto)                                                            |
-| 6   | Listing con foto en Cloudinary                                 | ⏳ Pendiente: requiere el bootstrap                                                                               |
+| 5   | Invitación, aceptación y feed                                  | ✅ Manual (27/11/2026, ver abajo)                                                                                 |
+| 6   | Listing con foto en Cloudinary                                 | ✅ Manual (27/11/2026)                                                                                            |
 | 7   | Foto sin cookie → 401                                          | ✅ Automatizado, y verificado por Jero                                                                            |
-| 8   | Mensaje recibido por la otra cuenta                            | ⏳ Pendiente: requiere el bootstrap                                                                               |
-| 9   | Propuesta aceptada en ambos historiales, sin datos de contacto | ⏳ Pendiente: requiere el bootstrap                                                                               |
-| 10  | Otra comunidad no ve el listing ni la imagen                   | ⏳ Pendiente: requiere dos comunidades                                                                            |
+| 8   | Mensaje recibido por la otra cuenta                            | ✅ Manual (27/11/2026)                                                                                            |
+| 9   | Propuesta aceptada en ambos historiales, sin datos de contacto | ✅ Manual (27/11/2026)                                                                                            |
+| 10  | Otra comunidad no ve el listing ni la imagen                   | ✅ Manual (27/11/2026): una cuenta no miembro no ve nada                                                          |
 | 11  | PWA: manifest, worker e instalación                            | ✅ Instalabilidad automatizada (motor de Chrome: 0 errores) y verificada por Jero. ⏳ Instalación en iOS (manual) |
-| 12  | Cleanup con token → 200; sin token → 401                       | ✅ Sin token → 401 (automatizado). ⏳ Con token: se verifica al crear el schedule                                 |
+| 12  | Cleanup con token → 200; sin token → 401                       | ✅ Sin token → 401 (automatizado). ✅ Con token: el schedule de Dokploy respondió `{"ok":true}`                   |
 | 13  | Logs sin errores ni secretos                                   | ⏳ Pendiente de revisar en Dokploy                                                                                |
 | 14  | Switches de prueba apagados                                    | ✅ Automatizado: `/operator`, `/api/operator/create-community` y `/api/test/last-email` → 404                     |
+
+**Smoke manual en producción (27/11/2026).** Lo ejecutó Claude en el navegador, con sesiones que inició Jero; los pasos del comprador (cuenta B) los hizo Jero.
+
+- **Listing con foto (admin A):** se publicó "[PRUEBA] Calculadora científica Casio fx-991" con una foto subida a Cloudinary, y apareció en el feed. Con sesión, la foto respondió 200 con `Cache-Control: private, no-cache`.
+- **Invitación y transacción completa:**
+  1. A invitó a B y B aceptó la invitación.
+  2. B mandó un mensaje y una propuesta; A respondió y la aceptó.
+  3. Resultado: transacción en COMPLETED y stock de 2 a 1.
+  4. El modal de calificación se mantuvo estable y la calificación de 5/5 se guardó.
+  5. En ningún momento se mostraron datos de contacto.
+- **Aislamiento:**
+  - Una cuenta que no es miembro recibió 404 en el feed, el listing, el hilo, la transacción, el perfil y el área de administración, y 403 en la foto. No se filtró nada.
+  - Aceptar una invitación sin haber verificado el correo está bloqueado.
+- **Tareas programadas:** configuradas y ejecutadas en Dokploy. `listing-media-cleanup` corre cada 15 minutos y respondió `{"ok":true}`; `archive-suspended-communities` corre a diario a las 03:00 UTC.
+- **MASTER:** se creó `jero`. Su contraseña temporal se regeneró directamente en la base por un error de copiado. Esa acción de operador quedó **fuera del audit log**.
+
+Hallazgos que pasaron al BACKLOG: los correos no llegan a dominios institucionales (`@anahuac.mx`) y las fechas se muestran en UTC.
 
 ---
 
@@ -268,10 +286,10 @@ Detalle completo en [`specs/BACKLOG.md`](../specs/BACKLOG.md):
 
 ## 11. Pendientes que requieren a Jero
 
-_Actualizado el 27/11/2026, después del despliegue._ Ya resuelto por Jero: acceso a Dokploy, HTTPS, variables de entorno, la base nueva, y `DOKPLOY_WEBHOOK_URL` y `APP_URL` en `production`. Queda:
+_Actualizado el 27/11/2026, después del smoke manual._ Ya resuelto: acceso a Dokploy, HTTPS, variables de entorno, la base nueva, `DOKPLOY_WEBHOOK_URL` y `APP_URL` en `production`, el bootstrap, los dos schedules y los puntos manuales 5, 6, 8, 9, 10 y 12 del smoke test. Queda:
 
-1. **Bootstrap** en Dokploy: el servicio `cmarket-tools`, el primer MASTER y la comunidad piloto con su cuenta ya verificada (pasos exactos en el README, "Bootstrap").
-2. **Crear los dos schedules** en Dokploy (configuración exacta en el README, "Scheduled jobs").
-3. **Backups automáticos y una restauración probada** antes de onboardear la primera comunidad real. Requieren un destino S3 (BACKLOG).
-4. Completar a mano los puntos 5, 6, 8, 9, 10, 11 (iOS) y 13 del smoke test.
-5. **Publicar la app de Google OAuth** cuando haya dominio propio y una página `/privacy` (BACKLOG).
+1. **Backups automáticos y una restauración probada** antes de onboardear la primera comunidad real. Requieren un destino S3 (BACKLOG §7).
+2. Puntos 11 (instalación en iOS) y 13 (revisar los logs en Dokploy) del smoke test.
+3. **Publicar la app de Google OAuth** cuando haya dominio propio y una página `/privacy` (BACKLOG §6).
+4. **Entregabilidad a dominios institucionales:** los correos no llegan a `@anahuac.mx` (BACKLOG §9).
+5. Borrar o archivar el listing "[PRUEBA] Calculadora científica Casio fx-991" antes de que entre una comunidad real.
