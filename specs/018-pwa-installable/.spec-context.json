@@ -1,0 +1,17 @@
+{
+  "workflow": "speckit",
+  "specName": "Installable PWA",
+  "branch": "018-pwa-installable",
+  "currentStep": "specify",
+  "status": "specified",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-11-27T07:55:15.303Z"
+    }
+  ],
+  "telemetryInstanceId": "51c6dc68-8078-47b9-a153-fa4591801d82"
+}
