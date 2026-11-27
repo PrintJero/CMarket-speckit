@@ -92,6 +92,12 @@ export async function seedMarketplace(page: Page, label: string): Promise<Market
   });
 
   await signIn(page, buyerEmail, PASSWORD);
+  // Make this community the session's active one up front, through the same
+  // validated route the community selector uses. Otherwise AppShell syncs it
+  // on the first community page (POST + router.refresh()), and that in-flight
+  // refresh can collide with a test that drops the network or navigates.
+  const activate = await request.post("/api/active-community", { data: { communityId } });
+  if (!activate.ok()) throw new Error(`active-community failed: ${activate.status()}`);
   const proposal = await request.post(
     `/api/communities/${communityId}/listings/${listing.id}/proposals`,
     { data: { quantity: 1, totalCents: 12000 } },
