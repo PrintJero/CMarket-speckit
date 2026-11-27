@@ -172,6 +172,10 @@ test("a navigation without network shows the CMarket offline page, and Try again
   const [feed, listing] = coreScreens(marketplace);
   await page.goto(feed.path);
   await ensureControlledByWorker(page);
+  // Drop the network only once nothing is in flight (prefetches, RSC payloads):
+  // a client-side request failing mid-test can trigger its own navigation and
+  // abort the navigation under test (seen once in CI as net::ERR_ABORTED).
+  await page.waitForLoadState("networkidle");
 
   await context.setOffline(true);
   await page.goto(listing.path);
