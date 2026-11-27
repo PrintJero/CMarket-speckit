@@ -27,7 +27,10 @@ export function CommunitySelector({ memberships }: { memberships: MembershipSumm
       setError("That community is no longer available. Please try another.");
       return;
     }
-    window.location.href = `/communities/${communityId}`;
+    // Full navigation on purpose: it re-renders every Server Component under the
+    // newly active community. router.push without router.refresh() would leave
+    // the previous community's data on screen (Principle II).
+    window.location.assign(`/communities/${communityId}`);
   }
 
   return (

@@ -96,7 +96,10 @@ export function AppShell({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ communityId }),
     });
-    window.location.href = `/communities/${communityId}`;
+    // Full navigation on purpose: it re-renders every Server Component under the
+    // newly active community. router.push without router.refresh() would leave
+    // the previous community's data on screen (Principle II).
+    window.location.assign(`/communities/${communityId}`);
   }
 
   return (
