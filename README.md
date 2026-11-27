@@ -137,6 +137,165 @@ docker run --name cmarket --network cmarket-speckit_default \
 photo irreversibly. Take and verify a database backup first — the entrypoint
 applies migrations automatically, so there is no manual gate.
 
+## Production deployment (Dokploy)
+
+### How a release reaches production
+
+```text
+merge to main ─► CI (verify + docker) green ─► Deploy workflow
+                                               ├─ build + push ghcr.io/printjero/cmarket-speckit:main
+                                               │                     (+ :main-tools, + :sha-<commit>)
+                                               └─ POST DOKPLOY_WEBHOOK_URL (GitHub Environment "production")
+                                                    └─ Dokploy pulls the image, entrypoint runs
+                                                       `prisma migrate deploy`, app starts
+```
+
+`develop` works the same way, deploying to the GitHub Environment `develop` with
+the `:develop` tags. Nothing is ever built on the server: what runs is exactly
+the commit CI validated (`.github/workflows/deploy.yml`).
+
+**Secrets policy:**
+
+- Application secrets live **only** in Dokploy's Environment tab.
+- Each GitHub Environment (`develop`, `production`) holds **only**
+  `DOKPLOY_WEBHOOK_URL`.
+- GHCR uses the workflow's built-in `GITHUB_TOKEN`.
+
+### 1. Pre-flight checklist (do not deploy until every box is ticked)
+
+- [ ] **Backup.** If the production database already holds data, take a backup
+      and verify it. The 017 migration irreversibly deletes all earlier listing
+      photos. If the database is new and empty, record that and continue.
+- [ ] **Restore tested.** Perform an actual restore at least once. The
+      constitution requires this before the first real community onboards.
+- [ ] **Domain and HTTPS** configured in Dokploy (Traefik with Let's Encrypt).
+      Secure cookies and the PWA both require HTTPS.
+- [ ] **Postgres:** either the `postgres` service in `docker-compose.prod.yml`
+      (persistent volume) or a managed instance. For a managed instance, delete
+      that service and the `depends_on` entries of `app` and `tools`.
+- [ ] **Environment variables** set in Dokploy's Environment tab, **without
+      quotes**:
+  - `DATABASE_URL`: the compose hostname `postgres`, or the managed host.
+  - `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`: only when using the
+    compose Postgres.
+  - `NEXTAUTH_URL=https://<domain>` and `NEXTAUTH_SECRET`
+    (`openssl rand -base64 48`).
+  - `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. In Google Cloud Console,
+    authorise `https://<domain>/api/auth/callback/google` and publish the
+    consent screen, or add test users.
+  - `EMAIL_FROM`, `EMAIL_WEBHOOK_URL` and `EMAIL_WEBHOOK_TOKEN`. Without these,
+    verification emails are only logged and nobody can verify an account. The
+    transport POSTs `{from,to,subject,text,html}` with
+    `Authorization: Bearer <token>`, which matches Resend's
+    `POST https://api.resend.com/emails`. The `EMAIL_FROM` domain must be
+    verified with the provider (SPF/DKIM).
+  - `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`,
+    `CLOUDINARY_ENV_FOLDER=production` and
+    `LISTING_IMAGE_CACHE_MODE=no-cache`.
+  - `CLEANUP_TOKEN` (`openssl rand -hex 32`).
+  - `APP_PORT`, if not 3000.
+  - For the **develop** application only: `CMARKET_IMAGE=ghcr.io/printjero/cmarket-speckit:develop`
+    and `CMARKET_TOOLS_IMAGE=ghcr.io/printjero/cmarket-speckit:develop-tools`.
+  - Do **not** define `OPERATOR_PANEL_ENABLED`, `GOOGLE_OAUTH_MOCK_*`,
+    `EMAIL_TEST_CAPTURE` or `CLOUDINARY_TEST_STUB`. The compose file pins them
+    empty anyway.
+- [ ] **Outbound network** from the server to Cloudinary (at read time too:
+      images are proxied through the app) and to the email provider.
+- [ ] **No CDN or shared cache** in front of
+      `/api/communities/*/listing-photos/*`.
+- [ ] **GHCR access.** If the package `cmarket-speckit` is private, add a GHCR
+      registry in Dokploy (a token with `read:packages`) so the host can pull.
+
+### 2. One-time setup
+
+1. **GitHub:** Settings > Environments, then create `develop` and `production`.
+   In each, add the secret `DOKPLOY_WEBHOOK_URL` (that environment's Dokploy
+   redeploy webhook). Optionally require Jero's approval on `production`.
+2. **Dokploy:** create a **Docker Compose** application from this repository,
+   branch `main`, compose file `docker-compose.prod.yml`. Set the domain and the
+   Environment tab as above. **Turn Dokploy's own Git auto-deploy off.**
+   Deploys are triggered by the webhook from the Deploy workflow, which runs only
+   after CI passes and the new image is in GHCR. Dokploy's push trigger would
+   redeploy before the image exists. Repeat with branch `develop` for a staging
+   application if wanted.
+3. Trigger the first deploy from Dokploy, or by merging to `main`.
+
+### 3. Deploy and watch the logs
+
+The `app` container must log
+`[entrypoint] migrations up to date; starting server.`
+
+If it logs `migration failed — refusing to start`, **do not retry blindly**.
+Inspect the database first:
+
+```sh
+docker exec <tools-container> npx prisma migrate status
+```
+
+### 4. Bootstrap initial data (the app is empty and unusable without this)
+
+Run these in the idle `tools` container, which has the code and `tsx` and no
+open ports:
+
+```sh
+docker exec <tools-container> npx tsx scripts/bootstrap-master.ts --master-id <id> --email <ops-email>
+# Jero signs up at https://<domain> with his own email and verifies it, then:
+docker exec <tools-container> npm run create-community -- --name "<Pilot community>" --email <verified-email> --operator "jero"
+```
+
+**Alternative without the tools container:** run the same scripts from a
+workstation. Open an SSH tunnel to Postgres (`ssh -L 5439:localhost:5432 …`) and
+set a temporary `DATABASE_URL` in the shell (never in a file).
+
+### 5. Scheduled tasks (Dokploy > Schedules, or host cron)
+
+| Every  | Command                                                                                             | Why                                                                                 |
+| ------ | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| 15 min | `curl -fsS -X POST -H "X-Cleanup-Token: $CLEANUP_TOKEN" https://<domain>/api/listing-media/cleanup` | removes abandoned uploads (017)                                                     |
+| day    | `docker exec <tools-container> npx tsx scripts/archive-suspended-communities.ts`                    | archives communities suspended for more than 30 days (009, research #7; idempotent) |
+| day    | Dokploy Backups of Postgres to S3 or similar, **retention of 7 days or more**                       | constitution: automated backups                                                     |
+
+### 6. Smoke test (with evidence)
+
+**Automated** (credential-free):
+
+```sh
+PLAYWRIGHT_BASE_URL=https://<domain> npm run test:smoke
+```
+
+It checks health, HTTPS, pages without console errors, unauthenticated photo
+access → 401, cleanup without token → 401, every test-only switch off, and
+installability.
+
+**Manual** (with evidence):
+
+1. Sign up with a new email, receive the real email, verify, sign in.
+2. Sign in with Google.
+3. The pilot admin invites the test user, who accepts and sees the feed.
+4. Create a listing with a photo. It uploads to `cmarket/production/…`, appears
+   in the feed, and the image renders.
+5. Message on a listing. The other account receives it.
+6. Purchase proposal, then accept. It appears in both histories, with no
+   contact data.
+7. A member of another community cannot see the listing or its image
+   (404/403).
+8. Cleanup with the token returns 200:
+   `curl -fsS -X POST -H "X-Cleanup-Token: …" https://<domain>/api/listing-media/cleanup`.
+9. PWA: Chrome DevTools > Application shows a valid manifest and an active
+   worker; "Install app" appears on Android/Chrome. On iOS, "Add to Home
+   Screen" opens standalone.
+10. Logs show no errors and no secrets printed.
+
+### 7. Rollback and hotfix
+
+- **Rollback:** in Dokploy, set
+  `CMARKET_IMAGE=ghcr.io/printjero/cmarket-speckit:sha-<previous commit>` and
+  redeploy, or use Dokploy's deployment history. Migrations are forward-only, so
+  restore the backup if a migration must be undone.
+- **Hotfix:** branch `hotfix/<desc>` from `main`, fix with a test, PR to `main`.
+  CI and Deploy run, then tag `v1.0.x`, then PR `main` → `develop`. Repeat the
+  smoke test.
+
 ## PWA
 
 CMarket is installable as a Progressive Web App (Constitution Principle V,
