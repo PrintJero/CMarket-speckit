@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-27
 
-**Status**: Draft
+**Status**: Finished
 
 **Input**: User description: "Installable PWA for CMarket (Constitution Principle V — 'MUST be installable as a Progressive Web App'; today there is no public/, manifest, or service worker, so the app cannot be installed). Scope (Principle VII, minimum viable): a web app manifest (name 'CMarket', start URL and scope '/', standalone display, background and theme colors, 192px, 512px and maskable 512px icons); icons plus an Apple touch icon and iOS home-screen metadata; a provisional original 'CM' wordmark icon; a hand-written service worker with no new dependencies, registered only in production; a minimal static offline page shown when a navigation fails without network. Security constraints: the service worker caches only static build assets, icons, the manifest and the offline page; it never caches API responses (especially listing photos — Principle II and 017's access revocation), authenticated HTML, or anything marked private/no-store; navigations are network-first with the offline page only as a fallback; versioned cache name with old caches removed on activation; the worker script itself is served uncached. UX: document that iOS has no push unless installed; this feature implements no push. Tests: manifest and icons served; worker registers in the production build; after authenticated browsing no API URL or community page is in any cache; offline navigation shows the offline page; installability criteria verified; main screens checked at iPhone 13 and Pixel 7 viewports, fixing any desktop-only screen."
 
