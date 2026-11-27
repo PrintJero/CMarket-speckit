@@ -85,10 +85,10 @@ the allowlist.
     3. allowlisted static paths: cache-first, `put` only when `response.ok && response.type === "basic"` and `Cache-Control` matches neither `/private/i` nor `/no-store/i`;
     4. everything else: return.
 
-  Add a header comment stating the privacy invariant, and that changing the rules or the precache list requires bumping `CACHE`.
+  Add a header comment stating the privacy invariant, and that changing the rules or the precache list requires bumping `CACHE`. FR-009's private/no-store guard is defence in depth (allowlisted paths are never private today) and is verified by code review rather than an e2e test (analysis C1).
 - [ ] T010 [P] [US1] In `next.config.ts`, add `async headers()` returning, for `source: "/sw.js"`, `Cache-Control: no-cache, no-store, must-revalidate` and `Content-Type: application/javascript; charset=utf-8`. Add a comment noting that `Service-Worker-Allowed` is intentionally absent, because a root-level worker already has scope `/` (research #6).
 - [ ] T011 [US1] In `app/layout.tsx`, extend `metadata` with `appleWebApp: { capable: true, title: "CMarket", statusBarStyle: "default" }` and `icons: { apple: "/icons/apple-touch-icon.png" }`; add `export const viewport: Viewport = { themeColor: "#7c1ff2" }`; render `<ServiceWorkerRegistrar />` inside `<body>` after `{children}`.
-- [ ] T012 [US1] `npm run build`, then run `tests/integration/test_pwa_installable.spec.ts`. T005 and T006 must be green. Then run the full `npm run test:e2e` to confirm that the worker (now active in every production-build test) breaks no existing test.
+- [ ] T012 [US1] In `playwright.config.ts`, set `use.serviceWorkers: "block"` as the suite default, with a comment: a worker that answers navigations hides those requests from `page.route` and makes `page.goto` responses `fromServiceWorker`, so the existing suite must not silently start depending on it. In both PWA specs (`test_pwa_installable.spec.ts`, and `test_pwa_mobile_viewports.spec.ts` from T015), add `test.use({ serviceWorkers: "allow" })` (analysis U1). Then `npm run build` and run `tests/integration/test_pwa_installable.spec.ts`: T005 and T006 must be green. Finally run the full `npm run test:e2e` to confirm nothing else changed.
 
 **Checkpoint**: US1 is fully functional and testable on its own (MVP).
 
@@ -142,7 +142,7 @@ primary action is visible.
 
 - [ ] T017 [P] Add a "PWA" section to `README.md`: what is installable, and how (browser-native install UI only); that the icon is a provisional original "CM" wordmark, regenerated with `npx tsx scripts/generate-pwa-icons.ts`; the service-worker privacy invariant (static shell only; never `/api/`, page HTML or private responses) and the rule "bump `CACHE` when changing `public/sw.js` rules"; that the worker registers only in production builds; and that iOS delivers web push only to installed apps, which this feature does not use (FR-016, `specs/BACKLOG.md` §3).
 - [ ] T018 Validate the production image (quickstart Scenario 6): `docker compose --profile app up -d --build`. `/sw.js`, `/manifest.webmanifest` and `/icons/icon-192.png` must return 200, `/sw.js` must have `Cache-Control: no-cache…`, and `/api/health` must return 200. Then stop the app container.
-- [ ] T019 Full battery: `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm run build`, `npm run test:unit`, and `npm run test:e2e` three consecutive times, all green with 0 skipped. Record the counts in the PR description.
+- [ ] T019 Full battery: `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm run build`, `npm run test:unit`, and `npm run test:e2e` three consecutive times, all green with 0 skipped. Also confirm SC-006: `git diff origin/develop -- package.json` shows no change to `dependencies`/`devDependencies` (analysis C4). Record the counts in the PR description.
 
 ---
 
