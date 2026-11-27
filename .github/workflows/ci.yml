@@ -87,6 +87,13 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # The production build is what ships. Typecheck alone does not catch
+      # Next-specific build failures (route segment config, server/client
+      # boundary violations, prerender errors). The e2e suite also runs
+      # against this build (playwright.config.ts).
+      - name: Production build
+        run: npm run build
+
       - name: Unit and contract tests
         run: npm run test:unit
 
