@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth/passwordHash";
 import { archiveDueSuspendedCommunities } from "@/server/services/communityLifecycleService";
-import { signIn } from "./helpers";
+import { confirmMasterDialog, expectMasterPageStatus, signIn } from "./helpers";
 
 async function createMasterFixture(masterId: string, password: string) {
   return prisma.masterIdentity.create({
@@ -37,8 +37,12 @@ test.describe("Community creation, both founder modes (User Story 4)", () => {
     await page.getByRole("button", { name: "Create community" }).click();
 
     await page.waitForURL(/\/master\/communities\/.+/);
-    await expect(page.getByText(communityName)).toBeVisible();
-    await expect(page.getByText(founderEmail)).toBeVisible();
+    await expect(page.getByRole("heading", { name: communityName, level: 1 })).toBeVisible();
+
+    // The existing account is the founding administrator (Members tab).
+    await page.getByRole("tab", { name: "Members" }).click();
+    const founderRow = page.locator("tr", { hasText: founderEmail });
+    await expect(founderRow.getByText("Administrator", { exact: true })).toBeVisible();
   });
 
   test("provisions a new account as founder when none exists", async ({ page }) => {
@@ -56,8 +60,10 @@ test.describe("Community creation, both founder modes (User Story 4)", () => {
     await page.getByLabel("Display name").fill("Provisioned Founder");
     await page.getByRole("button", { name: "Create community" }).click();
 
-    await page.waitForURL(/\/master\/communities\/.+/);
-    await expect(page.getByText(communityName)).toBeVisible();
+    // Provision mode stays on the creation screen on purpose: the new founder's
+    // temporary password is shown there, exactly once (spec 009, US4 scenario 2).
+    await expect(page.getByRole("status")).toHaveText(`Created "${communityName}".`);
+    await expect(page.getByText("Founding administrator's temporary password — shown once")).toBeVisible();
 
     const account = await prisma.account.findUnique({ where: { email: founderEmail } });
     expect(account?.emailVerifiedAt).not.toBeNull();
@@ -103,25 +109,26 @@ test.describe("Community management from outside (User Story 5)", () => {
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Saved.")).toBeVisible();
 
-    // Promote the member.
+    // Promote the member (Members tab).
+    await page.getByRole("tab", { name: "Members" }).click();
     const memberRow = page.locator("tr", { hasText: "US5 Member" });
     await memberRow.getByRole("button", { name: "Promote" }).click();
-    await expect(memberRow.getByText("ADMINISTRATOR")).toBeVisible();
+    await expect(memberRow.getByText("Administrator", { exact: true })).toBeVisible();
 
     // Remove one administrator (revoke) — succeeds since two now exist.
     const founderRow = page.locator("tr", { hasText: founderEmail });
     await founderRow.getByRole("button", { name: "Remove…" }).click();
     await founderRow.getByRole("button", { name: "Revoke membership" }).click();
+    await confirmMasterDialog(page, "Revoke membership");
     await expect(founderRow).toHaveCount(0);
 
     // Attempting to remove the sole remaining administrator without a replacement is rejected.
     const remainingAdminRow = page.locator("tr", { hasText: "US5 Member" });
     await remainingAdminRow.getByRole("button", { name: "Remove…" }).click();
-    const alert = page.waitForEvent("dialog");
     await remainingAdminRow.getByRole("button", { name: "Revoke membership" }).click();
-    expect((await alert).message()).toContain("would_orphan_community");
-    await (await alert).dismiss().catch(() => undefined);
-    await expect(remainingAdminRow).toBeVisible();
+    await confirmMasterDialog(page, "Revoke membership");
+    await expect(remainingAdminRow.getByText("Failed: would_orphan_community")).toBeVisible();
+    await expect(remainingAdminRow.getByText("Administrator", { exact: true })).toBeVisible();
   });
 });
 
@@ -160,10 +167,11 @@ test.describe("Community suspension (User Story 8)", () => {
     });
 
     await signInAsMaster(page, masterId, "master-password-1");
-    await page.goto(`/master/communities/${community.id}`);
+    await page.goto(`/master/communities/${community.id}?tab=lifecycle`);
     await page.getByLabel("Suspension reason").fill("Payment overdue");
     await page.getByRole("button", { name: "Suspend" }).click();
-    await expect(page.getByText("Status: SUSPENDED")).toBeVisible();
+    await confirmMasterDialog(page, "Suspend community");
+    await expectMasterPageStatus(page, "Suspended");
 
     // The founder, in a separate browser context, still sees the pre-existing listing.
     const founderContext = await browser.newContext();
@@ -179,8 +187,11 @@ test.describe("Community suspension (User Story 8)", () => {
     expect(createResponse.status()).toBe(403);
     await founderContext.close();
 
+    // While suspended, lifecycle actions live in the page banner (shown on every tab).
+    await page.goto(`/master/communities/${community.id}`);
     await page.getByRole("button", { name: "Reactivate" }).click();
-    await expect(page.getByText("Status: ACTIVE")).toBeVisible();
+    await confirmMasterDialog(page, "Reactivate community");
+    await expectMasterPageStatus(page, "Active");
   });
 });
 
@@ -229,7 +240,8 @@ test.describe("Automatic archival (User Story 9)", () => {
     // MASTER still sees full history.
     await signInAsMaster(page, masterId, "master-password-1");
     await page.goto(`/master/communities/${community.id}`);
-    await expect(page.getByText("Status: ARCHIVED")).toBeVisible();
+    await expectMasterPageStatus(page, "Archived");
+    await page.getByRole("tab", { name: "Members" }).click();
     await expect(page.getByRole("cell", { name: "US9 Founder" })).toBeVisible();
 
     // Re-running the archival process is a harmless no-op.
@@ -282,11 +294,12 @@ test.describe("Restoring an archived community (User Story 10)", () => {
 
     await signInAsMaster(page, masterId, "master-password-1");
     await page.goto(`/master/communities/${community.id}`);
-    await expect(page.getByText("Status: ARCHIVED")).toBeVisible();
+    await expectMasterPageStatus(page, "Archived");
 
     await page.getByLabel("Restore with administrator").selectOption({ label: "US10 Admin" });
-    await page.getByRole("button", { name: "Restore" }).click();
-    await expect(page.getByText("Status: ACTIVE")).toBeVisible();
+    await page.getByRole("button", { name: "Restore", exact: true }).click();
+    await confirmMasterDialog(page, "Restore community");
+    await expectMasterPageStatus(page, "Active");
 
     // The restored administrator regains ordinary marketplace access.
     const adminContext = await browser.newContext();

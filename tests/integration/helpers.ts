@@ -1,4 +1,4 @@
-import type { APIRequestContext, Page } from "@playwright/test";
+import { expect, type APIRequestContext, type Page } from "@playwright/test";
 
 /** Reads the most recent verification link sent to `email` (test-only sink). */
 export async function getVerificationLink(
@@ -92,4 +92,27 @@ export async function signIn(page: Page, email: string, password: string): Promi
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL("/");
+}
+
+/**
+ * MASTER area: every high-impact action opens MasterConfirmDialog (a real
+ * role="alertdialog", rendered in a portal — not window.confirm). Clicks its
+ * confirm button, typing the confirmation phrase first when one is required.
+ */
+export async function confirmMasterDialog(
+  page: Page,
+  confirmLabel: string,
+  options: { typedPhrase?: string } = {},
+): Promise<void> {
+  const dialog = page.getByRole("alertdialog");
+  await expect(dialog).toBeVisible();
+  if (options.typedPhrase) {
+    await dialog.getByLabel(/to confirm/).fill(options.typedPhrase);
+  }
+  await dialog.getByRole("button", { name: confirmLabel, exact: true }).click();
+}
+
+/** MASTER area: asserts the status badge in the page header (e.g. "Suspended"). */
+export async function expectMasterPageStatus(page: Page, label: string): Promise<void> {
+  await expect(page.getByTestId("page-status")).toHaveText(label, { ignoreCase: true });
 }
