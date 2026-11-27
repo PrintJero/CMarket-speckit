@@ -14,7 +14,8 @@
     "test:e2e": "playwright test",
     "create-community": "tsx scripts/create-community.ts",
     "format:check": "prettier --check .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "test:smoke": "playwright test --config playwright.smoke.config.ts"
   },
   "dependencies": {
     "@node-rs/argon2": "2.0.2",
