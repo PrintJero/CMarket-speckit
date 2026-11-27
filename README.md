@@ -153,7 +153,7 @@ CMarket is installable as a Progressive Web App (Constitution Principle V,
   - the service worker `public/sw.js`;
   - the static offline page `app/offline/page.tsx`.
 - **The worker registers only in production builds** (`npm run build && npm run
-  start`, or the Docker image), never under `npm run dev`. `/sw.js` is served
+start`, or the Docker image), never under `npm run dev`. `/sw.js` is served
   with `Cache-Control: no-cache`, so a fixed worker reaches members on their next
   visit.
 - **Privacy invariant.** The worker stores **only** the public static shell:
