@@ -108,11 +108,17 @@ export function ListingMediaTile({
         ) : null}
 
         {item.state === "uploading" && (
-          <div className="absolute bottom-0 left-0 h-1 bg-brand" style={{ width: `${item.progress}%` }} />
+          <div
+            className="absolute bottom-0 left-0 h-1 bg-brand"
+            style={{ width: `${item.progress}%` }}
+          />
         )}
       </div>
 
-      <p data-testid="media-tile-state" className="mt-1 truncate text-[11px] font-semibold text-ink-muted">
+      <p
+        data-testid="media-tile-state"
+        className="mt-1 truncate text-[11px] font-semibold text-ink-muted"
+      >
         {STATE_LABEL[item.state]}
         {isCover ? " · Cover" : ""}
       </p>

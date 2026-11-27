@@ -2,7 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { FormField, FormError, fieldInputClassName, fieldTextareaClassName } from "../../../../_components/FormField";
+import {
+  FormField,
+  FormError,
+  fieldInputClassName,
+  fieldTextareaClassName,
+} from "../../../../_components/FormField";
 import { Button } from "../../../../_components/Button";
 
 type SendThreadMessageResponse = { ok: true } | { ok: false; reason: string };
@@ -19,7 +24,11 @@ export interface ThreadReplyFormProps {
 }
 
 /** Replies within an existing thread, from either the buyer or the listing's owner (FR-003). */
-export function ThreadReplyForm({ communityId, threadId, currentDisplayName = null }: ThreadReplyFormProps) {
+export function ThreadReplyForm({
+  communityId,
+  threadId,
+  currentDisplayName = null,
+}: ThreadReplyFormProps) {
   const router = useRouter();
   const needsDisplayName = !currentDisplayName;
   const [body, setBody] = useState("");

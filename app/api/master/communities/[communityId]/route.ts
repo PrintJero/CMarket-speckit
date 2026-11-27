@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { requireMaster } from "@/lib/auth/currentMaster";
-import { getCommunityForMaster, editCommunity } from "@/server/services/masterAdministrationService";
+import {
+  getCommunityForMaster,
+  editCommunity,
+} from "@/server/services/masterAdministrationService";
 
 export async function GET(
   _request: Request,

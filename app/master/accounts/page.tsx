@@ -3,7 +3,12 @@ import { requireMasterPage } from "../_lib/requireMasterPage";
 import { MasterShell } from "../_components/MasterShell";
 import { MasterPageHeader } from "../_components/MasterPageHeader";
 import { MasterSection } from "../_components/MasterSection";
-import { MasterTable, masterThClassName, masterTdClassName, masterTrClassName } from "../_components/MasterTable";
+import {
+  MasterTable,
+  masterThClassName,
+  masterTdClassName,
+  masterTrClassName,
+} from "../_components/MasterTable";
 import { MasterStatusBadge } from "../_components/MasterStatusBadge";
 import { MasterEmptyState } from "../_components/MasterEmptyState";
 import { UsersIcon } from "../../_components/icons";
@@ -33,7 +38,9 @@ export default async function AccountsPage({
           <MasterEmptyState
             icon={UsersIcon}
             title="No accounts found"
-            description={search ? `No account emails contain "${search}".` : "No accounts exist yet."}
+            description={
+              search ? `No account emails contain "${search}".` : "No accounts exist yet."
+            }
           />
         </MasterSection>
       ) : (
@@ -49,14 +56,19 @@ export default async function AccountsPage({
             {result.accounts.map((a) => (
               <tr key={a.id} className={masterTrClassName}>
                 <td className={masterTdClassName}>
-                  <Link href={`/master/accounts/${a.id}`} className="font-semibold text-master hover:underline">
+                  <Link
+                    href={`/master/accounts/${a.id}`}
+                    className="font-semibold text-master hover:underline"
+                  >
                     {a.email}
                   </Link>
                 </td>
                 <td className={masterTdClassName}>
                   <MasterStatusBadge status={a.deletedAt ? "DELETED" : a.status} />
                 </td>
-                <td className={`${masterTdClassName} whitespace-nowrap`}>{dateFormatter.format(a.createdAt)}</td>
+                <td className={`${masterTdClassName} whitespace-nowrap`}>
+                  {dateFormatter.format(a.createdAt)}
+                </td>
               </tr>
             ))}
           </tbody>

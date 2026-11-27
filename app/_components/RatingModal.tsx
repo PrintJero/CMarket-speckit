@@ -26,7 +26,12 @@ export interface RatingModalProps {
  * (not personalized) so it remains a stable accessible name regardless of
  * which counterpart is being rated.
  */
-export function RatingModal({ communityId, transactionId, counterpartDisplayName, onClose }: RatingModalProps) {
+export function RatingModal({
+  communityId,
+  transactionId,
+  counterpartDisplayName,
+  onClose,
+}: RatingModalProps) {
   const [rating, setRating] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,11 +48,14 @@ export function RatingModal({ communityId, transactionId, counterpartDisplayName
     if (rating === null) return;
     setSubmitting(true);
     setError(null);
-    const response = await fetch(`/api/communities/${communityId}/transactions/${transactionId}/reviews`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rating }),
-    });
+    const response = await fetch(
+      `/api/communities/${communityId}/transactions/${transactionId}/reviews`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rating }),
+      },
+    );
     const data: CreateReviewResponse = await response.json();
     setSubmitting(false);
     if (!data.ok) {
@@ -73,7 +81,11 @@ export function RatingModal({ communityId, transactionId, counterpartDisplayName
           How was your experience with {resolveDisplayName(counterpartDisplayName ?? null)}?
         </p>
 
-        <div className="mb-5 flex justify-center gap-1.5" role="radiogroup" aria-label="Rating, 1 to 5 stars">
+        <div
+          className="mb-5 flex justify-center gap-1.5"
+          role="radiogroup"
+          aria-label="Rating, 1 to 5 stars"
+        >
           {[1, 2, 3, 4, 5].map((value) => (
             <button
               key={value}
@@ -94,10 +106,21 @@ export function RatingModal({ communityId, transactionId, counterpartDisplayName
         {error && <FormError>{error}</FormError>}
 
         <div className="flex flex-col gap-2">
-          <Button type="button" fullWidth disabled={rating === null || submitting} onClick={onSubmit}>
+          <Button
+            type="button"
+            fullWidth
+            disabled={rating === null || submitting}
+            onClick={onSubmit}
+          >
             Submit rating
           </Button>
-          <Button type="button" variant="secondary" fullWidth disabled={submitting} onClick={() => onClose()}>
+          <Button
+            type="button"
+            variant="secondary"
+            fullWidth
+            disabled={submitting}
+            onClick={() => onClose()}
+          >
             Maybe later
           </Button>
         </div>

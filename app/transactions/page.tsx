@@ -50,7 +50,10 @@ export default async function TransactionsPage({
 
   return (
     <AppShell account={account}>
-      <PageHeader title="Transactions" subtitle="Your purchase proposals and sales, across every community." />
+      <PageHeader
+        title="Transactions"
+        subtitle="Your purchase proposals and sales, across every community."
+      />
 
       <div className="mb-6 flex gap-2" role="tablist" aria-label="Transactions view">
         <Link
@@ -73,7 +76,9 @@ export default async function TransactionsPage({
 
       {rows.length === 0 ? (
         <p className="text-ink-muted">
-          {view === "buying" ? "You haven't proposed any purchases yet." : "You haven't sold anything yet."}
+          {view === "buying"
+            ? "You haven't proposed any purchases yet."
+            : "You haven't sold anything yet."}
         </p>
       ) : (
         <div className="flex flex-col gap-3" data-testid={`transactions-${view}`}>
@@ -99,7 +104,9 @@ export default async function TransactionsPage({
                 {formatListingPrice(transaction.totalCents)} · {transaction.communityName}
               </p>
               <p className="mt-1 flex items-center gap-2 text-[13px]">
-                <span className="font-semibold text-ink">{transactionStateLabel(transaction.state)}</span>
+                <span className="font-semibold text-ink">
+                  {transactionStateLabel(transaction.state)}
+                </span>
                 <span className="text-ink-muted">
                   · {new Date(transaction.createdAt).toLocaleDateString()}
                 </span>
@@ -121,7 +128,10 @@ export default async function TransactionsPage({
                   />
                 )}
                 {transaction.state === "PENDING" && view === "buying" && (
-                  <CancelProposalButton communityId={transaction.communityId} transactionId={transaction.id} />
+                  <CancelProposalButton
+                    communityId={transaction.communityId}
+                    transactionId={transaction.id}
+                  />
                 )}
                 {transaction.state === "ACCEPTED" && (
                   <RateActionButton

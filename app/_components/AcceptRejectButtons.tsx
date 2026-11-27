@@ -36,9 +36,12 @@ export function AcceptRejectButtons({
   async function resolve(action: "accept" | "reject") {
     setError(null);
     setSubmitting(true);
-    const response = await fetch(`/api/communities/${communityId}/transactions/${transactionId}/${action}`, {
-      method: "POST",
-    });
+    const response = await fetch(
+      `/api/communities/${communityId}/transactions/${transactionId}/${action}`,
+      {
+        method: "POST",
+      },
+    );
     const data: ResolveProposalResponse = await response.json();
     setSubmitting(false);
     if (!data.ok) {
@@ -68,7 +71,12 @@ export function AcceptRejectButtons({
       <Button type="button" disabled={submitting} onClick={() => resolve("accept")}>
         Accept
       </Button>
-      <Button type="button" variant="secondary" disabled={submitting} onClick={() => resolve("reject")}>
+      <Button
+        type="button"
+        variant="secondary"
+        disabled={submitting}
+        onClick={() => resolve("reject")}
+      >
         Reject
       </Button>
       {showRatingModal && (

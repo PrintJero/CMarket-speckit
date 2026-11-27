@@ -1,7 +1,12 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { createCommunity } from "@/server/services/communityService";
-import { createListing, updateListing, pauseListing, deleteListing } from "@/server/services/listingService";
+import {
+  createListing,
+  updateListing,
+  pauseListing,
+  deleteListing,
+} from "@/server/services/listingService";
 import {
   proposePurchase,
   acceptProposal,
@@ -16,7 +21,12 @@ import { createReview } from "@/server/services/reviewService";
 /** Mirrors tests/contract/test_messaging.ts's own helper. */
 function createVerifiedAccount(email: string) {
   return prisma.account.create({
-    data: { email, passwordHash: "irrelevant-hash", emailVerifiedAt: new Date(), displayName: "Test Account" },
+    data: {
+      email,
+      passwordHash: "irrelevant-hash",
+      emailVerifiedAt: new Date(),
+      displayName: "Test Account",
+    },
   });
 }
 
@@ -58,7 +68,9 @@ async function createForSaleListing(
 
 describe("transactionService (contract)", () => {
   beforeEach(async () => {
-    await prisma.community.deleteMany({ where: { name: { contains: "Transaction Test Community" } } });
+    await prisma.community.deleteMany({
+      where: { name: { contains: "Transaction Test Community" } },
+    });
     await prisma.account.deleteMany({ where: { email: { contains: "transaction-test" } } });
   });
 
@@ -93,16 +105,22 @@ describe("transactionService (contract)", () => {
       expect(result.transaction.quantity).toBe(1);
       expect(result.transaction.totalCents).toBe(25000);
 
-      const stored = await prisma.transaction.findUniqueOrThrow({ where: { id: result.transaction.id } });
+      const stored = await prisma.transaction.findUniqueOrThrow({
+        where: { id: result.transaction.id },
+      });
       expect(stored.communityId).toBe(community.id);
       expect(stored.buyerId).toBe(buyer.id);
       expect(stored.sellerId).toBe(seller.id);
 
-      const unchangedListing = await prisma.listing.findUniqueOrThrow({ where: { id: listing.id } });
+      const unchangedListing = await prisma.listing.findUniqueOrThrow({
+        where: { id: listing.id },
+      });
       expect(unchangedListing.stockQuantity).toBe(10);
 
       // FR-027: no message-thread prerequisite — the proposal succeeds with zero prior interaction.
-      const threadCount = await prisma.messageThread.count({ where: { listingId: listing.id, buyerId: buyer.id } });
+      const threadCount = await prisma.messageThread.count({
+        where: { listingId: listing.id, buyerId: buyer.id },
+      });
       expect(threadCount).toBe(0);
     });
 
@@ -113,7 +131,10 @@ describe("transactionService (contract)", () => {
         "transaction-test-seller-2@example.com",
       );
       const buyer = await addMember(community.id, "transaction-test-buyer-2@example.com");
-      const listing = await createForSaleListing(community.id, seller.id, { stockQuantity: 10, priceCents: 25000 });
+      const listing = await createForSaleListing(community.id, seller.id, {
+        stockQuantity: 10,
+        priceCents: 25000,
+      });
 
       const result = await proposePurchase({
         communityId: community.id,
@@ -337,7 +358,9 @@ describe("transactionService (contract)", () => {
         totalCents: 25000,
       });
       if (!created.ok) throw new Error("expected success");
-      expect(Object.keys(created.transaction).some((k) => /email|phone|address/i.test(k))).toBe(false);
+      expect(Object.keys(created.transaction).some((k) => /email|phone|address/i.test(k))).toBe(
+        false,
+      );
       expect(JSON.stringify(created.transaction)).not.toMatch(/@example\.com/);
     });
   });
@@ -381,8 +404,14 @@ describe("transactionService (contract)", () => {
         "Transaction Test Community Accept Two",
         "transaction-test-seller-accept-2@example.com",
       );
-      const buyerOne = await addMember(community.id, "transaction-test-buyer-accept-2a@example.com");
-      const buyerTwo = await addMember(community.id, "transaction-test-buyer-accept-2b@example.com");
+      const buyerOne = await addMember(
+        community.id,
+        "transaction-test-buyer-accept-2a@example.com",
+      );
+      const buyerTwo = await addMember(
+        community.id,
+        "transaction-test-buyer-accept-2b@example.com",
+      );
       const listing = await createForSaleListing(community.id, seller.id, { stockQuantity: 2 });
 
       const first = await proposePurchase({
@@ -417,7 +446,9 @@ describe("transactionService (contract)", () => {
       });
       expect(secondAccept).toEqual({ ok: false, reason: "exceeds_stock" });
 
-      const stillPending = await prisma.transaction.findUniqueOrThrow({ where: { id: second.transaction.id } });
+      const stillPending = await prisma.transaction.findUniqueOrThrow({
+        where: { id: second.transaction.id },
+      });
       expect(stillPending.state).toBe("PENDING");
       const unchangedStock = await prisma.listing.findUniqueOrThrow({ where: { id: listing.id } });
       expect(unchangedStock.stockQuantity).toBe(0);
@@ -429,7 +460,10 @@ describe("transactionService (contract)", () => {
         "Transaction Test Community Accept Pause",
         "transaction-test-seller-accept-pause@example.com",
       );
-      const buyer = await addMember(community.id, "transaction-test-buyer-accept-pause@example.com");
+      const buyer = await addMember(
+        community.id,
+        "transaction-test-buyer-accept-pause@example.com",
+      );
       const listing = await createForSaleListing(community.id, seller.id, { stockQuantity: 10 });
 
       const proposed = await proposePurchase({
@@ -491,7 +525,10 @@ describe("transactionService (contract)", () => {
         "transaction-test-seller-accept-3@example.com",
       );
       const buyer = await addMember(community.id, "transaction-test-buyer-accept-3@example.com");
-      const outsider = await addMember(community.id, "transaction-test-outsider-accept-3@example.com");
+      const outsider = await addMember(
+        community.id,
+        "transaction-test-outsider-accept-3@example.com",
+      );
       const listing = await createForSaleListing(community.id, seller.id, { stockQuantity: 10 });
 
       const proposed = await proposePurchase({
@@ -597,7 +634,9 @@ describe("transactionService (contract)", () => {
       });
       expect(acceptAttempt).toEqual({ ok: false, reason: "not_a_member" });
 
-      const stillPending = await prisma.transaction.findUniqueOrThrow({ where: { id: proposed.transaction.id } });
+      const stillPending = await prisma.transaction.findUniqueOrThrow({
+        where: { id: proposed.transaction.id },
+      });
       expect(stillPending.state).toBe("PENDING");
     });
 
@@ -702,7 +741,9 @@ describe("transactionService (contract)", () => {
       });
       expect(accepted).toEqual({ ok: false, reason: "exceeds_stock" });
 
-      const stillPending = await prisma.transaction.findUniqueOrThrow({ where: { id: proposed.transaction.id } });
+      const stillPending = await prisma.transaction.findUniqueOrThrow({
+        where: { id: proposed.transaction.id },
+      });
       expect(stillPending.state).toBe("PENDING");
     });
 
@@ -713,8 +754,12 @@ describe("transactionService (contract)", () => {
         "transaction-test-seller-us3-5@example.com",
       );
       const buyer = await addMember(community.id, "transaction-test-buyer-us3-5@example.com");
-      const pendingListing = await createForSaleListing(community.id, seller.id, { stockQuantity: 10 });
-      const acceptedListing = await createForSaleListing(community.id, seller.id, { stockQuantity: 10 });
+      const pendingListing = await createForSaleListing(community.id, seller.id, {
+        stockQuantity: 10,
+      });
+      const acceptedListing = await createForSaleListing(community.id, seller.id, {
+        stockQuantity: 10,
+      });
 
       const pending = await proposePurchase({
         communityId: community.id,
@@ -740,14 +785,24 @@ describe("transactionService (contract)", () => {
       });
       if (!accepted.ok) throw new Error("expected success");
 
-      const deletePending = await deleteListing({ listingId: pendingListing.id, callerAccountId: seller.id });
+      const deletePending = await deleteListing({
+        listingId: pendingListing.id,
+        callerAccountId: seller.id,
+      });
       expect(deletePending).toEqual({ ok: true });
-      const cancelled = await prisma.transaction.findUniqueOrThrow({ where: { id: pending.transaction.id } });
+      const cancelled = await prisma.transaction.findUniqueOrThrow({
+        where: { id: pending.transaction.id },
+      });
       expect(cancelled.state).toBe("CANCELLED");
 
-      const deleteAccepted = await deleteListing({ listingId: acceptedListing.id, callerAccountId: seller.id });
+      const deleteAccepted = await deleteListing({
+        listingId: acceptedListing.id,
+        callerAccountId: seller.id,
+      });
       expect(deleteAccepted).toEqual({ ok: true });
-      const stillAccepted = await prisma.transaction.findUniqueOrThrow({ where: { id: accepted.transaction.id } });
+      const stillAccepted = await prisma.transaction.findUniqueOrThrow({
+        where: { id: accepted.transaction.id },
+      });
       expect(stillAccepted.state).toBe("ACCEPTED");
 
       const buyerHistory = await listTransactions(community.id, buyer.id, { state: "ACCEPTED" });
@@ -873,7 +928,11 @@ describe("transactionService (contract)", () => {
         totalCents: 25000,
       });
       if (!pending.ok || !toCancel.ok) throw new Error("expected both to succeed");
-      await cancelProposal({ communityId: community.id, transactionId: toCancel.transaction.id, callerAccountId: buyer.id });
+      await cancelProposal({
+        communityId: community.id,
+        transactionId: toCancel.transaction.id,
+        callerAccountId: buyer.id,
+      });
 
       const listed = await listTransactions(community.id, buyer.id);
       expect(listed.ok).toBe(true);
@@ -920,13 +979,19 @@ describe("transactionService (contract)", () => {
       expect(purchaseHistory.ok).toBe(true);
       if (!purchaseHistory.ok) throw new Error("expected success");
       expect(purchaseHistory.transactions).toHaveLength(1);
-      expect(purchaseHistory.transactions[0]).toMatchObject({ id: accepted.transaction.id, role: "buyer" });
+      expect(purchaseHistory.transactions[0]).toMatchObject({
+        id: accepted.transaction.id,
+        role: "buyer",
+      });
 
       const salesHistory = await listTransactions(community.id, seller.id, { state: "ACCEPTED" });
       expect(salesHistory.ok).toBe(true);
       if (!salesHistory.ok) throw new Error("expected success");
       expect(salesHistory.transactions).toHaveLength(1);
-      expect(salesHistory.transactions[0]).toMatchObject({ id: accepted.transaction.id, role: "seller" });
+      expect(salesHistory.transactions[0]).toMatchObject({
+        id: accepted.transaction.id,
+        role: "seller",
+      });
     });
 
     // T028 (US5, FR-025): only the two parties may view a transaction.
@@ -936,7 +1001,10 @@ describe("transactionService (contract)", () => {
         "transaction-test-seller-history-2@example.com",
       );
       const buyer = await addMember(community.id, "transaction-test-buyer-history-2@example.com");
-      const outsider = await addMember(community.id, "transaction-test-outsider-history-2@example.com");
+      const outsider = await addMember(
+        community.id,
+        "transaction-test-outsider-history-2@example.com",
+      );
       const listing = await createForSaleListing(community.id, seller.id, { stockQuantity: 10 });
 
       const proposed = await proposePurchase({
@@ -1010,14 +1078,20 @@ describe("transactionService (contract)", () => {
         "transaction-test-mytx-seller-1@example.com",
       );
       const buyer = await addMember(communityOne.id, "transaction-test-mytx-buyer@example.com");
-      const listingOne = await createForSaleListing(communityOne.id, sellerOne.id, { stockQuantity: 10 });
+      const listingOne = await createForSaleListing(communityOne.id, sellerOne.id, {
+        stockQuantity: 10,
+      });
 
       const { community: communityTwo, admin: sellerTwo } = await createCommunityWithAdmin(
         "Transaction Test Community MyTx Two",
         "transaction-test-mytx-seller-2@example.com",
       );
-      await prisma.membership.create({ data: { accountId: buyer.id, communityId: communityTwo.id, role: "MEMBER" } });
-      const listingTwo = await createForSaleListing(communityTwo.id, sellerTwo.id, { stockQuantity: 10 });
+      await prisma.membership.create({
+        data: { accountId: buyer.id, communityId: communityTwo.id, role: "MEMBER" },
+      });
+      const listingTwo = await createForSaleListing(communityTwo.id, sellerTwo.id, {
+        stockQuantity: 10,
+      });
 
       const asBuyerInOne = await proposePurchase({
         communityId: communityOne.id,
@@ -1033,7 +1107,8 @@ describe("transactionService (contract)", () => {
         quantity: 2,
         totalCents: 40000,
       });
-      if (!asBuyerInOne.ok || !asBuyerInTwo.ok) throw new Error("expected both proposals to succeed");
+      if (!asBuyerInOne.ok || !asBuyerInTwo.ok)
+        throw new Error("expected both proposals to succeed");
 
       const buyerView = await listMyTransactions(buyer.id);
       expect(buyerView.transactions.map((t) => t.id).sort()).toEqual(
@@ -1045,7 +1120,10 @@ describe("transactionService (contract)", () => {
 
       const sellerOneView = await listMyTransactions(sellerOne.id);
       expect(sellerOneView.transactions).toHaveLength(1);
-      expect(sellerOneView.transactions[0]).toMatchObject({ id: asBuyerInOne.transaction.id, role: "seller" });
+      expect(sellerOneView.transactions[0]).toMatchObject({
+        id: asBuyerInOne.transaction.id,
+        role: "seller",
+      });
     });
 
     // The list's one new bit of state beyond getTransaction()/getMyReview(): whether the
@@ -1074,7 +1152,9 @@ describe("transactionService (contract)", () => {
       if (!accepted.ok) throw new Error("expected success");
 
       const beforeRating = await listMyTransactions(buyer.id);
-      expect(beforeRating.transactions.find((t) => t.id === proposed.transaction.id)?.myRating).toBeNull();
+      expect(
+        beforeRating.transactions.find((t) => t.id === proposed.transaction.id)?.myRating,
+      ).toBeNull();
 
       const review = await createReview({
         communityId: community.id,
@@ -1085,11 +1165,15 @@ describe("transactionService (contract)", () => {
       expect(review.ok).toBe(true);
 
       const afterRating = await listMyTransactions(buyer.id);
-      expect(afterRating.transactions.find((t) => t.id === proposed.transaction.id)?.myRating).toBe(4);
+      expect(afterRating.transactions.find((t) => t.id === proposed.transaction.id)?.myRating).toBe(
+        4,
+      );
 
       // The seller's own view of the same transaction is unaffected by the buyer's rating of them.
       const sellerView = await listMyTransactions(seller.id);
-      expect(sellerView.transactions.find((t) => t.id === proposed.transaction.id)?.myRating).toBeNull();
+      expect(
+        sellerView.transactions.find((t) => t.id === proposed.transaction.id)?.myRating,
+      ).toBeNull();
     });
 
     // FR-026, SC-005 analog: the cross-community view carries no contact fields either.
@@ -1098,7 +1182,10 @@ describe("transactionService (contract)", () => {
         "Transaction Test Community MyTx Contact",
         "transaction-test-mytx-contact-seller@example.com",
       );
-      const buyer = await addMember(community.id, "transaction-test-mytx-contact-buyer@example.com");
+      const buyer = await addMember(
+        community.id,
+        "transaction-test-mytx-contact-buyer@example.com",
+      );
       const listing = await createForSaleListing(community.id, seller.id, { stockQuantity: 10 });
 
       await proposePurchase({
@@ -1111,9 +1198,9 @@ describe("transactionService (contract)", () => {
 
       const listed = await listMyTransactions(buyer.id);
       expect(JSON.stringify(listed)).not.toMatch(/@example\.com/);
-      expect(listed.transactions.some((t) => Object.keys(t).some((k) => /email|phone|address/i.test(k)))).toBe(
-        false,
-      );
+      expect(
+        listed.transactions.some((t) => Object.keys(t).some((k) => /email|phone|address/i.test(k))),
+      ).toBe(false);
     });
   });
 });

@@ -130,7 +130,11 @@ export function buildPrismaAuthAdapter(): Adapter {
       await extendSession(sessionToken, expires);
       const found = await findSessionWithAccount(sessionToken);
       if (!found) return null;
-      return { sessionToken: found.sessionToken, userId: found.accountId, expires: found.expiresAt };
+      return {
+        sessionToken: found.sessionToken,
+        userId: found.accountId,
+        expires: found.expiresAt,
+      };
     },
 
     async deleteSession(sessionToken) {

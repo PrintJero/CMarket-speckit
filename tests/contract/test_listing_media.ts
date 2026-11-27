@@ -39,12 +39,10 @@ const ACTIVE_ASSET = {
 };
 
 function stubVerifyOk() {
-  return vi
-    .spyOn(cloudinaryAdmin, "verifyAsset")
-    .mockImplementation(async (publicId: string) => ({
-      ok: true as const,
-      asset: { assetId: `asset-for-${publicId}`, publicId, ...ACTIVE_ASSET },
-    }));
+  return vi.spyOn(cloudinaryAdmin, "verifyAsset").mockImplementation(async (publicId: string) => ({
+    ok: true as const,
+    asset: { assetId: `asset-for-${publicId}`, publicId, ...ACTIVE_ASSET },
+  }));
 }
 
 function createVerifiedAccount(email: string) {
@@ -398,9 +396,7 @@ describe("listing media service (contract)", () => {
       // The response is a listing read: no Cloudinary identifier may appear.
       expect(JSON.stringify(result.photos)).not.toContain("cmarket/test");
 
-      expect(
-        await prisma.pendingListingMedia.count({ where: { draftId: listing.id } }),
-      ).toBe(0);
+      expect(await prisma.pendingListingMedia.count({ where: { draftId: listing.id } })).toBe(0);
     });
 
     it("makes displayOrder 0 the cover when none is chosen, and honours an explicit cover (FR-016)", async () => {
@@ -538,9 +534,9 @@ describe("listing media service (contract)", () => {
       // Never becomes listing media...
       expect(await prisma.listingPhoto.count({ where: { listingId: listing.id } })).toBe(0);
       // ...and does not linger in Cloudinary either.
-      expect(
-        await prisma.mediaCleanupTask.count({ where: { cloudinaryPublicId: ids[0] } }),
-      ).toBe(1);
+      expect(await prisma.mediaCleanupTask.count({ where: { cloudinaryPublicId: ids[0] } })).toBe(
+        1,
+      );
       // The pending row is consumed, so a resubmit cannot retry the same
       // oversized asset.
       expect(
@@ -620,7 +616,13 @@ describe("listing media service (contract)", () => {
     it("refuses a pending row owned by a DIFFERENT account — the match is on accountId, not draftId alone (FR-030)", async () => {
       stubVerifyOk();
       const { admin, community, listing } = await seed("prov-crossaccount");
-      const [victimPublicId] = await authorizeMany(admin.id, community.id, listing.id, 1, listing.id);
+      const [victimPublicId] = await authorizeMany(
+        admin.id,
+        community.id,
+        listing.id,
+        1,
+        listing.id,
+      );
 
       const attacker = await createVerifiedAccount("media-test-attacker@example.com");
       await prisma.membership.create({
@@ -725,7 +727,13 @@ describe("listing media service (contract)", () => {
     async function seedWithPhotos(suffix: string, count: number) {
       stubVerifyOk();
       const ctx = await seed(suffix);
-      const ids = await authorizeMany(ctx.admin.id, ctx.community.id, ctx.listing.id, count, ctx.listing.id);
+      const ids = await authorizeMany(
+        ctx.admin.id,
+        ctx.community.id,
+        ctx.listing.id,
+        count,
+        ctx.listing.id,
+      );
       const associated = await associatePhotos({
         accountId: ctx.admin.id,
         listingId: ctx.listing.id,

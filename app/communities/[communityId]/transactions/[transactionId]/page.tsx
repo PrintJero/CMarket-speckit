@@ -5,7 +5,11 @@ import { getTransaction } from "@/server/services/transactionService";
 import { getMyReview } from "@/server/services/reviewService";
 import { resolveDisplayName } from "@/lib/formatting/displayName";
 import { formatListingPrice } from "@/lib/formatting/currency";
-import { transactionStateLabel, transactionResolvedCaption, paymentPathLabel } from "@/lib/formatting/transactionState";
+import {
+  transactionStateLabel,
+  transactionResolvedCaption,
+  paymentPathLabel,
+} from "@/lib/formatting/transactionState";
 import { AppShell } from "../../../../_components/AppShell";
 import { BackLink } from "../../../../_components/BackLink";
 import { PageHeader } from "../../../../_components/PageHeader";
@@ -26,7 +30,11 @@ export default async function TransactionDetailPage({
     notFound();
   }
 
-  const result = await getTransaction({ communityId, transactionId, callerAccountId: account.accountId });
+  const result = await getTransaction({
+    communityId,
+    transactionId,
+    callerAccountId: account.accountId,
+  });
   if (!result.ok) {
     notFound();
   }
@@ -48,7 +56,9 @@ export default async function TransactionDetailPage({
           <span className="rounded-pill bg-brand-tint px-2.5 py-1 text-[12px] font-bold uppercase tracking-wider text-brand-dark">
             {transactionStateLabel(transaction.state)}
           </span>
-          <span className="text-[13px] text-ink-muted">{paymentPathLabel(transaction.paymentPath)}</span>
+          <span className="text-[13px] text-ink-muted">
+            {paymentPathLabel(transaction.paymentPath)}
+          </span>
         </div>
 
         <p className="mb-1 text-[13px] text-ink-muted">

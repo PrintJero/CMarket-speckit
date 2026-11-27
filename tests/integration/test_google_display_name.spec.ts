@@ -61,7 +61,11 @@ test.describe("Google sign-in populates displayName via the real callback route 
   }) => {
     const email = uniqueEmail("google-link-unverified");
     await prisma.account.create({
-      data: { email, passwordHash: await hashPassword("whatever-password-1"), emailVerifiedAt: null },
+      data: {
+        email,
+        passwordHash: await hashPassword("whatever-password-1"),
+        emailVerifiedAt: null,
+      },
     });
     await setMockProfile(request, {
       sub: mockSub(),
@@ -85,7 +89,11 @@ test.describe("Google sign-in populates displayName via the real callback route 
   }) => {
     const email = uniqueEmail("google-link-already-named");
     const existing = await prisma.account.create({
-      data: { email, passwordHash: await hashPassword("whatever-password-2"), emailVerifiedAt: new Date() },
+      data: {
+        email,
+        passwordHash: await hashPassword("whatever-password-2"),
+        emailVerifiedAt: new Date(),
+      },
     });
     await setDisplayName(existing.id, "Self-Chosen Name");
     await setMockProfile(request, {

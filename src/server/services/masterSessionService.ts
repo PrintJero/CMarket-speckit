@@ -43,7 +43,9 @@ export interface ValidMasterSession {
  * is treated identically to a deleted one (Story 1, Scenario 5) — a stale
  * row past expiry is cleaned up on lookup.
  */
-export async function getValidMasterSession(rawSessionToken: string): Promise<ValidMasterSession | null> {
+export async function getValidMasterSession(
+  rawSessionToken: string,
+): Promise<ValidMasterSession | null> {
   const hashed = hashToken(rawSessionToken);
   const session = await prisma.masterSession.findUnique({
     where: { sessionTokenHash: hashed },
@@ -52,7 +54,9 @@ export async function getValidMasterSession(rawSessionToken: string): Promise<Va
   if (!session) return null;
 
   if (session.expiresAt.getTime() <= Date.now()) {
-    await prisma.masterSession.delete({ where: { sessionTokenHash: hashed } }).catch(() => undefined);
+    await prisma.masterSession
+      .delete({ where: { sessionTokenHash: hashed } })
+      .catch(() => undefined);
     return null;
   }
 

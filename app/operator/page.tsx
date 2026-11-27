@@ -32,7 +32,10 @@ export default async function OperatorPage() {
 
   return (
     <AppShell account={account}>
-      <PageHeader title="Operator panel" subtitle="Development-only — never enabled in production (FR-016)" />
+      <PageHeader
+        title="Operator panel"
+        subtitle="Development-only — never enabled in production (FR-016)"
+      />
 
       <div className="grid items-start gap-6 md:grid-cols-[380px_1fr]">
         <Card>
@@ -47,7 +50,9 @@ export default async function OperatorPage() {
             Existing communities
           </h2>
           {communities.length === 0 ? (
-            <p className="py-10 text-center text-ink-muted">No communities yet. Create one on the left to get started.</p>
+            <p className="py-10 text-center text-ink-muted">
+              No communities yet. Create one on the left to get started.
+            </p>
           ) : (
             <div className="overflow-x-auto rounded-xl border border-border">
               <table className="w-full min-w-[560px] table-fixed border-collapse text-sm">

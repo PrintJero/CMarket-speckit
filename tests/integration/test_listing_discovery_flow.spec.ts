@@ -20,7 +20,8 @@ async function createCommunityWithAdmin(
     data: { name, founderEmail: adminEmail, invokedBy: "playwright-test" },
   });
   const body = await response.json();
-  if (!body.ok) throw new Error(`expected community creation to succeed, got ${JSON.stringify(body)}`);
+  if (!body.ok)
+    throw new Error(`expected community creation to succeed, got ${JSON.stringify(body)}`);
   return body.community as { id: string; name: string };
 }
 
@@ -44,7 +45,9 @@ async function seedListings(
 }
 
 // T005 (US1) — browse a paginated feed, page by page.
-test("a member browses their community's listing feed across pages, newest-first (US1)", async ({ page }) => {
+test("a member browses their community's listing feed across pages, newest-first (US1)", async ({
+  page,
+}) => {
   const password = "correct-horse-battery-staple";
   const adminEmail = uniqueEmail("discovery-page-admin");
   const community = await createCommunityWithAdmin(

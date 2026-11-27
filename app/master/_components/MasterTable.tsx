@@ -8,7 +8,13 @@ import type { ReactNode } from "react";
  * semantics (thead/tbody/th scope) stay exactly what screen readers and
  * keyboard users expect.
  */
-export function MasterTable({ children, className = "" }: { children: ReactNode; className?: string }) {
+export function MasterTable({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return (
     <div className={`overflow-x-auto rounded-xl border border-border bg-surface ${className}`}>
       <table className="w-full border-collapse text-[13px]">{children}</table>

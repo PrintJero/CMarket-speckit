@@ -14,7 +14,10 @@ export type MasterStatusKey =
 // Each className is a complete literal string (never assembled by
 // interpolating a variable inside it) so Tailwind's build-time content
 // scanner can find every one of them.
-const STATUS: Record<MasterStatusKey, { label: string; wrapClassName: string; dotClassName: string }> = {
+const STATUS: Record<
+  MasterStatusKey,
+  { label: string; wrapClassName: string; dotClassName: string }
+> = {
   ACTIVE: {
     label: "Active",
     wrapClassName: "border-success-border bg-success-tint text-success-dark",
@@ -77,7 +80,13 @@ const STATUS: Record<MasterStatusKey, { label: string; wrapClassName: string; do
  * color alone: every instance pairs a dot with a text label, and the label
  * itself (not just an icon) always renders.
  */
-export function MasterStatusBadge({ status, className = "" }: { status: MasterStatusKey; className?: string }) {
+export function MasterStatusBadge({
+  status,
+  className = "",
+}: {
+  status: MasterStatusKey;
+  className?: string;
+}) {
   const s = STATUS[status];
   return (
     <span

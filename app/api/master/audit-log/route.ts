@@ -22,5 +22,8 @@ export async function GET(request: Request): Promise<Response> {
     cursor: url.searchParams.get("cursor") ?? undefined,
   });
 
-  return NextResponse.json({ ok: true, entries: result.entries, nextCursor: result.nextCursor }, { status: 200 });
+  return NextResponse.json(
+    { ok: true, entries: result.entries, nextCursor: result.nextCursor },
+    { status: 200 },
+  );
 }

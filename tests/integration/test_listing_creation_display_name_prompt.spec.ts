@@ -20,7 +20,8 @@ async function createCommunityWithAdmin(
     data: { name, founderEmail: adminEmail, invokedBy: "playwright-test" },
   });
   const body = await response.json();
-  if (!body.ok) throw new Error(`expected community creation to succeed, got ${JSON.stringify(body)}`);
+  if (!body.ok)
+    throw new Error(`expected community creation to succeed, got ${JSON.stringify(body)}`);
   return body.community as { id: string; name: string };
 }
 
@@ -115,7 +116,9 @@ test("an account with no display name from outside the registration form is stil
   await page.getByRole("button", { name: "Create listing" }).click();
   await page.waitForURL(`**/communities/${community.id}`);
 
-  const updatedAccount = await prisma.account.findUniqueOrThrow({ where: { id: namelessAccount.id } });
+  const updatedAccount = await prisma.account.findUniqueOrThrow({
+    where: { id: namelessAccount.id },
+  });
   expect(updatedAccount.displayName).toBe("Now Named");
 
   // A second listing by the now-named account: no display-name field this time.
@@ -131,13 +134,18 @@ test("an account with no display name from outside the registration form is stil
   const bypassContext = await page.context().browser()!.newContext();
   const bypassPage = await bypassContext.newPage();
   await signIn(bypassPage, bypassEmail, password);
-  const bypassResponse = await bypassPage.request.fetch(`/api/communities/${community.id}/listings`, {
-    method: "POST",
-    data: { title: "Bypass attempt", description: "Should be blocked", priceCents: 100 },
-    headers: { "Content-Type": "application/json" },
-  });
+  const bypassResponse = await bypassPage.request.fetch(
+    `/api/communities/${community.id}/listings`,
+    {
+      method: "POST",
+      data: { title: "Bypass attempt", description: "Should be blocked", priceCents: 100 },
+      headers: { "Content-Type": "application/json" },
+    },
+  );
   expect(bypassResponse.status()).toBe(409);
   expect(await bypassResponse.json()).toEqual({ ok: false, reason: "display_name_required" });
-  expect(await prisma.listing.count({ where: { communityId: community.id, title: "Bypass attempt" } })).toBe(0);
+  expect(
+    await prisma.listing.count({ where: { communityId: community.id, title: "Bypass attempt" } }),
+  ).toBe(0);
   await bypassContext.close();
 });

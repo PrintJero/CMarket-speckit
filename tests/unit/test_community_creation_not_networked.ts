@@ -82,7 +82,9 @@ function resolveSpecifier(specifier: string, fromFile: string): string | null {
     path.join(target, "index.ts"),
     path.join(target, "index.tsx"),
   ];
-  const found = candidates.find((candidate) => fs.existsSync(candidate) && fs.statSync(candidate).isFile());
+  const found = candidates.find(
+    (candidate) => fs.existsSync(candidate) && fs.statSync(candidate).isFile(),
+  );
   return found ? path.normalize(found) : null;
 }
 

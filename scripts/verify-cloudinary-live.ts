@@ -112,7 +112,9 @@ async function main() {
   record(
     "2. verifyAsset() confirms prefix + context + resource_type + type",
     verified.ok,
-    verified.ok ? `${verified.asset.width}x${verified.asset.height} ${verified.asset.format}` : `reason=${verified.reason}`,
+    verified.ok
+      ? `${verified.asset.width}x${verified.asset.height} ${verified.asset.format}`
+      : `reason=${verified.reason}`,
   );
 
   // A forged prefix must be refused — the provenance check must be real.
@@ -133,7 +135,9 @@ async function main() {
     `HTTP ${unsigned.status}`,
   );
 
-  for (const variant of Object.keys(LISTING_IMAGE_VARIANTS) as (keyof typeof LISTING_IMAGE_VARIANTS)[]) {
+  for (const variant of Object.keys(
+    LISTING_IMAGE_VARIANTS,
+  ) as (keyof typeof LISTING_IMAGE_VARIANTS)[]) {
     try {
       const asset = await fetchAssetBytes(publicId, variant, "image/webp,image/*");
       record(

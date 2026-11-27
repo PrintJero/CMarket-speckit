@@ -86,7 +86,9 @@ describe("listing image variants", () => {
     );
     const transformationLines = source
       .split("\n")
-      .filter((line) => /c_limit|w_\d|f_auto|q_auto/.test(line) && !line.trimStart().startsWith("*"));
+      .filter(
+        (line) => /c_limit|w_\d|f_auto|q_auto/.test(line) && !line.trimStart().startsWith("*"),
+      );
     for (const line of transformationLines) {
       expect(line, "transformation strings must be literals, not templates").not.toMatch(/\$\{/);
     }

@@ -33,7 +33,9 @@ export function MasterTemporaryPasswordPanel({
 
   return (
     <div className="rounded-xl border border-warning-border bg-warning-tint p-4">
-      <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-warning-dark">{label} — shown once</p>
+      <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-warning-dark">
+        {label} — shown once
+      </p>
       <div className="flex items-center gap-2">
         <code className="flex-1 truncate rounded-lg border border-warning-border bg-surface px-3 py-2 font-master-mono text-[14px] font-semibold text-ink">
           {password}

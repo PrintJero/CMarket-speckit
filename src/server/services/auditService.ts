@@ -111,7 +111,12 @@ export async function listAuditEntries(
   const entries = await prisma.administrativeAuditEntry.findMany({
     where: {
       ...(options.from || options.to
-        ? { createdAt: { ...(options.from ? { gte: options.from } : {}), ...(options.to ? { lte: options.to } : {}) } }
+        ? {
+            createdAt: {
+              ...(options.from ? { gte: options.from } : {}),
+              ...(options.to ? { lte: options.to } : {}),
+            },
+          }
         : {}),
       ...(options.actorMasterId ? { actorMasterId: options.actorMasterId } : {}),
       ...(options.action ? { action: options.action } : {}),

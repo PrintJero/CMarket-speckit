@@ -80,7 +80,11 @@ export async function createCommunityAsMaster(
         targetType: "Community",
         targetId: community.id,
         outcome: "SUCCESS",
-        detail: { name: community.name, administratorMode: "existing", administratorAccountId: existingAccount.id },
+        detail: {
+          name: community.name,
+          administratorMode: "existing",
+          administratorAccountId: existingAccount.id,
+        },
       });
       return community;
     });
@@ -103,7 +107,8 @@ export async function createCommunityAsMaster(
         email: normalizedEmail,
         passwordHash,
         emailVerifiedAt: new Date(),
-        displayName: input.administrator.mode === "provision" ? input.administrator.displayName : undefined,
+        displayName:
+          input.administrator.mode === "provision" ? input.administrator.displayName : undefined,
       },
     });
     const community = await tx.community.create({
@@ -124,7 +129,11 @@ export async function createCommunityAsMaster(
       targetType: "Community",
       targetId: community.id,
       outcome: "SUCCESS",
-      detail: { name: community.name, administratorMode: "provision", administratorAccountId: account.id },
+      detail: {
+        name: community.name,
+        administratorMode: "provision",
+        administratorAccountId: account.id,
+      },
     });
     return community;
   });
@@ -146,7 +155,10 @@ async function writeFailure(callerMasterId: string, reason: string): Promise<voi
 const SUSPENSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
 
 export type SuspendCommunityResult =
-  | { ok: true; community: { id: string; status: "SUSPENDED"; suspendedAt: Date; archiveScheduledAt: Date } }
+  | {
+      ok: true;
+      community: { id: string; status: "SUSPENDED"; suspendedAt: Date; archiveScheduledAt: Date };
+    }
   | { ok: false; reason: "not_found" }
   | { ok: false; reason: "invalid_reason" }
   | { ok: false; reason: "not_active" };
@@ -193,7 +205,10 @@ export async function suspendCommunity(
     });
   });
 
-  return { ok: true, community: { id: communityId, status: "SUSPENDED", suspendedAt, archiveScheduledAt } };
+  return {
+    ok: true,
+    community: { id: communityId, status: "SUSPENDED", suspendedAt, archiveScheduledAt },
+  };
 }
 
 export type ReactivateCommunityResult =
@@ -209,14 +224,24 @@ export async function reactivateCommunity(
   const community = await prisma.community.findUnique({ where: { id: communityId } });
   if (!community) return { ok: false, reason: "not_found" };
   if (community.status !== "SUSPENDED") {
-    await writeLifecycleFailure(callerMasterId, communityId, "community.reactivate", "not_suspended");
+    await writeLifecycleFailure(
+      callerMasterId,
+      communityId,
+      "community.reactivate",
+      "not_suspended",
+    );
     return { ok: false, reason: "not_suspended" };
   }
 
   await prisma.$transaction(async (tx) => {
     await tx.community.update({
       where: { id: communityId },
-      data: { status: "ACTIVE", suspendedAt: null, suspensionReason: null, archiveScheduledAt: null },
+      data: {
+        status: "ACTIVE",
+        suspendedAt: null,
+        suspensionReason: null,
+        archiveScheduledAt: null,
+      },
     });
     await writeAuditEntry(tx, {
       actorType: "MASTER",
@@ -280,7 +305,10 @@ export async function archiveDueSuspendedCommunities(): Promise<ArchiveDueSuspen
         return false;
       }
 
-      await tx.community.update({ where: { id }, data: { status: "ARCHIVED", archivedAt: new Date() } });
+      await tx.community.update({
+        where: { id },
+        data: { status: "ARCHIVED", archivedAt: new Date() },
+      });
       await writeAuditEntry(tx, {
         actorType: "SYSTEM",
         action: "community.archive",
@@ -297,7 +325,11 @@ export async function archiveDueSuspendedCommunities(): Promise<ArchiveDueSuspen
 }
 
 export type RestoreCommunityResult =
-  | { ok: true; community: { id: string; status: "ACTIVE" }; administrator: { accountId: string; displayName: string | null } }
+  | {
+      ok: true;
+      community: { id: string; status: "ACTIVE" };
+      administrator: { accountId: string; displayName: string | null };
+    }
   | { ok: false; reason: "not_found" }
   | { ok: false; reason: "not_archived" }
   | { ok: false; reason: "administrator_not_eligible" };
@@ -336,7 +368,12 @@ export async function restoreCommunity(
     selected.account.deletedAt === null;
 
   if (!selected || !eligible) {
-    await writeLifecycleFailure(callerMasterId, communityId, "community.restore", "administrator_not_eligible");
+    await writeLifecycleFailure(
+      callerMasterId,
+      communityId,
+      "community.restore",
+      "administrator_not_eligible",
+    );
     return { ok: false, reason: "administrator_not_eligible" };
   }
 

@@ -17,7 +17,8 @@ export async function POST(
 
   const result = await suspendCommunity(caller.masterId, communityId, reason);
   if (!result.ok) {
-    const status = result.reason === "not_found" ? 404 : result.reason === "invalid_reason" ? 400 : 409;
+    const status =
+      result.reason === "not_found" ? 404 : result.reason === "invalid_reason" ? 400 : 409;
     return NextResponse.json(result, { status });
   }
   return NextResponse.json(result, { status: 200 });

@@ -29,7 +29,10 @@ export default async function ChatsPage() {
     if (existing) {
       existing.threads.push(thread);
     } else {
-      communities.set(thread.communityId, { communityName: thread.communityName, threads: [thread] });
+      communities.set(thread.communityId, {
+        communityName: thread.communityName,
+        threads: [thread],
+      });
     }
   }
 

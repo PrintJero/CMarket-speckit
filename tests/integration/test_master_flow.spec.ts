@@ -39,7 +39,9 @@ test.describe("MASTER sign-in and marketplace-action denial (User Story 1)", () 
     await page.waitForURL("/master/sign-in");
   });
 
-  test("wrong credentials and a disabled identity are all rejected identically", async ({ page }) => {
+  test("wrong credentials and a disabled identity are all rejected identically", async ({
+    page,
+  }) => {
     const masterId = `us1-bad-${process.pid}-${Math.floor(Math.random() * 1e9)}`;
     const created = await createMasterFixture(masterId, "correct-password-1", false);
 
@@ -155,7 +157,11 @@ test.describe("Every platform-administration action is auditable (User Story 11)
     // An ordinary account cannot reach the audit log at all.
     const email = uniqueEmail("audit-denial");
     await prisma.account.create({
-      data: { email, passwordHash: await hashPassword("correct-horse-battery-staple"), emailVerifiedAt: new Date() },
+      data: {
+        email,
+        passwordHash: await hashPassword("correct-horse-battery-staple"),
+        emailVerifiedAt: new Date(),
+      },
     });
     await page.goto("/sign-in");
     await page.getByLabel("Email").fill(email);

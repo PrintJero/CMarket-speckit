@@ -2,7 +2,12 @@ import { requireMasterPage } from "../_lib/requireMasterPage";
 import { MasterShell } from "../_components/MasterShell";
 import { MasterPageHeader } from "../_components/MasterPageHeader";
 import { MasterSection } from "../_components/MasterSection";
-import { MasterTable, masterThClassName, masterTdClassName, masterTrClassName } from "../_components/MasterTable";
+import {
+  MasterTable,
+  masterThClassName,
+  masterTdClassName,
+  masterTrClassName,
+} from "../_components/MasterTable";
 import { MasterStatusBadge } from "../_components/MasterStatusBadge";
 import { MasterEmptyState } from "../_components/MasterEmptyState";
 import { prisma } from "@/lib/prisma";
@@ -66,16 +71,22 @@ export default async function MastersPage() {
                   {masters.map((m) => (
                     <tr key={m.id} className={masterTrClassName}>
                       <td className={masterTdClassName}>
-                        <span className="font-master-mono font-semibold text-ink">{m.masterId}</span>
+                        <span className="font-master-mono font-semibold text-ink">
+                          {m.masterId}
+                        </span>
                       </td>
                       <td className={masterTdClassName}>{m.email}</td>
                       <td className={masterTdClassName}>
                         <MasterStatusBadge status={m.status} />
                       </td>
-                      <td className={`${masterTdClassName} whitespace-nowrap`}>{dateFormatter.format(m.createdAt)}</td>
+                      <td className={`${masterTdClassName} whitespace-nowrap`}>
+                        {dateFormatter.format(m.createdAt)}
+                      </td>
                       <td className={masterTdClassName}>
                         {m.createdByMasterId ? (
-                          <span className="font-master-mono text-[12.5px] text-ink-muted">{m.createdByMasterId}</span>
+                          <span className="font-master-mono text-[12.5px] text-ink-muted">
+                            {m.createdByMasterId}
+                          </span>
                         ) : (
                           <span className="text-ink-muted">System</span>
                         )}

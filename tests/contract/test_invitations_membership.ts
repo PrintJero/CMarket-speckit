@@ -58,7 +58,9 @@ describe("invitationService (contract)", () => {
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error("expected success");
 
-      const invitations = await prisma.invitation.findMany({ where: { communityId: community.id } });
+      const invitations = await prisma.invitation.findMany({
+        where: { communityId: community.id },
+      });
       expect(invitations).toHaveLength(1);
       expect(invitations[0].consumedAt).toBeNull();
       expect(invitations[0].email).toBe("invite-membership-invitee-1@example.com");
@@ -79,7 +81,9 @@ describe("invitationService (contract)", () => {
       });
 
       expect(result).toEqual({ ok: false, reason: "not_administrator" });
-      expect(await prisma.invitation.findMany({ where: { communityId: community.id } })).toHaveLength(0);
+      expect(
+        await prisma.invitation.findMany({ where: { communityId: community.id } }),
+      ).toHaveLength(0);
     });
 
     // T004 (FR-011)
@@ -96,7 +100,9 @@ describe("invitationService (contract)", () => {
       });
 
       expect(result).toEqual({ ok: false, reason: "already_member" });
-      expect(await prisma.invitation.findMany({ where: { communityId: community.id } })).toHaveLength(0);
+      expect(
+        await prisma.invitation.findMany({ where: { communityId: community.id } }),
+      ).toHaveLength(0);
     });
 
     // T004 (FR-012)
@@ -107,8 +113,16 @@ describe("invitationService (contract)", () => {
       );
       const invitee = "invite-membership-invitee-4@example.com";
 
-      const first = await inviteToCommunity({ communityId: community.id, email: invitee, invitedByAccountId: admin.id });
-      const second = await inviteToCommunity({ communityId: community.id, email: invitee, invitedByAccountId: admin.id });
+      const first = await inviteToCommunity({
+        communityId: community.id,
+        email: invitee,
+        invitedByAccountId: admin.id,
+      });
+      const second = await inviteToCommunity({
+        communityId: community.id,
+        email: invitee,
+        invitedByAccountId: admin.id,
+      });
 
       expect(first.ok).toBe(true);
       expect(second.ok).toBe(true);
@@ -135,7 +149,9 @@ describe("invitationService (contract)", () => {
       });
 
       expect(result).toEqual({ ok: false, reason: "invalid_email" });
-      expect(await prisma.invitation.findMany({ where: { communityId: community.id } })).toHaveLength(0);
+      expect(
+        await prisma.invitation.findMany({ where: { communityId: community.id } }),
+      ).toHaveLength(0);
     });
   });
 
@@ -157,7 +173,10 @@ describe("invitationService (contract)", () => {
       const rawToken = await tokenFor(invited.invitation.id);
       const result = await acceptInvitation({ token: rawToken, accountId: invitee.id });
 
-      expect(result).toEqual({ ok: true, membership: { communityId: community.id, role: "MEMBER" } });
+      expect(result).toEqual({
+        ok: true,
+        membership: { communityId: community.id, role: "MEMBER" },
+      });
       const memberships = await prisma.membership.findMany({
         where: { accountId: invitee.id, communityId: community.id },
       });
@@ -187,7 +206,10 @@ describe("invitationService (contract)", () => {
       if (!invited.ok) throw new Error("expected invitation to be created");
 
       const rawToken = await tokenFor(invited.invitation.id);
-      const result = await acceptInvitation({ token: rawToken, accountId: "nonexistent-account-id" });
+      const result = await acceptInvitation({
+        token: rawToken,
+        accountId: "nonexistent-account-id",
+      });
 
       expect(result).toEqual({ ok: false, reason: "account_not_found" });
       expect(await prisma.membership.count({ where: { communityId: community.id } })).toBe(1); // admin only
@@ -323,7 +345,9 @@ describe("invitationService (contract)", () => {
       });
 
       expect(result).toEqual({ ok: false, reason: "last_admin" });
-      expect(await prisma.membership.findUnique({ where: { id: soleAdminMembership.id } })).not.toBeNull();
+      expect(
+        await prisma.membership.findUnique({ where: { id: soleAdminMembership.id } }),
+      ).not.toBeNull();
     });
 
     // T018 (US5, Scenario 2): two administrators — revoking one succeeds.
@@ -332,9 +356,15 @@ describe("invitationService (contract)", () => {
         "Invite Test Community Fourteen",
         "invite-membership-admin-14@example.com",
       );
-      const secondAdminAccount = await createVerifiedAccount("invite-membership-admin2-14@example.com");
+      const secondAdminAccount = await createVerifiedAccount(
+        "invite-membership-admin2-14@example.com",
+      );
       await prisma.membership.create({
-        data: { accountId: secondAdminAccount.id, communityId: community.id, role: "ADMINISTRATOR" },
+        data: {
+          accountId: secondAdminAccount.id,
+          communityId: community.id,
+          role: "ADMINISTRATOR",
+        },
       });
       const firstAdminMembership = await prisma.membership.findUniqueOrThrow({
         where: { accountId_communityId: { accountId: admin.id, communityId: community.id } },
@@ -379,7 +409,10 @@ describe("invitationService (contract)", () => {
       if (!invited.ok) throw new Error("expected invitation to be created");
       const token = await tokenFor(invited.invitation.id);
       const accepted = await acceptInvitation({ token, accountId: shared.id });
-      expect(accepted).toEqual({ ok: true, membership: { communityId: communityC.id, role: "MEMBER" } });
+      expect(accepted).toEqual({
+        ok: true,
+        membership: { communityId: communityC.id, role: "MEMBER" },
+      });
 
       // Revoke the MEMBER membership in C; the ADMINISTRATOR membership in D must be untouched.
       const membershipInC = await prisma.membership.findUniqueOrThrow({
@@ -430,7 +463,9 @@ describe("invitationService (contract)", () => {
       if (!accepted.ok) throw new Error("expected acceptance to succeed");
 
       const membership = await prisma.membership.findUniqueOrThrow({
-        where: { accountId_communityId: { accountId: memberAccount.id, communityId: community.id } },
+        where: {
+          accountId_communityId: { accountId: memberAccount.id, communityId: community.id },
+        },
       });
       const revoked = await revokeMembership({
         communityId: community.id,
@@ -448,8 +483,14 @@ describe("invitationService (contract)", () => {
       if (!reinvited.ok) throw new Error("expected re-invitation to succeed");
 
       const reinviteToken = await tokenFor(reinvited.invitation.id);
-      const reaccepted = await acceptInvitation({ token: reinviteToken, accountId: memberAccount.id });
-      expect(reaccepted).toEqual({ ok: true, membership: { communityId: community.id, role: "MEMBER" } });
+      const reaccepted = await acceptInvitation({
+        token: reinviteToken,
+        accountId: memberAccount.id,
+      });
+      expect(reaccepted).toEqual({
+        ok: true,
+        membership: { communityId: community.id, role: "MEMBER" },
+      });
     });
   });
 
@@ -462,10 +503,19 @@ describe("invitationService (contract)", () => {
       );
       const member = await createVerifiedAccount("invite-membership-promote-member-1@example.com");
       const membership = await prisma.membership.create({
-        data: { accountId: member.id, communityId: community.id, role: "MEMBER", operationalEpoch: 1 },
+        data: {
+          accountId: member.id,
+          communityId: community.id,
+          role: "MEMBER",
+          operationalEpoch: 1,
+        },
       });
 
-      const result = await promoteMember({ communityId: community.id, membershipId: membership.id, callerAccountId: admin.id });
+      const result = await promoteMember({
+        communityId: community.id,
+        membershipId: membership.id,
+        callerAccountId: admin.id,
+      });
       expect(result).toEqual({ ok: true });
 
       const after = await prisma.membership.findUnique({ where: { id: membership.id } });
@@ -481,20 +531,37 @@ describe("invitationService (contract)", () => {
         "Invite Test Community Promote Two B",
         "invite-membership-promote-admin-2b@example.com",
       );
-      const memberA = await createVerifiedAccount("invite-membership-promote-member-2a@example.com");
+      const memberA = await createVerifiedAccount(
+        "invite-membership-promote-member-2a@example.com",
+      );
       const membershipA = await prisma.membership.create({
-        data: { accountId: memberA.id, communityId: communityA.id, role: "MEMBER", operationalEpoch: 1 },
+        data: {
+          accountId: memberA.id,
+          communityId: communityA.id,
+          role: "MEMBER",
+          operationalEpoch: 1,
+        },
       });
 
       // adminB is not an administrator of communityA.
       expect(
-        await promoteMember({ communityId: communityA.id, membershipId: membershipA.id, callerAccountId: adminB.id }),
+        await promoteMember({
+          communityId: communityA.id,
+          membershipId: membershipA.id,
+          callerAccountId: adminB.id,
+        }),
       ).toEqual({ ok: false, reason: "not_administrator" });
 
       // adminB's own membership belongs to communityB, not communityA — not eligible there.
-      const membershipB = await prisma.membership.findFirstOrThrow({ where: { communityId: communityB.id, accountId: adminB.id } });
+      const membershipB = await prisma.membership.findFirstOrThrow({
+        where: { communityId: communityB.id, accountId: adminB.id },
+      });
       expect(
-        await promoteMember({ communityId: communityA.id, membershipId: membershipB.id, callerAccountId: adminA.id }),
+        await promoteMember({
+          communityId: communityA.id,
+          membershipId: membershipB.id,
+          callerAccountId: adminA.id,
+        }),
       ).toEqual({ ok: false, reason: "not_eligible" });
     });
 
@@ -505,17 +572,30 @@ describe("invitationService (contract)", () => {
       );
       const member = await createVerifiedAccount("invite-membership-promote-member-3@example.com");
       const membership = await prisma.membership.create({
-        data: { accountId: member.id, communityId: community.id, role: "MEMBER", operationalEpoch: 1 },
+        data: {
+          accountId: member.id,
+          communityId: community.id,
+          role: "MEMBER",
+          operationalEpoch: 1,
+        },
       });
 
       await prisma.community.update({ where: { id: community.id }, data: { status: "SUSPENDED" } });
       expect(
-        await promoteMember({ communityId: community.id, membershipId: membership.id, callerAccountId: admin.id }),
+        await promoteMember({
+          communityId: community.id,
+          membershipId: membership.id,
+          callerAccountId: admin.id,
+        }),
       ).toEqual({ ok: false, reason: "not_administrator" });
 
       // revokeMembership is gated identically — closes the gap noted in research.md #8/#15.
       expect(
-        await revokeMembership({ communityId: community.id, membershipId: membership.id, revokedByAccountId: admin.id }),
+        await revokeMembership({
+          communityId: community.id,
+          membershipId: membership.id,
+          revokedByAccountId: admin.id,
+        }),
       ).toEqual({ ok: false, reason: "not_administrator" });
     });
   });
@@ -531,6 +611,7 @@ async function tokenFor(invitationId: string): Promise<string> {
   const invitation = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId } });
   const emails = getCapturedEmails(invitation.email);
   const match = /token=([^\s&"']+)/.exec(emails[emails.length - 1]?.text ?? "");
-  if (!match) throw new Error(`no invitation token found in captured email for ${invitation.email}`);
+  if (!match)
+    throw new Error(`no invitation token found in captured email for ${invitation.email}`);
   return decodeURIComponent(match[1]);
 }

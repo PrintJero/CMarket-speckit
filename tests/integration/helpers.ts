@@ -5,9 +5,7 @@ export async function getVerificationLink(
   request: APIRequestContext,
   email: string,
 ): Promise<string> {
-  const response = await request.get(
-    `/api/test/last-email?to=${encodeURIComponent(email)}`,
-  );
+  const response = await request.get(`/api/test/last-email?to=${encodeURIComponent(email)}`);
   if (!response.ok()) {
     throw new Error(`No captured email for ${email} (status ${response.status()})`);
   }
@@ -24,9 +22,7 @@ export async function getInvitationAcceptLink(
   request: APIRequestContext,
   email: string,
 ): Promise<string> {
-  const response = await request.get(
-    `/api/test/last-email?to=${encodeURIComponent(email)}`,
-  );
+  const response = await request.get(`/api/test/last-email?to=${encodeURIComponent(email)}`);
   if (!response.ok()) {
     throw new Error(`No captured email for ${email} (status ${response.status()})`);
   }

@@ -296,16 +296,15 @@ export async function listListings(
   }
 
   const { search, minPriceCents, maxPriceCents, kind } = options;
-  if (
-    minPriceCents !== undefined &&
-    maxPriceCents !== undefined &&
-    minPriceCents > maxPriceCents
-  ) {
+  if (minPriceCents !== undefined && maxPriceCents !== undefined && minPriceCents > maxPriceCents) {
     return { ok: false, reason: "invalid_input" };
   }
 
   const page = Math.max(1, Math.trunc(options.page ?? 1));
-  const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Math.trunc(options.pageSize ?? DEFAULT_PAGE_SIZE)));
+  const pageSize = Math.min(
+    MAX_PAGE_SIZE,
+    Math.max(1, Math.trunc(options.pageSize ?? DEFAULT_PAGE_SIZE)),
+  );
 
   const community = await prisma.community.findUnique({
     where: { id: communityId },
@@ -586,7 +585,8 @@ export async function updateListing(input: UpdateListingInput): Promise<UpdateLi
     return { ok: false, reason: "community_not_active" };
   }
 
-  if (input.title !== undefined && isBlank(input.title)) return { ok: false, reason: "invalid_input" };
+  if (input.title !== undefined && isBlank(input.title))
+    return { ok: false, reason: "invalid_input" };
   if (input.description !== undefined && isBlank(input.description)) {
     return { ok: false, reason: "invalid_input" };
   }
@@ -654,7 +654,9 @@ export interface RemoveListingPhotoInput {
  * remain.
  * 009-platform-administration, FR-053: blocked while the community is SUSPENDED/ARCHIVED.
  */
-export async function removeListingPhoto(input: RemoveListingPhotoInput): Promise<RemoveListingPhotoResult> {
+export async function removeListingPhoto(
+  input: RemoveListingPhotoInput,
+): Promise<RemoveListingPhotoResult> {
   const listing = await prisma.listing.findUnique({ where: { id: input.listingId } });
   if (!listing) return { ok: false, reason: "not_found" };
   if (listing.ownerId !== input.callerAccountId) return { ok: false, reason: "not_owner" };
@@ -737,12 +739,18 @@ export interface PauseListingInput {
 
 /** Community-level status only (ARCHIVED excludes both; SUSPENDED excludes only via `requireActive`). */
 async function isCommunityActive(communityId: string): Promise<boolean> {
-  const community = await prisma.community.findUnique({ where: { id: communityId }, select: { status: true } });
+  const community = await prisma.community.findUnique({
+    where: { id: communityId },
+    select: { status: true },
+  });
   return community?.status === "ACTIVE";
 }
 
 async function communityAllowsExistingContent(communityId: string): Promise<boolean> {
-  const community = await prisma.community.findUnique({ where: { id: communityId }, select: { status: true } });
+  const community = await prisma.community.findUnique({
+    where: { id: communityId },
+    select: { status: true },
+  });
   return community?.status === "ACTIVE" || community?.status === "SUSPENDED";
 }
 
@@ -844,9 +852,7 @@ export async function fulfillListing(input: FulfillListingInput): Promise<Fulfil
 }
 
 export type DeleteListingResult =
-  | { ok: true }
-  | { ok: false; reason: "not_found" }
-  | { ok: false; reason: "not_owner" };
+  { ok: true } | { ok: false; reason: "not_found" } | { ok: false; reason: "not_owner" };
 
 export interface DeleteListingInput {
   listingId: string;
@@ -959,7 +965,9 @@ export async function listMyListings(callerAccountId: string): Promise<ListMyLis
   return {
     ok: true,
     listings: listings
-      .filter((listing) => listing.operationalEpoch === currentEpochByCommunity.get(listing.communityId))
+      .filter(
+        (listing) => listing.operationalEpoch === currentEpochByCommunity.get(listing.communityId),
+      )
       .map((listing) => ({
         id: listing.id,
         communityId: listing.communityId,

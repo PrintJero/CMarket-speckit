@@ -117,9 +117,7 @@ export async function assertEmailVerified(accountId: string): Promise<boolean> {
   return Boolean(account?.emailVerifiedAt);
 }
 
-export type SignInResult =
-  | { ok: true; sessionToken: string; expiresAt: Date }
-  | { ok: false };
+export type SignInResult = { ok: true; sessionToken: string; expiresAt: Date } | { ok: false };
 
 /**
  * FR-010, FR-012: a single generic failure for both "no such account" and
@@ -154,7 +152,10 @@ export type SetDisplayNameResult =
  * request field — see the route handler), so this holds FR-002's "only the
  * account itself" guarantee by construction, not by an authorization check.
  */
-export async function setDisplayName(accountId: string, displayName: string): Promise<SetDisplayNameResult> {
+export async function setDisplayName(
+  accountId: string,
+  displayName: string,
+): Promise<SetDisplayNameResult> {
   if (!isValidDisplayName(displayName)) {
     return { ok: false, reason: "invalid_display_name" };
   }

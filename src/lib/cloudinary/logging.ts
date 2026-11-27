@@ -23,10 +23,7 @@ export interface CloudinaryFailure {
 }
 
 export function logCloudinaryFailure(failure: CloudinaryFailure): void {
-  const parts = [
-    `[cloudinary] operation=${failure.operation}`,
-    `publicId=${failure.publicId}`,
-  ];
+  const parts = [`[cloudinary] operation=${failure.operation}`, `publicId=${failure.publicId}`];
   if (failure.status !== undefined) parts.push(`status=${failure.status}`);
   if (failure.message) parts.push(`message=${JSON.stringify(failure.message)}`);
   console.error(parts.join(" "));

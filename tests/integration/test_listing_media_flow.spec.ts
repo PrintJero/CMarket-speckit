@@ -33,17 +33,27 @@ function jpegFile(name: string) {
 
 async function createVerifiedAccount(email: string, password: string) {
   return prisma.account.create({
-    data: { email, passwordHash: await hashPassword(password), emailVerifiedAt: new Date(), displayName: "Media Tester" },
+    data: {
+      email,
+      passwordHash: await hashPassword(password),
+      emailVerifiedAt: new Date(),
+      displayName: "Media Tester",
+    },
   });
 }
 
-async function createCommunityWithAdmin(request: APIRequestContext, name: string, adminEmail: string) {
+async function createCommunityWithAdmin(
+  request: APIRequestContext,
+  name: string,
+  adminEmail: string,
+) {
   await createVerifiedAccount(adminEmail, PASSWORD);
   const response = await request.post("/api/operator/create-community", {
     data: { name, founderEmail: adminEmail, invokedBy: "playwright-test" },
   });
   const body = await response.json();
-  if (!body.ok) throw new Error(`expected community creation to succeed, got ${JSON.stringify(body)}`);
+  if (!body.ok)
+    throw new Error(`expected community creation to succeed, got ${JSON.stringify(body)}`);
   return body.community as { id: string; name: string };
 }
 
@@ -92,9 +102,15 @@ async function gotoNewListing(page: Page, communityId: string) {
 }
 
 // ---------------------------------------------------------------- T023 ----
-test("selects multiple images in one action and previews each, with no Cloudinary widget", async ({ page }) => {
+test("selects multiple images in one action and previews each, with no Cloudinary widget", async ({
+  page,
+}) => {
   const adminEmail = uniqueEmail("media-flow-admin");
-  const community = await createCommunityWithAdmin(page.request, `Media Flow ${Date.now()}`, adminEmail);
+  const community = await createCommunityWithAdmin(
+    page.request,
+    `Media Flow ${Date.now()}`,
+    adminEmail,
+  );
   await signIn(page, adminEmail, PASSWORD);
 
   const widgetRequests: string[] = [];
@@ -104,13 +120,15 @@ test("selects multiple images in one action and previews each, with no Cloudinar
   await stubCloudinaryUpload(page);
 
   await gotoNewListing(page, community.id);
-  await page.getByLabel(/Photos/).setInputFiles([
-    jpegFile("a.jpg"),
-    jpegFile("b.jpg"),
-    jpegFile("c.jpg"),
-    jpegFile("d.jpg"),
-    jpegFile("e.jpg"),
-  ]);
+  await page
+    .getByLabel(/Photos/)
+    .setInputFiles([
+      jpegFile("a.jpg"),
+      jpegFile("b.jpg"),
+      jpegFile("c.jpg"),
+      jpegFile("d.jpg"),
+      jpegFile("e.jpg"),
+    ]);
 
   // FR-003, FR-007: one tile per selected file, each with its own state.
   await expect(page.getByTestId("media-tile")).toHaveCount(5);
@@ -118,22 +136,32 @@ test("selects multiple images in one action and previews each, with no Cloudinar
   expect(widgetRequests).toEqual([]);
 });
 
-test("rejects an unsupported type and an oversized file, naming each file (FR-005, FR-006, FR-013)", async ({ page }) => {
+test("rejects an unsupported type and an oversized file, naming each file (FR-005, FR-006, FR-013)", async ({
+  page,
+}) => {
   const adminEmail = uniqueEmail("media-reject-admin");
-  const community = await createCommunityWithAdmin(page.request, `Media Reject ${Date.now()}`, adminEmail);
+  const community = await createCommunityWithAdmin(
+    page.request,
+    `Media Reject ${Date.now()}`,
+    adminEmail,
+  );
   await signIn(page, adminEmail, PASSWORD);
   await stubCloudinaryUpload(page);
   await gotoNewListing(page, community.id);
 
-  await page.getByLabel(/Photos/).setInputFiles([
-    { name: "animation.gif", mimeType: "image/gif", buffer: Buffer.from([0x47, 0x49, 0x46]) },
-    { name: "huge.jpg", mimeType: "image/jpeg", buffer: Buffer.alloc(11 * 1024 * 1024) },
-    jpegFile("fine.jpg"),
-  ]);
+  await page
+    .getByLabel(/Photos/)
+    .setInputFiles([
+      { name: "animation.gif", mimeType: "image/gif", buffer: Buffer.from([0x47, 0x49, 0x46]) },
+      { name: "huge.jpg", mimeType: "image/jpeg", buffer: Buffer.alloc(11 * 1024 * 1024) },
+      jpegFile("fine.jpg"),
+    ]);
 
   const rejected = page.getByTestId("media-tile-rejected");
   await expect(rejected).toHaveCount(2);
-  await expect(rejected.filter({ hasText: "animation.gif" })).toContainText(/unsupported file type/i);
+  await expect(rejected.filter({ hasText: "animation.gif" })).toContainText(
+    /unsupported file type/i,
+  );
   await expect(rejected.filter({ hasText: "huge.jpg" })).toContainText(/10 MB/i);
   // The valid file is unaffected — a rejected file never takes a good one down.
   await expect(page.getByTestId("media-tile")).toHaveCount(1);
@@ -141,7 +169,11 @@ test("rejects an unsupported type and an oversized file, naming each file (FR-00
 
 test("rejects the ninth file with a maximum-photo message (FR-004)", async ({ page }) => {
   const adminEmail = uniqueEmail("media-cap-admin");
-  const community = await createCommunityWithAdmin(page.request, `Media Cap ${Date.now()}`, adminEmail);
+  const community = await createCommunityWithAdmin(
+    page.request,
+    `Media Cap ${Date.now()}`,
+    adminEmail,
+  );
   await signIn(page, adminEmail, PASSWORD);
   await stubCloudinaryUpload(page);
   await gotoNewListing(page, community.id);
@@ -157,7 +189,11 @@ test("rejects the ninth file with a maximum-photo message (FR-004)", async ({ pa
 // ---------------------------------------------------------------- T040 ----
 test("never exceeds three concurrent uploads (FR-011, SC-020)", async ({ page }) => {
   const adminEmail = uniqueEmail("media-conc-admin");
-  const community = await createCommunityWithAdmin(page.request, `Media Conc ${Date.now()}`, adminEmail);
+  const community = await createCommunityWithAdmin(
+    page.request,
+    `Media Conc ${Date.now()}`,
+    adminEmail,
+  );
   await signIn(page, adminEmail, PASSWORD);
   // A delay is what makes concurrency observable at all.
   const stub = await stubCloudinaryUpload(page, { delayMs: 250 });
@@ -178,9 +214,15 @@ test("never exceeds three concurrent uploads (FR-011, SC-020)", async ({ page })
 });
 
 // ---------------------------------------------------------------- T041 ----
-test("retries only the failed file and leaves successes untouched (FR-009, SC-005)", async ({ page }) => {
+test("retries only the failed file and leaves successes untouched (FR-009, SC-005)", async ({
+  page,
+}) => {
   const adminEmail = uniqueEmail("media-retry-admin");
-  const community = await createCommunityWithAdmin(page.request, `Media Retry ${Date.now()}`, adminEmail);
+  const community = await createCommunityWithAdmin(
+    page.request,
+    `Media Retry ${Date.now()}`,
+    adminEmail,
+  );
   await signIn(page, adminEmail, PASSWORD);
   // Fail the 3rd upload only.
   const stub = await stubCloudinaryUpload(page, { failFor: [3] });
@@ -188,7 +230,12 @@ test("retries only the failed file and leaves successes untouched (FR-009, SC-00
 
   await page
     .getByLabel(/Photos/)
-    .setInputFiles([jpegFile("r1.jpg"), jpegFile("r2.jpg"), jpegFile("r3.jpg"), jpegFile("r4.jpg")]);
+    .setInputFiles([
+      jpegFile("r1.jpg"),
+      jpegFile("r2.jpg"),
+      jpegFile("r3.jpg"),
+      jpegFile("r4.jpg"),
+    ]);
 
   const tiles = page.getByTestId("media-tile");
   await expect(tiles).toHaveCount(4);
@@ -203,9 +250,15 @@ test("retries only the failed file and leaves successes untouched (FR-009, SC-00
   expect(stub.uploadCount()).toBe(uploadsBeforeRetry + 1);
 });
 
-test("blocks submission while uploads are in flight or failed (FR-012, FR-076)", async ({ page }) => {
+test("blocks submission while uploads are in flight or failed (FR-012, FR-076)", async ({
+  page,
+}) => {
   const adminEmail = uniqueEmail("media-block-admin");
-  const community = await createCommunityWithAdmin(page.request, `Media Block ${Date.now()}`, adminEmail);
+  const community = await createCommunityWithAdmin(
+    page.request,
+    `Media Block ${Date.now()}`,
+    adminEmail,
+  );
   await signIn(page, adminEmail, PASSWORD);
   await stubCloudinaryUpload(page, { failFor: [1] });
   await gotoNewListing(page, community.id);
@@ -230,7 +283,11 @@ test("saves the member's chosen order and cover, not the upload-completion order
   page,
 }) => {
   const adminEmail = uniqueEmail("media-order-admin");
-  const community = await createCommunityWithAdmin(page.request, `Media Order ${Date.now()}`, adminEmail);
+  const community = await createCommunityWithAdmin(
+    page.request,
+    `Media Order ${Date.now()}`,
+    adminEmail,
+  );
   await signIn(page, adminEmail, PASSWORD);
   await stubCloudinaryUpload(page, { delayMs: 150 });
   await gotoNewListing(page, community.id);
@@ -276,7 +333,11 @@ test("re-authorizing a file reuses its issued public id and creates no second pe
   page,
 }) => {
   const adminEmail = uniqueEmail("media-reauth-admin");
-  const community = await createCommunityWithAdmin(page.request, `Media Reauth ${Date.now()}`, adminEmail);
+  const community = await createCommunityWithAdmin(
+    page.request,
+    `Media Reauth ${Date.now()}`,
+    adminEmail,
+  );
   await signIn(page, adminEmail, PASSWORD);
   await stubCloudinaryUpload(page, { failFor: [1] });
   await gotoNewListing(page, community.id);
@@ -287,7 +348,9 @@ test("re-authorizing a file reuses its issued public id and creates no second pe
   });
 
   const account = await prisma.account.findUniqueOrThrow({ where: { email: adminEmail } });
-  const afterFirst = await prisma.pendingListingMedia.findMany({ where: { accountId: account.id } });
+  const afterFirst = await prisma.pendingListingMedia.findMany({
+    where: { accountId: account.id },
+  });
   expect(afterFirst).toHaveLength(1);
 
   await page.getByTestId("media-retry").click();
@@ -295,7 +358,9 @@ test("re-authorizing a file reuses its issued public id and creates no second pe
     timeout: 30_000,
   });
 
-  const afterRetry = await prisma.pendingListingMedia.findMany({ where: { accountId: account.id } });
+  const afterRetry = await prisma.pendingListingMedia.findMany({
+    where: { accountId: account.id },
+  });
   // Retry mode: same asset identity, no second row, so the eight-photo cap is
   // not double-counted (research.md #7).
   expect(afterRetry).toHaveLength(1);
@@ -306,7 +371,11 @@ test("re-authorizing a file reuses its issued public id and creates no second pe
 test.describe("delivery through the authenticated proxy", () => {
   async function seedListingWithPhoto(request: APIRequestContext, label: string) {
     const adminEmail = uniqueEmail(`media-deliver-${label}`);
-    const community = await createCommunityWithAdmin(request, `Media Deliver ${label} ${Date.now()}`, adminEmail);
+    const community = await createCommunityWithAdmin(
+      request,
+      `Media Deliver ${label} ${Date.now()}`,
+      adminEmail,
+    );
     const owner = await prisma.account.findUniqueOrThrow({ where: { email: adminEmail } });
     const listing = await prisma.listing.create({
       data: {
@@ -419,9 +488,15 @@ test.describe("delivery through the authenticated proxy", () => {
     expect(await wrongCommunity.body()).toEqual(await nonexistent.body());
   });
 
-  test("the authorize response carries upload metadata and no secret (FR-108)", async ({ page }) => {
+  test("the authorize response carries upload metadata and no secret (FR-108)", async ({
+    page,
+  }) => {
     const adminEmail = uniqueEmail("media-authz");
-    const community = await createCommunityWithAdmin(page.request, `Media Authz ${Date.now()}`, adminEmail);
+    const community = await createCommunityWithAdmin(
+      page.request,
+      `Media Authz ${Date.now()}`,
+      adminEmail,
+    );
     await signIn(page, adminEmail, PASSWORD);
 
     const response = await page.request.post("/api/listing-media/authorize", {
@@ -447,7 +522,11 @@ test("uploader and media surfaces have no horizontal overflow at mobile, tablet,
   page,
 }) => {
   const adminEmail = uniqueEmail("media-viewport-admin");
-  const community = await createCommunityWithAdmin(page.request, `Media Viewport ${Date.now()}`, adminEmail);
+  const community = await createCommunityWithAdmin(
+    page.request,
+    `Media Viewport ${Date.now()}`,
+    adminEmail,
+  );
   const owner = await prisma.account.findUniqueOrThrow({ where: { email: adminEmail } });
   const listing = await prisma.listing.create({
     data: {
@@ -494,7 +573,9 @@ test("uploader and media surfaces have no horizontal overflow at mobile, tablet,
       const overflow = await page.evaluate(
         () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
       );
-      expect(overflow, `${surface} at ${width}px overflows by ${overflow}px`).toBeLessThanOrEqual(1);
+      expect(overflow, `${surface} at ${width}px overflows by ${overflow}px`).toBeLessThanOrEqual(
+        1,
+      );
     }
   }
 
@@ -517,7 +598,11 @@ test("a listing left image-less by the migration renders the placeholder without
   page,
 }) => {
   const adminEmail = uniqueEmail("media-legacy-admin");
-  const community = await createCommunityWithAdmin(page.request, `Media Legacy ${Date.now()}`, adminEmail);
+  const community = await createCommunityWithAdmin(
+    page.request,
+    `Media Legacy ${Date.now()}`,
+    adminEmail,
+  );
   const owner = await prisma.account.findUniqueOrThrow({ where: { email: adminEmail } });
   // Exactly the post-migration shape: a listing whose photos were deleted.
   const listing = await prisma.listing.create({
@@ -557,7 +642,11 @@ test("removing a photo drops it from every surface and queues its cleanup (FR-07
   page,
 }) => {
   const adminEmail = uniqueEmail("media-edit-admin");
-  const community = await createCommunityWithAdmin(page.request, `Media Edit ${Date.now()}`, adminEmail);
+  const community = await createCommunityWithAdmin(
+    page.request,
+    `Media Edit ${Date.now()}`,
+    adminEmail,
+  );
   const owner = await prisma.account.findUniqueOrThrow({ where: { email: adminEmail } });
   const listing = await prisma.listing.create({
     data: {

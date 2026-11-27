@@ -201,7 +201,10 @@ export function ListingMediaUploader({
         .then((body: { reason?: string }) => body.reason)
         .catch(() => undefined);
 
-      return { error: AUTHORIZE_ERRORS[reason ?? ""] ?? `Upload authorization failed (${response.status}).` };
+      return {
+        error:
+          AUTHORIZE_ERRORS[reason ?? ""] ?? `Upload authorization failed (${response.status}).`,
+      };
     },
     [communityId, listingId],
   );
@@ -291,13 +294,16 @@ export function ListingMediaUploader({
   const pump = useCallback(
     async (ids: string[]) => {
       const queue = [...ids];
-      const workers = Array.from({ length: Math.min(UPLOAD_CONCURRENCY, queue.length) }, async () => {
-        for (;;) {
-          const next = queue.shift();
-          if (!next) return;
-          await uploadOne(next);
-        }
-      });
+      const workers = Array.from(
+        { length: Math.min(UPLOAD_CONCURRENCY, queue.length) },
+        async () => {
+          for (;;) {
+            const next = queue.shift();
+            if (!next) return;
+            await uploadOne(next);
+          }
+        },
+      );
       await Promise.all(workers);
     },
     [uploadOne],

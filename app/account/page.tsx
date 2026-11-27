@@ -31,7 +31,9 @@ export default async function AccountPage() {
         </p>
         <div className="mt-4 flex gap-8" data-testid="profile-reputation">
           <div>
-            <p className="text-[22px] font-bold text-ink">{formatAverageRating(profile.averageRating)}</p>
+            <p className="text-[22px] font-bold text-ink">
+              {formatAverageRating(profile.averageRating)}
+            </p>
             <p className="text-[12px] text-ink-muted">
               {profile.reviewCount} {profile.reviewCount === 1 ? "review" : "reviews"}
             </p>
@@ -51,7 +53,11 @@ export default async function AccountPage() {
       ) : (
         <div className="flex flex-col gap-4" data-testid="self-profile-communities">
           {profile.communities.map((community) => (
-            <Card key={community.communityId} className="max-w-xl" data-testid="self-profile-community">
+            <Card
+              key={community.communityId}
+              className="max-w-xl"
+              data-testid="self-profile-community"
+            >
               <div className="flex items-center justify-between">
                 <Link
                   href={`/communities/${community.communityId}`}
@@ -79,7 +85,8 @@ export default async function AccountPage() {
                     >
                       <p className="font-semibold text-ink">{listing.title}</p>
                       <p className="text-[13px] text-ink-muted">
-                        {listing.kind === "WANTED" ? "Wanted" : "For sale"} · {formatListingPrice(listing.priceCents)}
+                        {listing.kind === "WANTED" ? "Wanted" : "For sale"} ·{" "}
+                        {formatListingPrice(listing.priceCents)}
                         {listing.kind === "FOR_SALE" && listing.stockQuantity !== null
                           ? ` · ${listing.stockQuantity} in stock`
                           : ""}

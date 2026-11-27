@@ -19,7 +19,13 @@ interface Membership {
 
 type Disposition = "demote" | "revoke_membership" | "disable_account" | "delete_account";
 
-export function MembershipRow({ communityId, membership }: { communityId: string; membership: Membership }) {
+export function MembershipRow({
+  communityId,
+  membership,
+}: {
+  communityId: string;
+  membership: Membership;
+}) {
   const router = useRouter();
   const [showRemove, setShowRemove] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -41,11 +47,14 @@ export function MembershipRow({ communityId, membership }: { communityId: string
 
   async function remove(disposition: Disposition) {
     setBusy(true);
-    const response = await fetch(`/api/master/communities/${communityId}/memberships/${membership.id}/remove`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ disposition }),
-    });
+    const response = await fetch(
+      `/api/master/communities/${communityId}/memberships/${membership.id}/remove`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ disposition }),
+      },
+    );
     const data = await response.json();
     setBusy(false);
     setOpenDialog(null);
@@ -84,21 +93,41 @@ export function MembershipRow({ communityId, membership }: { communityId: string
                 </MasterButton>
               )}
               {!showRemove ? (
-                <MasterButton variant="dangerOutline" disabled={busy} onClick={() => setShowRemove(true)}>
+                <MasterButton
+                  variant="dangerOutline"
+                  disabled={busy}
+                  onClick={() => setShowRemove(true)}
+                >
                   Remove…
                 </MasterButton>
               ) : (
                 <div className="flex flex-wrap gap-1.5">
-                  <MasterButton variant="secondary" disabled={busy} onClick={() => setOpenDialog("demote")}>
+                  <MasterButton
+                    variant="secondary"
+                    disabled={busy}
+                    onClick={() => setOpenDialog("demote")}
+                  >
                     Demote
                   </MasterButton>
-                  <MasterButton variant="secondary" disabled={busy} onClick={() => setOpenDialog("revoke_membership")}>
+                  <MasterButton
+                    variant="secondary"
+                    disabled={busy}
+                    onClick={() => setOpenDialog("revoke_membership")}
+                  >
                     Revoke membership
                   </MasterButton>
-                  <MasterButton variant="dangerOutline" disabled={busy} onClick={() => setOpenDialog("disable_account")}>
+                  <MasterButton
+                    variant="dangerOutline"
+                    disabled={busy}
+                    onClick={() => setOpenDialog("disable_account")}
+                  >
                     Disable account
                   </MasterButton>
-                  <MasterButton variant="dangerOutline" disabled={busy} onClick={() => setOpenDialog("delete_account")}>
+                  <MasterButton
+                    variant="dangerOutline"
+                    disabled={busy}
+                    onClick={() => setOpenDialog("delete_account")}
+                  >
                     Delete account
                   </MasterButton>
                 </div>

@@ -78,7 +78,12 @@ export function DisplayNameForm({ currentDisplayName }: { currentDisplayName: st
         <Button type="submit" disabled={submitting}>
           Save
         </Button>
-        <Button type="button" variant="secondary" disabled={submitting} onClick={() => setEditing(false)}>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={submitting}
+          onClick={() => setEditing(false)}
+        >
           Cancel
         </Button>
       </div>

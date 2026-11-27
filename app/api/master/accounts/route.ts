@@ -9,6 +9,8 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   const url = new URL(request.url);
-  const result = await listAccountsForMaster({ search: url.searchParams.get("search") ?? undefined });
+  const result = await listAccountsForMaster({
+    search: url.searchParams.get("search") ?? undefined,
+  });
   return NextResponse.json(result, { status: 200 });
 }

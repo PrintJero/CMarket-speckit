@@ -25,7 +25,12 @@ import { setDisplayName } from "@/server/services/accountService";
  */
 function createVerifiedAccount(email: string) {
   return prisma.account.create({
-    data: { email, passwordHash: "irrelevant-hash", emailVerifiedAt: new Date(), displayName: "Test Owner" },
+    data: {
+      email,
+      passwordHash: "irrelevant-hash",
+      emailVerifiedAt: new Date(),
+      displayName: "Test Owner",
+    },
   });
 }
 
@@ -330,7 +335,8 @@ describe("listingService (contract)", () => {
       if (!photo.ok) throw new Error("expected success");
       expect(photo.photo.displayOrder).toBe(0);
       expect(
-        (await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).coverPhotoId,
+        (await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } }))
+          .coverPhotoId,
       ).toBe(photo.photo.id);
     });
   });
@@ -545,7 +551,9 @@ describe("listingService (contract)", () => {
       const feed = await listListings(community.id, admin.id);
       expect(feed.ok).toBe(true);
       if (!feed.ok) throw new Error("expected success");
-      expect(feed.listings.find((l) => l.id === named.listing.id)?.ownerDisplayName).toBe("Ada Lovelace");
+      expect(feed.listings.find((l) => l.id === named.listing.id)?.ownerDisplayName).toBe(
+        "Ada Lovelace",
+      );
       expect(feed.listings.find((l) => l.id === unnamedListing.id)?.ownerDisplayName).toBeNull();
 
       const foundNamed = await getListing(community.id, named.listing.id, admin.id);
@@ -576,7 +584,9 @@ describe("listingService (contract)", () => {
       });
       if (!created.ok) throw new Error("expected listing creation to succeed");
 
-      const beforeAnyPhoto = await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } });
+      const beforeAnyPhoto = await prisma.listing.findUniqueOrThrow({
+        where: { id: created.listing.id },
+      });
       expect(beforeAnyPhoto.coverPhotoId).toBeNull();
 
       const first = await addListingPhoto({
@@ -585,7 +595,9 @@ describe("listingService (contract)", () => {
         ...cloudinaryFixture(),
       });
       if (!first.ok) throw new Error("expected photo to be added");
-      const afterFirst = await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } });
+      const afterFirst = await prisma.listing.findUniqueOrThrow({
+        where: { id: created.listing.id },
+      });
       expect(afterFirst.coverPhotoId).toBe(first.photo.id);
 
       const second = await addListingPhoto({
@@ -594,7 +606,9 @@ describe("listingService (contract)", () => {
         ...cloudinaryFixture(),
       });
       if (!second.ok) throw new Error("expected photo to be added");
-      const afterSecond = await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } });
+      const afterSecond = await prisma.listing.findUniqueOrThrow({
+        where: { id: created.listing.id },
+      });
       expect(afterSecond.coverPhotoId).toBe(first.photo.id);
     });
 
@@ -632,7 +646,8 @@ describe("listingService (contract)", () => {
       });
       expect(rejected).toEqual({ ok: false, reason: "not_owner" });
       expect(
-        (await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).coverPhotoId,
+        (await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } }))
+          .coverPhotoId,
       ).toBe(first.photo.id);
 
       const result = await setCoverPhoto({
@@ -640,9 +655,13 @@ describe("listingService (contract)", () => {
         photoId: second.photo.id,
         callerAccountId: admin.id,
       });
-      expect(result).toEqual({ ok: true, listing: { id: created.listing.id, coverPhotoId: second.photo.id } });
+      expect(result).toEqual({
+        ok: true,
+        listing: { id: created.listing.id, coverPhotoId: second.photo.id },
+      });
       expect(
-        (await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).coverPhotoId,
+        (await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } }))
+          .coverPhotoId,
       ).toBe(second.photo.id);
     });
 
@@ -673,19 +692,34 @@ describe("listingService (contract)", () => {
       }
 
       // Cover starts as photos[0] (position 0).
-      await removeListingPhoto({ listingId: created.listing.id, photoId: photos[0].id, callerAccountId: admin.id });
+      await removeListingPhoto({
+        listingId: created.listing.id,
+        photoId: photos[0].id,
+        callerAccountId: admin.id,
+      });
       expect(
-        (await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).coverPhotoId,
+        (await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } }))
+          .coverPhotoId,
       ).toBe(photos[1].id);
 
-      await removeListingPhoto({ listingId: created.listing.id, photoId: photos[1].id, callerAccountId: admin.id });
+      await removeListingPhoto({
+        listingId: created.listing.id,
+        photoId: photos[1].id,
+        callerAccountId: admin.id,
+      });
       expect(
-        (await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).coverPhotoId,
+        (await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } }))
+          .coverPhotoId,
       ).toBe(photos[2].id);
 
-      await removeListingPhoto({ listingId: created.listing.id, photoId: photos[2].id, callerAccountId: admin.id });
+      await removeListingPhoto({
+        listingId: created.listing.id,
+        photoId: photos[2].id,
+        callerAccountId: admin.id,
+      });
       expect(
-        (await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).coverPhotoId,
+        (await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } }))
+          .coverPhotoId,
       ).toBeNull();
     });
 
@@ -745,7 +779,8 @@ describe("listingService (contract)", () => {
         description: "Description",
         priceCents: 500,
       });
-      if (!withPhoto.ok || !withoutPhoto.ok) throw new Error("expected both listings to be created");
+      if (!withPhoto.ok || !withoutPhoto.ok)
+        throw new Error("expected both listings to be created");
       const photo = await addListingPhoto({
         listingId: withPhoto.listing.id,
         callerAccountId: admin.id,
@@ -825,7 +860,9 @@ describe("listingService (contract)", () => {
       });
       expect(byAdmin).toEqual({ ok: false, reason: "not_owner" });
 
-      const unchanged = await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } });
+      const unchanged = await prisma.listing.findUniqueOrThrow({
+        where: { id: created.listing.id },
+      });
       expect(unchanged.title).toBe("Title");
     });
   });
@@ -925,7 +962,9 @@ describe("listingService (contract)", () => {
       });
       expect(fractionalAtUpdate).toEqual({ ok: false, reason: "invalid_input" });
 
-      const unchanged = await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } });
+      const unchanged = await prisma.listing.findUniqueOrThrow({
+        where: { id: created.listing.id },
+      });
       expect(unchanged.stockQuantity).toBe(5);
     });
   });
@@ -991,7 +1030,9 @@ describe("listingService (contract)", () => {
       });
 
       expect(result).toEqual({ ok: false, reason: "not_owner" });
-      expect(await prisma.listingPhoto.findUnique({ where: { id: added.photo.id } })).not.toBeNull();
+      expect(
+        await prisma.listingPhoto.findUnique({ where: { id: added.photo.id } }),
+      ).not.toBeNull();
     });
   });
 
@@ -1011,26 +1052,32 @@ describe("listingService (contract)", () => {
       });
       if (!created.ok) throw new Error("expected listing creation to succeed");
 
-      const paused = await pauseListing({ listingId: created.listing.id, callerAccountId: admin.id });
+      const paused = await pauseListing({
+        listingId: created.listing.id,
+        callerAccountId: admin.id,
+      });
       expect(paused).toEqual({ ok: true });
-      expect((await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status).toBe(
-        "PAUSED",
-      );
+      expect(
+        (await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status,
+      ).toBe("PAUSED");
 
-      const pausedAgain = await pauseListing({ listingId: created.listing.id, callerAccountId: admin.id });
+      const pausedAgain = await pauseListing({
+        listingId: created.listing.id,
+        callerAccountId: admin.id,
+      });
       expect(pausedAgain).toEqual({ ok: true });
-      expect((await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status).toBe(
-        "PAUSED",
-      );
+      expect(
+        (await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status,
+      ).toBe("PAUSED");
 
       const reactivated = await reactivateListing({
         listingId: created.listing.id,
         callerAccountId: admin.id,
       });
       expect(reactivated).toEqual({ ok: true });
-      expect((await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status).toBe(
-        "ACTIVE",
-      );
+      expect(
+        (await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status,
+      ).toBe("ACTIVE");
 
       const reactivatedAgain = await reactivateListing({
         listingId: created.listing.id,
@@ -1055,11 +1102,14 @@ describe("listingService (contract)", () => {
       });
       if (!created.ok) throw new Error("expected listing creation to succeed");
 
-      const result = await pauseListing({ listingId: created.listing.id, callerAccountId: member.id });
+      const result = await pauseListing({
+        listingId: created.listing.id,
+        callerAccountId: member.id,
+      });
       expect(result).toEqual({ ok: false, reason: "not_authorized" });
-      expect((await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status).toBe(
-        "ACTIVE",
-      );
+      expect(
+        (await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status,
+      ).toBe("ACTIVE");
     });
   });
 
@@ -1085,7 +1135,10 @@ describe("listingService (contract)", () => {
       });
       if (!added.ok) throw new Error("expected photo to be added");
 
-      const result = await deleteListing({ listingId: created.listing.id, callerAccountId: admin.id });
+      const result = await deleteListing({
+        listingId: created.listing.id,
+        callerAccountId: admin.id,
+      });
 
       expect(result).toEqual({ ok: true });
       expect(await prisma.listing.findUnique({ where: { id: created.listing.id } })).toBeNull();
@@ -1108,7 +1161,10 @@ describe("listingService (contract)", () => {
       });
       if (!created.ok) throw new Error("expected listing creation to succeed");
 
-      const result = await deleteListing({ listingId: created.listing.id, callerAccountId: admin.id });
+      const result = await deleteListing({
+        listingId: created.listing.id,
+        callerAccountId: admin.id,
+      });
 
       expect(result).toEqual({ ok: false, reason: "not_owner" });
       expect(await prisma.listing.findUnique({ where: { id: created.listing.id } })).not.toBeNull();
@@ -1168,17 +1224,29 @@ describe("listingService (contract)", () => {
         },
       });
 
-      const deletePending = await deleteListing({ listingId: pendingListing.listing.id, callerAccountId: admin.id });
+      const deletePending = await deleteListing({
+        listingId: pendingListing.listing.id,
+        callerAccountId: admin.id,
+      });
       expect(deletePending).toEqual({ ok: true });
-      const cancelledTransaction = await prisma.transaction.findUniqueOrThrow({ where: { id: pendingTransaction.id } });
+      const cancelledTransaction = await prisma.transaction.findUniqueOrThrow({
+        where: { id: pendingTransaction.id },
+      });
       expect(cancelledTransaction.state).toBe("CANCELLED");
       expect(cancelledTransaction.resolvedAt).not.toBeNull();
 
-      const deleteAccepted = await deleteListing({ listingId: acceptedListing.listing.id, callerAccountId: admin.id });
+      const deleteAccepted = await deleteListing({
+        listingId: acceptedListing.listing.id,
+        callerAccountId: admin.id,
+      });
       expect(deleteAccepted).toEqual({ ok: true });
-      const untouchedTransaction = await prisma.transaction.findUniqueOrThrow({ where: { id: acceptedTransaction.id } });
+      const untouchedTransaction = await prisma.transaction.findUniqueOrThrow({
+        where: { id: acceptedTransaction.id },
+      });
       expect(untouchedTransaction.state).toBe("ACCEPTED");
-      expect(untouchedTransaction.resolvedAt?.getTime()).toBe(acceptedTransaction.resolvedAt?.getTime());
+      expect(untouchedTransaction.resolvedAt?.getTime()).toBe(
+        acceptedTransaction.resolvedAt?.getTime(),
+      );
     });
   });
 
@@ -1199,9 +1267,14 @@ describe("listingService (contract)", () => {
       });
       if (!created.ok) throw new Error("expected listing creation to succeed");
 
-      const paused = await pauseListing({ listingId: created.listing.id, callerAccountId: admin.id });
+      const paused = await pauseListing({
+        listingId: created.listing.id,
+        callerAccountId: admin.id,
+      });
       expect(paused).toEqual({ ok: true });
-      const afterPause = await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } });
+      const afterPause = await prisma.listing.findUniqueOrThrow({
+        where: { id: created.listing.id },
+      });
       expect(afterPause.status).toBe("PAUSED");
       expect(afterPause.ownerId).toBe(member.id); // ownership unchanged
 
@@ -1211,9 +1284,9 @@ describe("listingService (contract)", () => {
         callerAccountId: member.id,
       });
       expect(reactivated).toEqual({ ok: true });
-      expect((await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status).toBe(
-        "ACTIVE",
-      );
+      expect(
+        (await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status,
+      ).toBe("ACTIVE");
     });
 
     // T033 (FR-010: moderation is scoped to the administrator's own community only)
@@ -1240,9 +1313,9 @@ describe("listingService (contract)", () => {
         callerAccountId: otherCommunityAdmin.id,
       });
       expect(result).toEqual({ ok: false, reason: "not_authorized" });
-      expect((await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status).toBe(
-        "ACTIVE",
-      );
+      expect(
+        (await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status,
+      ).toBe("ACTIVE");
     });
   });
 
@@ -1262,17 +1335,23 @@ describe("listingService (contract)", () => {
       });
       if (!created.ok) throw new Error("expected creation to succeed");
 
-      const fulfilled = await fulfillListing({ listingId: created.listing.id, callerAccountId: admin.id });
+      const fulfilled = await fulfillListing({
+        listingId: created.listing.id,
+        callerAccountId: admin.id,
+      });
       expect(fulfilled).toEqual({ ok: true });
-      expect((await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status).toBe(
-        "FULFILLED",
-      );
+      expect(
+        (await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status,
+      ).toBe("FULFILLED");
 
-      const fulfilledAgain = await fulfillListing({ listingId: created.listing.id, callerAccountId: admin.id });
+      const fulfilledAgain = await fulfillListing({
+        listingId: created.listing.id,
+        callerAccountId: admin.id,
+      });
       expect(fulfilledAgain).toEqual({ ok: true });
-      expect((await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status).toBe(
-        "FULFILLED",
-      );
+      expect(
+        (await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status,
+      ).toBe("FULFILLED");
     });
 
     // T014 (FR-005: reachable only for WANTED)
@@ -1290,7 +1369,10 @@ describe("listingService (contract)", () => {
       });
       if (!created.ok) throw new Error("expected creation to succeed");
 
-      const result = await fulfillListing({ listingId: created.listing.id, callerAccountId: admin.id });
+      const result = await fulfillListing({
+        listingId: created.listing.id,
+        callerAccountId: admin.id,
+      });
       expect(result).toEqual({ ok: false, reason: "not_a_wanted_post" });
     });
 
@@ -1310,11 +1392,14 @@ describe("listingService (contract)", () => {
       });
       if (!created.ok) throw new Error("expected creation to succeed");
 
-      const byAdmin = await fulfillListing({ listingId: created.listing.id, callerAccountId: admin.id });
+      const byAdmin = await fulfillListing({
+        listingId: created.listing.id,
+        callerAccountId: admin.id,
+      });
       expect(byAdmin).toEqual({ ok: false, reason: "not_owner" });
-      expect((await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status).toBe(
-        "ACTIVE",
-      );
+      expect(
+        (await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status,
+      ).toBe("ACTIVE");
     });
 
     // T014 (FR-006: owner can toggle freely, in both directions)
@@ -1333,18 +1418,24 @@ describe("listingService (contract)", () => {
       if (!created.ok) throw new Error("expected creation to succeed");
       await fulfillListing({ listingId: created.listing.id, callerAccountId: admin.id });
 
-      const reactivated = await reactivateListing({ listingId: created.listing.id, callerAccountId: admin.id });
+      const reactivated = await reactivateListing({
+        listingId: created.listing.id,
+        callerAccountId: admin.id,
+      });
       expect(reactivated).toEqual({ ok: true });
-      expect((await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status).toBe(
-        "ACTIVE",
-      );
+      expect(
+        (await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status,
+      ).toBe("ACTIVE");
 
       await fulfillListing({ listingId: created.listing.id, callerAccountId: admin.id });
-      const paused = await pauseListing({ listingId: created.listing.id, callerAccountId: admin.id });
+      const paused = await pauseListing({
+        listingId: created.listing.id,
+        callerAccountId: admin.id,
+      });
       expect(paused).toEqual({ ok: true });
-      expect((await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status).toBe(
-        "PAUSED",
-      );
+      expect(
+        (await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status,
+      ).toBe("PAUSED");
     });
 
     // T014 (FR-007: deletion cascades photos AND threads, regardless of status)
@@ -1371,10 +1462,15 @@ describe("listingService (contract)", () => {
       const thread = await prisma.messageThread.create({
         data: { listingId: created.listing.id, buyerId: buyer.id },
       });
-      await prisma.message.create({ data: { threadId: thread.id, senderId: buyer.id, body: "Interested" } });
+      await prisma.message.create({
+        data: { threadId: thread.id, senderId: buyer.id, body: "Interested" },
+      });
       await fulfillListing({ listingId: created.listing.id, callerAccountId: admin.id });
 
-      const deleted = await deleteListing({ listingId: created.listing.id, callerAccountId: admin.id });
+      const deleted = await deleteListing({
+        listingId: created.listing.id,
+        callerAccountId: admin.id,
+      });
       expect(deleted).toEqual({ ok: true });
       expect(await prisma.listing.findUnique({ where: { id: created.listing.id } })).toBeNull();
       expect(await prisma.listingPhoto.findUnique({ where: { id: photo.photo.id } })).toBeNull();
@@ -1400,9 +1496,15 @@ describe("listingService (contract)", () => {
       });
       if (!created.ok) throw new Error("expected creation to succeed");
 
-      const paused = await pauseListing({ listingId: created.listing.id, callerAccountId: admin.id });
+      const paused = await pauseListing({
+        listingId: created.listing.id,
+        callerAccountId: admin.id,
+      });
       expect(paused).toEqual({ ok: true });
-      const reactivated = await reactivateListing({ listingId: created.listing.id, callerAccountId: admin.id });
+      const reactivated = await reactivateListing({
+        listingId: created.listing.id,
+        callerAccountId: admin.id,
+      });
       expect(reactivated).toEqual({ ok: true });
     });
 
@@ -1429,12 +1531,15 @@ describe("listingService (contract)", () => {
       });
       expect(reactivateAttempt).toEqual({ ok: false, reason: "not_authorized" });
 
-      const pauseAttempt = await pauseListing({ listingId: created.listing.id, callerAccountId: admin.id });
+      const pauseAttempt = await pauseListing({
+        listingId: created.listing.id,
+        callerAccountId: admin.id,
+      });
       expect(pauseAttempt).toEqual({ ok: false, reason: "not_authorized" });
 
-      expect((await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status).toBe(
-        "FULFILLED",
-      );
+      expect(
+        (await prisma.listing.findUniqueOrThrow({ where: { id: created.listing.id } })).status,
+      ).toBe("FULFILLED");
     });
 
     // T019 (FR-008: never extends to fulfilling, editing, or deleting)
@@ -1453,14 +1558,22 @@ describe("listingService (contract)", () => {
       });
       if (!created.ok) throw new Error("expected creation to succeed");
 
-      expect(await fulfillListing({ listingId: created.listing.id, callerAccountId: admin.id })).toEqual({
+      expect(
+        await fulfillListing({ listingId: created.listing.id, callerAccountId: admin.id }),
+      ).toEqual({
         ok: false,
         reason: "not_owner",
       });
       expect(
-        await updateListing({ listingId: created.listing.id, callerAccountId: admin.id, title: "Hacked" }),
+        await updateListing({
+          listingId: created.listing.id,
+          callerAccountId: admin.id,
+          title: "Hacked",
+        }),
       ).toEqual({ ok: false, reason: "not_owner" });
-      expect(await deleteListing({ listingId: created.listing.id, callerAccountId: admin.id })).toEqual({
+      expect(
+        await deleteListing({ listingId: created.listing.id, callerAccountId: admin.id }),
+      ).toEqual({
         ok: false,
         reason: "not_owner",
       });
@@ -1486,7 +1599,10 @@ describe("listingService (contract)", () => {
       });
       if (!created.ok) throw new Error("expected creation to succeed");
 
-      const result = await pauseListing({ listingId: created.listing.id, callerAccountId: otherAdmin.id });
+      const result = await pauseListing({
+        listingId: created.listing.id,
+        callerAccountId: otherAdmin.id,
+      });
       expect(result).toEqual({ ok: false, reason: "not_authorized" });
     });
   });
@@ -1547,8 +1663,14 @@ describe("listingService (contract)", () => {
       if (!result.ok) throw new Error("expected success");
 
       const byId = new Map(result.listings.map((l) => [l.id, l]));
-      expect(byId.get(activeListing.listing.id)).toMatchObject({ status: "ACTIVE", threadCount: 2 });
-      expect(byId.get(pausedListing.listing.id)).toMatchObject({ status: "PAUSED", threadCount: 0 });
+      expect(byId.get(activeListing.listing.id)).toMatchObject({
+        status: "ACTIVE",
+        threadCount: 2,
+      });
+      expect(byId.get(pausedListing.listing.id)).toMatchObject({
+        status: "PAUSED",
+        threadCount: 0,
+      });
       expect(byId.get(listingInB.listing.id)).toMatchObject({ status: "ACTIVE", threadCount: 0 });
       expect(result.listings).toHaveLength(3);
 
@@ -1626,10 +1748,16 @@ describe("listingService (contract)", () => {
 
       await prisma.community.update({ where: { id: community.id }, data: { status: "SUSPENDED" } });
 
-      const paused = await pauseListing({ listingId: created.listing.id, callerAccountId: admin.id });
+      const paused = await pauseListing({
+        listingId: created.listing.id,
+        callerAccountId: admin.id,
+      });
       expect(paused).toEqual({ ok: true });
 
-      const blockedReactivate = await reactivateListing({ listingId: created.listing.id, callerAccountId: admin.id });
+      const blockedReactivate = await reactivateListing({
+        listingId: created.listing.id,
+        callerAccountId: admin.id,
+      });
       expect(blockedReactivate).toEqual({ ok: false, reason: "community_not_active" });
     });
 
@@ -1650,7 +1778,11 @@ describe("listingService (contract)", () => {
       await prisma.community.update({ where: { id: community.id }, data: { status: "SUSPENDED" } });
 
       expect(
-        await updateListing({ listingId: created.listing.id, callerAccountId: admin.id, title: "New title" }),
+        await updateListing({
+          listingId: created.listing.id,
+          callerAccountId: admin.id,
+          title: "New title",
+        }),
       ).toEqual({ ok: false, reason: "community_not_active" });
       expect(
         await addListingPhoto({

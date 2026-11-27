@@ -16,8 +16,7 @@ function acceptanceLink(rawToken: string): string {
 }
 
 export type InvitationMetadataResult =
-  | { ok: true; communityName: string; email: string }
-  | { ok: false; reason: "invalid_or_consumed" };
+  { ok: true; communityName: string; email: string } | { ok: false; reason: "invalid_or_consumed" };
 
 /**
  * Public, unauthenticated lookup (contracts.md's GET /api/invitations/accept):
@@ -199,7 +198,9 @@ export async function acceptInvitation(
   }
 
   const existingMembership = await prisma.membership.findUnique({
-    where: { accountId_communityId: { accountId: account.id, communityId: invitation.communityId } },
+    where: {
+      accountId_communityId: { accountId: account.id, communityId: invitation.communityId },
+    },
   });
   if (existingMembership) {
     return { ok: false, reason: "already_member" };
@@ -249,7 +250,9 @@ export interface RevokeMembershipInput {
  * community is SUSPENDED/ARCHIVED — requireCommunityAdministrator's default
  * (no allowSuspended) already enforces this.
  */
-export async function revokeMembership(input: RevokeMembershipInput): Promise<RevokeMembershipResult> {
+export async function revokeMembership(
+  input: RevokeMembershipInput,
+): Promise<RevokeMembershipResult> {
   if (!(await requireCommunityAdministrator(input.revokedByAccountId, input.communityId))) {
     return { ok: false, reason: "not_administrator" };
   }
@@ -285,9 +288,7 @@ export async function revokeMembership(input: RevokeMembershipInput): Promise<Re
 }
 
 export type PromoteMemberResult =
-  | { ok: true }
-  | { ok: false; reason: "not_administrator" }
-  | { ok: false; reason: "not_eligible" };
+  { ok: true } | { ok: false; reason: "not_administrator" } | { ok: false; reason: "not_eligible" };
 
 export interface PromoteMemberInput {
   communityId: string;
@@ -319,6 +320,9 @@ export async function promoteMember(input: PromoteMemberInput): Promise<PromoteM
     return { ok: false, reason: "not_eligible" };
   }
 
-  await prisma.membership.update({ where: { id: input.membershipId }, data: { role: "ADMINISTRATOR" } });
+  await prisma.membership.update({
+    where: { id: input.membershipId },
+    data: { role: "ADMINISTRATOR" },
+  });
   return { ok: true };
 }

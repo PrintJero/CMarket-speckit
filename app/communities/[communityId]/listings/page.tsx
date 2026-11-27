@@ -41,7 +41,13 @@ export default async function ListingsPage({
   searchParams,
 }: {
   params: Promise<{ communityId: string }>;
-  searchParams: Promise<{ q?: string; minPrice?: string; maxPrice?: string; kind?: string; page?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    minPrice?: string;
+    maxPrice?: string;
+    kind?: string;
+    page?: string;
+  }>;
 }) {
   const { communityId } = await params;
   const sp = await searchParams;
@@ -82,7 +88,9 @@ export default async function ListingsPage({
       />
 
       {listings.length === 0 ? (
-        <p className="py-16 text-center text-ink-muted">No listings match. Try a different search or filter.</p>
+        <p className="py-16 text-center text-ink-muted">
+          No listings match. Try a different search or filter.
+        </p>
       ) : (
         <div className="mt-6 grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-5">
           {listings.map((listing) => (
@@ -137,13 +145,19 @@ export default async function ListingsPage({
       {(result.page > 1 || result.hasMore) && (
         <p className="mt-6 text-[13px] text-ink-muted">
           {result.page > 1 && (
-            <Link href={buildPageHref(communityId, sp, result.page - 1)} className="font-semibold text-brand">
+            <Link
+              href={buildPageHref(communityId, sp, result.page - 1)}
+              className="font-semibold text-brand"
+            >
               Previous
             </Link>
           )}
           {result.page > 1 && result.hasMore && " · "}
           {result.hasMore && (
-            <Link href={buildPageHref(communityId, sp, result.page + 1)} className="font-semibold text-brand">
+            <Link
+              href={buildPageHref(communityId, sp, result.page + 1)}
+              className="font-semibold text-brand"
+            >
               Next
             </Link>
           )}

@@ -87,7 +87,9 @@ export async function createReview(input: CreateReviewInput): Promise<CreateRevi
     return { ok: false, reason: "invalid_rating" };
   }
 
-  if (!(await requireCommunityMembership(reviewerAccountId, communityId, { allowSuspended: true }))) {
+  if (
+    !(await requireCommunityMembership(reviewerAccountId, communityId, { allowSuspended: true }))
+  ) {
     return { ok: false, reason: "not_a_member" };
   }
 
@@ -109,7 +111,9 @@ export async function createReview(input: CreateReviewInput): Promise<CreateRevi
     return { ok: false, reason: "transaction_not_confirmed" };
   }
 
-  if (!(await requireCommunityMembership(reviewedAccountId, communityId, { allowSuspended: true }))) {
+  if (
+    !(await requireCommunityMembership(reviewedAccountId, communityId, { allowSuspended: true }))
+  ) {
     return { ok: false, reason: "reviewed_not_a_member" };
   }
 
@@ -124,7 +128,10 @@ export async function createReview(input: CreateReviewInput): Promise<CreateRevi
     data: { reviewerId: reviewerAccountId, reviewedId: reviewedAccountId, transactionId, rating },
   });
 
-  return { ok: true, review: { id: created.id, rating: created.rating, createdAt: created.createdAt } };
+  return {
+    ok: true,
+    review: { id: created.id, rating: created.rating, createdAt: created.createdAt },
+  };
 }
 
 /** Supports the transaction detail page's "already rated" read-only state — not itself an FR gate. */

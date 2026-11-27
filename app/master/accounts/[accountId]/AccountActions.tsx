@@ -5,7 +5,11 @@ import { useRouter } from "next/navigation";
 import { MasterButton } from "../../_components/MasterButton";
 import { MasterConfirmDialog } from "../../_components/MasterConfirmDialog";
 import { MasterTemporaryPasswordPanel } from "../../_components/MasterTemporaryPasswordPanel";
-import { MasterFormField, MasterFormMessage, masterFieldSelectClassName } from "../../_components/MasterFormField";
+import {
+  MasterFormField,
+  MasterFormMessage,
+  masterFieldSelectClassName,
+} from "../../_components/MasterFormField";
 
 interface EligibleMember {
   membershipId: string;
@@ -31,8 +35,12 @@ export function AccountActions({
   // the SAME open dialog, then let the caller confirm again with
   // replacementAdministratorAssignments included.
   const [destructiveDialog, setDestructiveDialog] = useState<DestructiveAction | null>(null);
-  const [affected, setAffected] = useState<{ communityId: string; communityName: string }[] | null>(null);
-  const [eligibleByCommunity, setEligibleByCommunity] = useState<Record<string, EligibleMember[]>>({});
+  const [affected, setAffected] = useState<{ communityId: string; communityName: string }[] | null>(
+    null,
+  );
+  const [eligibleByCommunity, setEligibleByCommunity] = useState<Record<string, EligibleMember[]>>(
+    {},
+  );
   const [chosen, setChosen] = useState<Record<string, string>>({});
   const [destructiveBusy, setDestructiveBusy] = useState(false);
   const [destructiveError, setDestructiveError] = useState<string | null>(null);
@@ -62,7 +70,10 @@ export function AccountActions({
     setDestructiveError(null);
   }
 
-  async function attempt(action: DestructiveAction, assignments?: { communityId: string; membershipId: string }[]) {
+  async function attempt(
+    action: DestructiveAction,
+    assignments?: { communityId: string; membershipId: string }[],
+  ) {
     setDestructiveBusy(true);
     setDestructiveError(null);
     const response = await fetch(`/api/master/accounts/${accountId}/${action}`, {
@@ -88,7 +99,10 @@ export function AccountActions({
             ...prev,
             [id]: detail.ok
               ? detail.memberships
-                  .filter((m: { accountId: string; isCurrent: boolean }) => m.accountId !== accountId && m.isCurrent)
+                  .filter(
+                    (m: { accountId: string; isCurrent: boolean }) =>
+                      m.accountId !== accountId && m.isCurrent,
+                  )
                   .map((m: { id: string; displayName: string | null; email: string }) => ({
                     membershipId: m.id,
                     label: m.displayName ?? m.email,
@@ -107,13 +121,17 @@ export function AccountActions({
     setDestructiveError(`Failed: ${data.reason}`);
   }
 
-  const destructiveAssignmentsIncomplete = affected !== null && affected.some((c) => !chosen[c.communityId]);
+  const destructiveAssignmentsIncomplete =
+    affected !== null && affected.some((c) => !chosen[c.communityId]);
 
   function onDestructiveConfirm() {
     if (!destructiveDialog) return;
     if (affected) {
       if (destructiveAssignmentsIncomplete) return;
-      const assignments = affected.map((c) => ({ communityId: c.communityId, membershipId: chosen[c.communityId] }));
+      const assignments = affected.map((c) => ({
+        communityId: c.communityId,
+        membershipId: chosen[c.communityId],
+      }));
       void attempt(destructiveDialog, assignments);
       return;
     }
@@ -123,7 +141,9 @@ export function AccountActions({
   async function reactivate() {
     setReactivateBusy(true);
     setReactivateError(null);
-    const response = await fetch(`/api/master/accounts/${accountId}/reactivate`, { method: "POST" });
+    const response = await fetch(`/api/master/accounts/${accountId}/reactivate`, {
+      method: "POST",
+    });
     const data = await response.json();
     setReactivateBusy(false);
     if (!data.ok) {
@@ -138,7 +158,9 @@ export function AccountActions({
   async function resetPassword() {
     setResetBusy(true);
     setResetError(null);
-    const response = await fetch(`/api/master/accounts/${accountId}/reset-password`, { method: "POST" });
+    const response = await fetch(`/api/master/accounts/${accountId}/reset-password`, {
+      method: "POST",
+    });
     const data = await response.json();
     setResetBusy(false);
     if (data.ok) {
@@ -154,7 +176,8 @@ export function AccountActions({
     return <p className="text-[13px] text-ink-muted">This account has been permanently deleted.</p>;
   }
 
-  const destructiveTitle = destructiveDialog === "delete" ? "Delete account permanently" : "Suspend account";
+  const destructiveTitle =
+    destructiveDialog === "delete" ? "Delete account permanently" : "Suspend account";
   const destructiveConfirmLabel = affected
     ? `Confirm ${destructiveDialog}`
     : destructiveDialog === "delete"
@@ -183,7 +206,10 @@ export function AccountActions({
 
       {temporaryPassword && (
         <div className="mt-4">
-          <MasterTemporaryPasswordPanel password={temporaryPassword} label="New temporary password" />
+          <MasterTemporaryPasswordPanel
+            password={temporaryPassword}
+            label="New temporary password"
+          />
         </div>
       )}
 
@@ -195,8 +221,9 @@ export function AccountActions({
           affected ? (
             <>
               This account is the last active administrator of {affected.length}{" "}
-              {affected.length === 1 ? "community" : "communities"}. Choose a replacement administrator for each
-              before continuing — every community listed below will gain that member as its new administrator.
+              {affected.length === 1 ? "community" : "communities"}. Choose a replacement
+              administrator for each before continuing — every community listed below will gain that
+              member as its new administrator.
             </>
           ) : destructiveDialog === "delete" ? (
             "This permanently deletes the account. Its email address is released for reuse and it can never sign in again. Listings, messages, and membership history are retained for audit purposes."
@@ -219,7 +246,9 @@ export function AccountActions({
                 <select
                   className={masterFieldSelectClassName}
                   value={chosen[c.communityId] ?? ""}
-                  onChange={(e) => setChosen((prev) => ({ ...prev, [c.communityId]: e.target.value }))}
+                  onChange={(e) =>
+                    setChosen((prev) => ({ ...prev, [c.communityId]: e.target.value }))
+                  }
                 >
                   <option value="">Select a replacement…</option>
                   {(eligibleByCommunity[c.communityId] ?? []).map((m) => (

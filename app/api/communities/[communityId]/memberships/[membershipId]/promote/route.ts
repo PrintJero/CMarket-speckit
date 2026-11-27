@@ -18,7 +18,11 @@ export async function POST(
   }
 
   const { communityId, membershipId } = await params;
-  const result = await promoteMember({ communityId, membershipId, callerAccountId: account.accountId });
+  const result = await promoteMember({
+    communityId,
+    membershipId,
+    callerAccountId: account.accountId,
+  });
 
   if (result.ok) {
     return NextResponse.json(result, { status: 200 });

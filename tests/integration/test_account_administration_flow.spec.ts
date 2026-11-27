@@ -5,11 +5,20 @@ import { signIn, uniqueEmail } from "./helpers";
 
 async function createMasterFixture(masterId: string, password: string) {
   return prisma.masterIdentity.create({
-    data: { masterId, email: `${masterId}@example.com`, passwordHash: await hashPassword(password), mustChangePassword: false },
+    data: {
+      masterId,
+      email: `${masterId}@example.com`,
+      passwordHash: await hashPassword(password),
+      mustChangePassword: false,
+    },
   });
 }
 
-async function signInAsMaster(page: import("@playwright/test").Page, masterId: string, password: string) {
+async function signInAsMaster(
+  page: import("@playwright/test").Page,
+  masterId: string,
+  password: string,
+) {
   await page.goto("/master/sign-in");
   await page.getByLabel("Master ID").fill(masterId);
   await page.getByLabel("Password").fill(password);
@@ -68,7 +77,8 @@ test("a MASTER edits, suspends, reactivates, resets, and permanently deletes an 
   await reactivatedContext.close();
 
   // Reset password: the old one stops working, and the account's Session rows are cleared.
-  const passwordHashBefore = (await prisma.account.findUniqueOrThrow({ where: { id: account.id } })).passwordHash;
+  const passwordHashBefore = (await prisma.account.findUniqueOrThrow({ where: { id: account.id } }))
+    .passwordHash;
   await page.goto(`/master/accounts/${account.id}`);
   const resetAlertPromise = page.waitForEvent("dialog");
   await page.getByRole("button", { name: "Reset password" }).click();
@@ -110,27 +120,65 @@ test("suspending/deleting an account that alone administers multiple communities
 
   const adminEmail = uniqueEmail("us7-multi-admin");
   const admin = await prisma.account.create({
-    data: { email: adminEmail, passwordHash: await hashPassword("irrelevant"), emailVerifiedAt: new Date() },
+    data: {
+      email: adminEmail,
+      passwordHash: await hashPassword("irrelevant"),
+      emailVerifiedAt: new Date(),
+    },
   });
-  const communityX = await prisma.community.create({ data: { name: `US7 Community X ${Date.now()}`, createdByOperator: "test" } });
-  const communityY = await prisma.community.create({ data: { name: `US7 Community Y ${Date.now()}`, createdByOperator: "test" } });
-  await prisma.membership.create({
-    data: { accountId: admin.id, communityId: communityX.id, role: "ADMINISTRATOR", operationalEpoch: 1 },
+  const communityX = await prisma.community.create({
+    data: { name: `US7 Community X ${Date.now()}`, createdByOperator: "test" },
+  });
+  const communityY = await prisma.community.create({
+    data: { name: `US7 Community Y ${Date.now()}`, createdByOperator: "test" },
   });
   await prisma.membership.create({
-    data: { accountId: admin.id, communityId: communityY.id, role: "ADMINISTRATOR", operationalEpoch: 1 },
+    data: {
+      accountId: admin.id,
+      communityId: communityX.id,
+      role: "ADMINISTRATOR",
+      operationalEpoch: 1,
+    },
+  });
+  await prisma.membership.create({
+    data: {
+      accountId: admin.id,
+      communityId: communityY.id,
+      role: "ADMINISTRATOR",
+      operationalEpoch: 1,
+    },
   });
   const replacementX = await prisma.account.create({
-    data: { email: uniqueEmail("us7-multi-replacement-x"), passwordHash: "irrelevant", emailVerifiedAt: new Date(), displayName: "Replacement X" },
+    data: {
+      email: uniqueEmail("us7-multi-replacement-x"),
+      passwordHash: "irrelevant",
+      emailVerifiedAt: new Date(),
+      displayName: "Replacement X",
+    },
   });
   await prisma.membership.create({
-    data: { accountId: replacementX.id, communityId: communityX.id, role: "MEMBER", operationalEpoch: 1 },
+    data: {
+      accountId: replacementX.id,
+      communityId: communityX.id,
+      role: "MEMBER",
+      operationalEpoch: 1,
+    },
   });
   const replacementY = await prisma.account.create({
-    data: { email: uniqueEmail("us7-multi-replacement-y"), passwordHash: "irrelevant", emailVerifiedAt: new Date(), displayName: "Replacement Y" },
+    data: {
+      email: uniqueEmail("us7-multi-replacement-y"),
+      passwordHash: "irrelevant",
+      emailVerifiedAt: new Date(),
+      displayName: "Replacement Y",
+    },
   });
   await prisma.membership.create({
-    data: { accountId: replacementY.id, communityId: communityY.id, role: "MEMBER", operationalEpoch: 1 },
+    data: {
+      accountId: replacementY.id,
+      communityId: communityY.id,
+      role: "MEMBER",
+      operationalEpoch: 1,
+    },
   });
 
   await signInAsMaster(page, masterId, "master-password-1");
@@ -138,8 +186,12 @@ test("suspending/deleting an account that alone administers multiple communities
   await page.getByRole("button", { name: "Suspend" }).click();
 
   await expect(page.getByText(/last active administrator of 2 community/i)).toBeVisible();
-  await page.getByLabel("US7 Community X", { exact: false }).selectOption({ label: "Replacement X" });
-  await page.getByLabel("US7 Community Y", { exact: false }).selectOption({ label: "Replacement Y" });
+  await page
+    .getByLabel("US7 Community X", { exact: false })
+    .selectOption({ label: "Replacement X" });
+  await page
+    .getByLabel("US7 Community Y", { exact: false })
+    .selectOption({ label: "Replacement Y" });
   await page.getByRole("button", { name: "Confirm suspend" }).click();
 
   await expect(page.getByText("Status: SUSPENDED")).toBeVisible();

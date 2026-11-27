@@ -62,7 +62,9 @@ export default function SignUpPage() {
     return (
       <>
         <h1 className="mb-1 text-center text-[1.375rem] font-bold text-ink">Check your email</h1>
-        <p className="text-center">If this email can be used, we&apos;ve sent verification instructions.</p>
+        <p className="text-center">
+          If this email can be used, we&apos;ve sent verification instructions.
+        </p>
         <Button type="button" fullWidth onClick={onResend} disabled={resendSent}>
           Resend verification email
         </Button>

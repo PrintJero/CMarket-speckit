@@ -5,7 +5,12 @@ import { createSession, setActiveCommunityForAccount } from "@/server/services/s
 
 function createVerifiedAccount(email: string) {
   return prisma.account.create({
-    data: { email, passwordHash: "irrelevant-hash", emailVerifiedAt: new Date(), displayName: "Test Member" },
+    data: {
+      email,
+      passwordHash: "irrelevant-hash",
+      emailVerifiedAt: new Date(),
+      displayName: "Test Member",
+    },
   });
 }
 
@@ -52,7 +57,11 @@ describe("setActiveCommunityForAccount (contract)", () => {
     const member = await addMember(communityA.id, "active-community-test-member-1@example.com");
     await createSession(member.id, "raw-token-active-community-1");
 
-    const result = await setActiveCommunityForAccount(member.id, "raw-token-active-community-1", communityA.id);
+    const result = await setActiveCommunityForAccount(
+      member.id,
+      "raw-token-active-community-1",
+      communityA.id,
+    );
 
     expect(result).toEqual({ ok: true, communityId: communityA.id });
     // Looked up by accountId, not the raw token — the DB column stores a hash of the token, not the raw value.
@@ -69,7 +78,10 @@ describe("setActiveCommunityForAccount (contract)", () => {
       "Active Community Test B2",
       "active-community-test-admin-b2@example.com",
     );
-    const memberOfAOnly = await addMember(communityA.id, "active-community-test-member-2@example.com");
+    const memberOfAOnly = await addMember(
+      communityA.id,
+      "active-community-test-member-2@example.com",
+    );
     await createSession(memberOfAOnly.id, "raw-token-active-community-2");
 
     const result = await setActiveCommunityForAccount(
@@ -106,11 +118,15 @@ describe("setActiveCommunityForAccount (contract)", () => {
     const member = await addMember(communityA.id, "active-community-test-member-4@example.com");
     await createSession(member.id, "raw-token-active-community-4");
 
-    expect(await setActiveCommunityForAccount(member.id, "raw-token-active-community-4", "")).toEqual({
+    expect(
+      await setActiveCommunityForAccount(member.id, "raw-token-active-community-4", ""),
+    ).toEqual({
       ok: false,
       reason: "invalid_input",
     });
-    expect(await setActiveCommunityForAccount(member.id, "raw-token-active-community-4", undefined)).toEqual({
+    expect(
+      await setActiveCommunityForAccount(member.id, "raw-token-active-community-4", undefined),
+    ).toEqual({
       ok: false,
       reason: "invalid_input",
     });

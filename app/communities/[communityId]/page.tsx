@@ -42,7 +42,9 @@ export default async function CommunityMainViewPage({
   }
   const { listings } = result;
 
-  const community = account.memberships.find((membership) => membership.communityId === communityId);
+  const community = account.memberships.find(
+    (membership) => membership.communityId === communityId,
+  );
 
   const ownerIds = [...new Set(listings.map((listing) => listing.ownerId))];
   const [reputationByOwner, currentMemberIds] = await Promise.all([
@@ -70,17 +72,17 @@ export default async function CommunityMainViewPage({
     <AppShell account={account}>
       <PageHeader
         title={community?.communityName ?? "Community"}
-        actions={<LinkButton href={`/communities/${communityId}/listings/new`}>New listing</LinkButton>}
+        actions={
+          <LinkButton href={`/communities/${communityId}/listings/new`}>New listing</LinkButton>
+        }
       />
 
-      <MainViewControls
-        communityId={communityId}
-        initialQuery={sp.q ?? ""}
-        initialKind={kind}
-      />
+      <MainViewControls communityId={communityId} initialQuery={sp.q ?? ""} initialKind={kind} />
 
       {listings.length === 0 ? (
-        <p className="py-16 text-center text-ink-muted">No listings match. Try a different search.</p>
+        <p className="py-16 text-center text-ink-muted">
+          No listings match. Try a different search.
+        </p>
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-5">
           {listings.map((listing) => {
@@ -118,7 +120,9 @@ export default async function CommunityMainViewPage({
                       {listing.kind === "WANTED" ? "Wanted" : "For sale"}
                     </p>
                     <p className="mb-1 font-bold text-ink">{listing.title}</p>
-                    <p className="text-sm text-ink-muted">{formatListingPrice(listing.priceCents)}</p>
+                    <p className="text-sm text-ink-muted">
+                      {formatListingPrice(listing.priceCents)}
+                    </p>
                   </div>
                 </Link>
                 <div className="flex items-center gap-1.5 px-4 pb-4">

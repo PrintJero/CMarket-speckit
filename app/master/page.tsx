@@ -11,7 +11,14 @@ import {
 } from "@/server/services/masterAdministrationService";
 import { listAuditEntries } from "@/server/services/auditService";
 import { prisma } from "@/lib/prisma";
-import { BuildingIcon, UsersIcon, ShieldIcon, ArchiveIcon, ClockIcon, ListIcon } from "../_components/icons";
+import {
+  BuildingIcon,
+  UsersIcon,
+  ShieldIcon,
+  ArchiveIcon,
+  ClockIcon,
+  ListIcon,
+} from "../_components/icons";
 
 const DATE_FORMAT = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" });
 
@@ -25,12 +32,13 @@ const DATE_FORMAT = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", time
 export default async function MasterDashboardPage() {
   const master = await requireMasterPage();
 
-  const [{ communities }, { accounts }, activeMasterCount, { entries: recentAuditEntries }] = await Promise.all([
-    listCommunitiesForMaster({}),
-    listAccountsForMaster({}),
-    prisma.masterIdentity.count({ where: { status: "ACTIVE" } }),
-    listAuditEntries({ pageSize: 6 }),
-  ]);
+  const [{ communities }, { accounts }, activeMasterCount, { entries: recentAuditEntries }] =
+    await Promise.all([
+      listCommunitiesForMaster({}),
+      listAccountsForMaster({}),
+      prisma.masterIdentity.count({ where: { status: "ACTIVE" } }),
+      listAuditEntries({ pageSize: 6 }),
+    ]);
 
   const activeCommunities = communities.filter((c) => c.status === "ACTIVE").length;
   const suspendedCommunities = communities.filter((c) => c.status === "SUSPENDED");
@@ -41,26 +49,51 @@ export default async function MasterDashboardPage() {
   // The list endpoint doesn't carry lifecycle dates (only the detail one
   // does) — fetch details for just the suspended subset to rank by
   // soonest scheduled archival.
-  const suspendedDetails = await Promise.all(suspendedCommunities.map((c) => getCommunityForMaster(c.id)));
+  const suspendedDetails = await Promise.all(
+    suspendedCommunities.map((c) => getCommunityForMaster(c.id)),
+  );
   const approachingArchival = suspendedDetails
     .filter((r) => r.ok)
     .map((r) => (r as Extract<typeof r, { ok: true }>).community)
     .filter((c) => c.archiveScheduledAt)
-    .sort((a, b) => new Date(a.archiveScheduledAt!).getTime() - new Date(b.archiveScheduledAt!).getTime())
+    .sort(
+      (a, b) =>
+        new Date(a.archiveScheduledAt!).getTime() - new Date(b.archiveScheduledAt!).getTime(),
+    )
     .slice(0, 5);
 
   const stats = [
-    { label: "Active communities", value: activeCommunities, href: "/master/communities?status=ACTIVE", icon: BuildingIcon },
+    {
+      label: "Active communities",
+      value: activeCommunities,
+      href: "/master/communities?status=ACTIVE",
+      icon: BuildingIcon,
+    },
     {
       label: "Suspended communities",
       value: suspendedCommunities.length,
       href: "/master/communities?status=SUSPENDED",
       icon: BuildingIcon,
     },
-    { label: "Archived communities", value: archivedCommunities, href: "/master/communities?status=ARCHIVED", icon: ArchiveIcon },
+    {
+      label: "Archived communities",
+      value: archivedCommunities,
+      href: "/master/communities?status=ARCHIVED",
+      icon: ArchiveIcon,
+    },
     { label: "Active accounts", value: activeAccounts, href: "/master/accounts", icon: UsersIcon },
-    { label: "Suspended accounts", value: suspendedAccounts, href: "/master/accounts", icon: UsersIcon },
-    { label: "Active MASTER operators", value: activeMasterCount, href: "/master/masters", icon: ShieldIcon },
+    {
+      label: "Suspended accounts",
+      value: suspendedAccounts,
+      href: "/master/accounts",
+      icon: UsersIcon,
+    },
+    {
+      label: "Active MASTER operators",
+      value: activeMasterCount,
+      href: "/master/masters",
+      icon: ShieldIcon,
+    },
   ];
 
   return (
@@ -90,7 +123,10 @@ export default async function MasterDashboardPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <MasterSection title="Approaching archival" description="Suspended communities, soonest first">
+        <MasterSection
+          title="Approaching archival"
+          description="Suspended communities, soonest first"
+        >
           {approachingArchival.length === 0 ? (
             <MasterEmptyState
               icon={ClockIcon}
@@ -106,15 +142,22 @@ export default async function MasterDashboardPage() {
                     className="flex items-center justify-between gap-3 px-5 py-3 transition-colors hover:bg-bg"
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-[13.5px] font-semibold text-ink">{community.name}</p>
+                      <p className="truncate text-[13.5px] font-semibold text-ink">
+                        {community.name}
+                      </p>
                       <p className="text-[12px] text-ink-muted">
-                        Suspended {community.suspendedAt ? DATE_FORMAT.format(new Date(community.suspendedAt)) : "—"}
+                        Suspended{" "}
+                        {community.suspendedAt
+                          ? DATE_FORMAT.format(new Date(community.suspendedAt))
+                          : "—"}
                       </p>
                     </div>
                     <div className="flex-none text-right">
                       <p className="text-[12.5px] font-semibold text-warning-dark">
                         Archives{" "}
-                        {community.archiveScheduledAt ? DATE_FORMAT.format(new Date(community.archiveScheduledAt)) : "—"}
+                        {community.archiveScheduledAt
+                          ? DATE_FORMAT.format(new Date(community.archiveScheduledAt))
+                          : "—"}
                       </p>
                     </div>
                   </Link>
@@ -128,7 +171,10 @@ export default async function MasterDashboardPage() {
           title="Recent activity"
           description="Latest administrative actions"
           actions={
-            <Link href="/master/audit-log" className="text-[12.5px] font-semibold text-master hover:underline">
+            <Link
+              href="/master/audit-log"
+              className="text-[12.5px] font-semibold text-master hover:underline"
+            >
               View audit log →
             </Link>
           }
@@ -141,13 +187,19 @@ export default async function MasterDashboardPage() {
                   <p className="mt-0.5 text-[12px] text-ink-muted">
                     {entry.actorType === "SYSTEM" ? "System" : entry.actorMasterId} ·{" "}
                     {DATE_FORMAT.format(new Date(entry.createdAt))}
-                    {entry.outcome === "FAILURE" && <span className="ml-1.5 font-semibold text-danger">Failed</span>}
+                    {entry.outcome === "FAILURE" && (
+                      <span className="ml-1.5 font-semibold text-danger">Failed</span>
+                    )}
                   </p>
                 </li>
               ))}
             </ul>
           ) : (
-            <MasterEmptyState icon={ListIcon} title="No activity yet" description="Administrative actions will appear here as they happen." />
+            <MasterEmptyState
+              icon={ListIcon}
+              title="No activity yet"
+              description="Administrative actions will appear here as they happen."
+            />
           )}
         </MasterSection>
       </div>

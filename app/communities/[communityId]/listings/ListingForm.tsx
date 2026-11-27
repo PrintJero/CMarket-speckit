@@ -76,10 +76,14 @@ export function ListingForm({
   const [title, setTitle] = useState(initialTitle);
   const [description, setDescription] = useState(initialDescription);
   const [price, setPrice] = useState(
-    initialPriceCents !== undefined && initialPriceCents !== null ? (initialPriceCents / 100).toFixed(2) : "",
+    initialPriceCents !== undefined && initialPriceCents !== null
+      ? (initialPriceCents / 100).toFixed(2)
+      : "",
   );
   const [stockQuantity, setStockQuantity] = useState(
-    initialStockQuantity !== undefined && initialStockQuantity !== null ? String(initialStockQuantity) : "",
+    initialStockQuantity !== undefined && initialStockQuantity !== null
+      ? String(initialStockQuantity)
+      : "",
   );
   const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -149,7 +153,8 @@ export function ListingForm({
     const priceCents = price.trim() === "" ? undefined : Math.round(Number(price) * 100);
     // 013-purchase-flow-stock: a blank stock field means "not specified" (null),
     // distinct from a declared 0 — omit the field entirely rather than sending 0.
-    const stockQuantityValue = !isWanted && stockQuantity.trim() !== "" ? Math.round(Number(stockQuantity)) : undefined;
+    const stockQuantityValue =
+      !isWanted && stockQuantity.trim() !== "" ? Math.round(Number(stockQuantity)) : undefined;
 
     if (needsDisplayName) {
       const nameResponse = await fetch("/api/account/display-name", {
@@ -194,7 +199,13 @@ export function ListingForm({
     const response = await fetch(`/api/communities/${communityId}/listings`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, description, priceCents, kind, stockQuantity: stockQuantityValue }),
+      body: JSON.stringify({
+        title,
+        description,
+        priceCents,
+        kind,
+        stockQuantity: stockQuantityValue,
+      }),
     });
     const data: CreateListingResponse = await response.json();
 
@@ -243,14 +254,23 @@ export function ListingForm({
               Selling
             </label>
             <label className="flex items-center gap-1.5">
-              <input type="radio" name="kind" checked={kind === "WANTED"} onChange={() => setKind("WANTED")} />
+              <input
+                type="radio"
+                name="kind"
+                checked={kind === "WANTED"}
+                onChange={() => setKind("WANTED")}
+              />
               Looking for
             </label>
           </div>
         </fieldset>
       )}
       <FormField label="Title">
-        <input className={fieldInputClassName} value={title} onChange={(e) => setTitle(e.target.value)} />
+        <input
+          className={fieldInputClassName}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
       </FormField>
       <FormField label="Description">
         <input

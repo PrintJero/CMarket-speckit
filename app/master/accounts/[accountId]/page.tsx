@@ -44,7 +44,11 @@ export default async function AccountDetailPage({
         breadcrumb={[{ label: "Accounts", href: "/master/accounts" }, { label: title }]}
       />
 
-      <MasterSection title="Actions" description="Suspend, reactivate, reset password, or permanently delete this account." className="mb-6">
+      <MasterSection
+        title="Actions"
+        description="Suspend, reactivate, reset password, or permanently delete this account."
+        className="mb-6"
+      >
         <div className="p-5">
           <AccountActions accountId={account.id} status={account.status} deleted={deleted} />
         </div>

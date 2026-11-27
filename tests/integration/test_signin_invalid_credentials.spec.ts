@@ -4,9 +4,7 @@ import { hashPassword } from "@/lib/auth/passwordHash";
 import { uniqueEmail } from "./helpers";
 
 /** quickstart.md Scenario 3, step 3 / FR-010. */
-test("wrong password and unknown email return the identical generic error", async ({
-  request,
-}) => {
+test("wrong password and unknown email return the identical generic error", async ({ request }) => {
   const email = uniqueEmail("signin-invalid");
   await prisma.account.create({
     data: {

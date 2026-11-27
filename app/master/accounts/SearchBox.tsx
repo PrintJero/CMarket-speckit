@@ -12,7 +12,9 @@ export function SearchBox() {
   const [search, setSearch] = useState(searchParams.get("search") ?? "");
 
   function apply() {
-    router.push(search ? `/master/accounts?search=${encodeURIComponent(search)}` : "/master/accounts");
+    router.push(
+      search ? `/master/accounts?search=${encodeURIComponent(search)}` : "/master/accounts",
+    );
   }
 
   return (

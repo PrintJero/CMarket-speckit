@@ -7,7 +7,13 @@ import { useEffect, useRef, type ReactNode } from "react";
  * message arrives (research.md #4) — keyed on count, not the message array reference,
  * so unrelated re-renders that don't add a message don't re-trigger the scroll.
  */
-export function ChatScrollArea({ messageCount, children }: { messageCount: number; children: ReactNode }) {
+export function ChatScrollArea({
+  messageCount,
+  children,
+}: {
+  messageCount: number;
+  children: ReactNode;
+}) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

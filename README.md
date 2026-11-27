@@ -16,21 +16,21 @@ Running the test suites (`npm run test:unit`, `npm run test:e2e`) needs `.env.te
 
 ## Environment variables
 
-| Variable | Required | Purpose |
-|---|---|---|
-| `DATABASE_URL` | yes | PostgreSQL connection string (Prisma) |
-| `NEXTAUTH_URL` | yes | Base URL used for Auth.js callbacks and verification links |
-| `NEXTAUTH_SECRET` | yes | Long random string used by Auth.js to sign cookies |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | yes, for Google sign-in | OAuth credentials from the Google Cloud Console |
-| `EMAIL_FROM` | no | From-address used on outbound verification emails |
-| `EMAIL_WEBHOOK_URL` / `EMAIL_WEBHOOK_TOKEN` | no | Provider-agnostic HTTP webhook for sending verification emails (see `src/lib/email/sendEmail.ts`). Leave unset in development — emails are logged to the console instead |
-| `EMAIL_TEST_CAPTURE` | no | Set to `true` only for automated tests: captures sent emails in memory and exposes the last one per recipient at `GET /api/test/last-email?to=...`. **Never set this in a real deployment** |
-| `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` | yes | Cloudinary account identifiers for listing media. The cloud name and key reach the browser only inside a short-lived signed upload authorization, which the direct-upload protocol requires |
-| `CLOUDINARY_API_SECRET` | yes | Server-only. **Never** give this a `NEXT_PUBLIC_` prefix, commit it, bake it into a Docker image, or log it |
-| `CLOUDINARY_ENV_FOLDER` | yes | `development` \| `test` \| `production`. The first path segment of every generated asset id. This prefix is what makes it impossible for a staging deployment to address or delete production assets |
-| `LISTING_IMAGE_CACHE_MODE` | no | `no-cache` (default) or `no-store`. A mode, not a TTL — a `max-age` is deliberately not offered, because permitting cached reuse without revalidation is what would let a departed member keep seeing a community's images |
-| `CLEANUP_TOKEN` | yes | Shared secret for `POST /api/listing-media/cleanup`, which drains the retryable Cloudinary deletion queue. Generate with `openssl rand -hex 32` |
-| `CLOUDINARY_TEST_STUB` | no | Set to `true` only for automated tests: replaces the Cloudinary Admin API verification call while still enforcing the public-ID prefix and provenance checks. **Never set this in a real deployment** |
+| Variable                                       | Required                | Purpose                                                                                                                                                                                                                    |
+| ---------------------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                                 | yes                     | PostgreSQL connection string (Prisma)                                                                                                                                                                                      |
+| `NEXTAUTH_URL`                                 | yes                     | Base URL used for Auth.js callbacks and verification links                                                                                                                                                                 |
+| `NEXTAUTH_SECRET`                              | yes                     | Long random string used by Auth.js to sign cookies                                                                                                                                                                         |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`    | yes, for Google sign-in | OAuth credentials from the Google Cloud Console                                                                                                                                                                            |
+| `EMAIL_FROM`                                   | no                      | From-address used on outbound verification emails                                                                                                                                                                          |
+| `EMAIL_WEBHOOK_URL` / `EMAIL_WEBHOOK_TOKEN`    | no                      | Provider-agnostic HTTP webhook for sending verification emails (see `src/lib/email/sendEmail.ts`). Leave unset in development — emails are logged to the console instead                                                   |
+| `EMAIL_TEST_CAPTURE`                           | no                      | Set to `true` only for automated tests: captures sent emails in memory and exposes the last one per recipient at `GET /api/test/last-email?to=...`. **Never set this in a real deployment**                                |
+| `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` | yes                     | Cloudinary account identifiers for listing media. The cloud name and key reach the browser only inside a short-lived signed upload authorization, which the direct-upload protocol requires                                |
+| `CLOUDINARY_API_SECRET`                        | yes                     | Server-only. **Never** give this a `NEXT_PUBLIC_` prefix, commit it, bake it into a Docker image, or log it                                                                                                                |
+| `CLOUDINARY_ENV_FOLDER`                        | yes                     | `development` \| `test` \| `production`. The first path segment of every generated asset id. This prefix is what makes it impossible for a staging deployment to address or delete production assets                       |
+| `LISTING_IMAGE_CACHE_MODE`                     | no                      | `no-cache` (default) or `no-store`. A mode, not a TTL — a `max-age` is deliberately not offered, because permitting cached reuse without revalidation is what would let a departed member keep seeing a community's images |
+| `CLEANUP_TOKEN`                                | yes                     | Shared secret for `POST /api/listing-media/cleanup`, which drains the retryable Cloudinary deletion queue. Generate with `openssl rand -hex 32`                                                                            |
+| `CLOUDINARY_TEST_STUB`                         | no                      | Set to `true` only for automated tests: replaces the Cloudinary Admin API verification call while still enforcing the public-ID prefix and provenance checks. **Never set this in a real deployment**                      |
 
 There is deliberately **no** `NEXT_PUBLIC_CLOUDINARY_*` variable. The browser never builds a Cloudinary URL: images are delivered through an authenticated CMarket route, and the upload endpoint is returned at runtime by the authorize endpoint.
 
@@ -73,7 +73,7 @@ Listing images are stored in Cloudinary and delivered through an **authenticated
 
 1. **Take and verify a database backup.** The `20260806000000_replace_listing_photos_with_cloudinary` migration deletes every existing listing photo irreversibly — it is a hard cutover with no legacy import path. Affected listings become image-less and show the existing "No photo" placeholder.
 2. Set the six Cloudinary variables above. `CLOUDINARY_ENV_FOLDER=production`. Keep `CLOUDINARY_API_SECRET` an environment secret; do not bake it into the image.
-3. Confirm the application server has **outbound network access to Cloudinary**. This is now required at *read* time, not only at write time — if it is blocked, listing images stop rendering.
+3. Confirm the application server has **outbound network access to Cloudinary**. This is now required at _read_ time, not only at write time — if it is blocked, listing images stop rendering.
 4. Deploy. Migrations apply via `prisma migrate deploy`, never `prisma db push --accept-data-loss`.
 5. Schedule `POST /api/listing-media/cleanup` with an `X-Cleanup-Token` header. Every 15 minutes is ample; the endpoint is idempotent and safe to over-call. Without it, removed assets accumulate in Cloudinary — check `SELECT count(*) FROM media_cleanup_tasks` if storage grows unexpectedly.
 6. **Ensure no shared cache or CDN sits in front of `/api/communities/*/listing-photos/*`.** The route returns `private, no-cache`, but a reverse proxy that caches on URL alone would serve one member's authorized bytes to an unauthorized caller and defeat the entire access model. Verify from outside the network that a request with no session cookie returns `401`.
@@ -112,7 +112,7 @@ empty so a stray value cannot switch them on.
 
 **1. `docker run --env-file` does not strip quotes.** Unlike dotenv and Next.js,
 Docker takes the value literally, so `DATABASE_URL="postgresql://…"` arrives
-*with* the quote characters and Prisma rejects it:
+_with_ the quote characters and Prisma rejects it:
 
 > the URL must start with the protocol `postgresql://` or `postgres://`
 

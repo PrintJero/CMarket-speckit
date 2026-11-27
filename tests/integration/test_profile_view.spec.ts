@@ -5,7 +5,12 @@ import { uniqueEmail, signIn } from "./helpers";
 
 async function createVerifiedAccount(email: string, password: string, displayName: string) {
   return prisma.account.create({
-    data: { email, passwordHash: await hashPassword(password), emailVerifiedAt: new Date(), displayName },
+    data: {
+      email,
+      passwordHash: await hashPassword(password),
+      emailVerifiedAt: new Date(),
+      displayName,
+    },
   });
 }
 
@@ -21,11 +26,17 @@ async function createCommunityWithAdmin(
     data: { name, founderEmail: adminEmail, invokedBy: "playwright-test" },
   });
   const body = await response.json();
-  if (!body.ok) throw new Error(`expected community creation to succeed, got ${JSON.stringify(body)}`);
+  if (!body.ok)
+    throw new Error(`expected community creation to succeed, got ${JSON.stringify(body)}`);
   return body.community as { id: string; name: string };
 }
 
-async function addMember(communityId: string, email: string, password: string, displayName: string) {
+async function addMember(
+  communityId: string,
+  email: string,
+  password: string,
+  displayName: string,
+) {
   const account = await createVerifiedAccount(email, password, displayName);
   await prisma.membership.create({ data: { accountId: account.id, communityId, role: "MEMBER" } });
   return account;
@@ -51,11 +62,25 @@ test("a member's profile is reachable from a listing, a thread, and a transactio
   const owner = await prisma.account.findUniqueOrThrow({ where: { email: ownerEmail } });
 
   const listing = await prisma.listing.create({
-    data: { communityId: community.id, ownerId: owner.id, title: "Profile View Bicycle", description: "Nice bike", priceCents: 15000, kind: "FOR_SALE", stockQuantity: 10 },
+    data: {
+      communityId: community.id,
+      ownerId: owner.id,
+      title: "Profile View Bicycle",
+      description: "Nice bike",
+      priceCents: 15000,
+      kind: "FOR_SALE",
+      stockQuantity: 10,
+    },
   });
-  const thread = await prisma.messageThread.create({ data: { listingId: listing.id, buyerId: buyer.id } });
-  await prisma.message.create({ data: { threadId: thread.id, senderId: buyer.id, body: "Still available?" } });
-  await prisma.message.create({ data: { threadId: thread.id, senderId: owner.id, body: "Yes, still have it!" } });
+  const thread = await prisma.messageThread.create({
+    data: { listingId: listing.id, buyerId: buyer.id },
+  });
+  await prisma.message.create({
+    data: { threadId: thread.id, senderId: buyer.id, body: "Still available?" },
+  });
+  await prisma.message.create({
+    data: { threadId: thread.id, senderId: owner.id, body: "Yes, still have it!" },
+  });
 
   // From the listing's feed and detail page.
   await signIn(page, buyerEmail, password);
@@ -107,8 +132,12 @@ test("a profile shows every community the viewer and the target currently share,
     password,
     "Multi Owner D Admin",
   );
-  await prisma.membership.create({ data: { accountId: owner.id, communityId: communityD.id, role: "MEMBER" } });
-  await prisma.membership.create({ data: { accountId: viewer.id, communityId: communityD.id, role: "MEMBER" } });
+  await prisma.membership.create({
+    data: { accountId: owner.id, communityId: communityD.id, role: "MEMBER" },
+  });
+  await prisma.membership.create({
+    data: { accountId: viewer.id, communityId: communityD.id, role: "MEMBER" },
+  });
 
   const communityViewerOnlyName = `Profile Multi Viewer Only ${Date.now()}`;
   const communityViewerOnly = await createCommunityWithAdmin(
@@ -118,10 +147,20 @@ test("a profile shows every community the viewer and the target currently share,
     password,
     "Viewer Only Admin",
   );
-  await prisma.membership.create({ data: { accountId: viewer.id, communityId: communityViewerOnly.id, role: "MEMBER" } });
+  await prisma.membership.create({
+    data: { accountId: viewer.id, communityId: communityViewerOnly.id, role: "MEMBER" },
+  });
 
   const listingC = await prisma.listing.create({
-    data: { communityId: communityC.id, ownerId: owner.id, title: "Multi Listing C", description: "Description", priceCents: 1000, kind: "FOR_SALE", stockQuantity: 5 },
+    data: {
+      communityId: communityC.id,
+      ownerId: owner.id,
+      title: "Multi Listing C",
+      description: "Description",
+      priceCents: 1000,
+      kind: "FOR_SALE",
+      stockQuantity: 5,
+    },
   });
 
   await signIn(page, viewerEmail, password);
@@ -151,13 +190,21 @@ test("a profile shows every community the viewer and the target currently share,
 });
 
 // T027 (US4, FR-011): a profile's global reputation never names the community a viewer doesn't share.
-test("a profile's combined rating never reveals the community a viewer doesn't share", async ({ page }) => {
+test("a profile's combined rating never reveals the community a viewer doesn't share", async ({
+  page,
+}) => {
   const password = "correct-horse-battery-staple";
   const ownerEmail = uniqueEmail("profile-view-global-owner");
   const buyerCEmail = uniqueEmail("profile-view-global-buyer-c");
   const buyerDEmail = uniqueEmail("profile-view-global-buyer-d");
   const communityCName = `Profile View Global C ${Date.now()}`;
-  const communityC = await createCommunityWithAdmin(page.request, communityCName, ownerEmail, password, "Global Owner");
+  const communityC = await createCommunityWithAdmin(
+    page.request,
+    communityCName,
+    ownerEmail,
+    password,
+    "Global Owner",
+  );
   const communityDName = `Profile View Global D ${Date.now()}`;
   const communityD = await createCommunityWithAdmin(
     page.request,
@@ -167,13 +214,27 @@ test("a profile's combined rating never reveals the community a viewer doesn't s
     "Global Owner D Admin",
   );
   const owner = await prisma.account.findUniqueOrThrow({ where: { email: ownerEmail } });
-  await prisma.membership.create({ data: { accountId: owner.id, communityId: communityD.id, role: "MEMBER" } });
+  await prisma.membership.create({
+    data: { accountId: owner.id, communityId: communityD.id, role: "MEMBER" },
+  });
   const buyerC = await addMember(communityC.id, buyerCEmail, password, "Global Buyer C");
   const buyerD = await addMember(communityD.id, buyerDEmail, password, "Global Buyer D");
 
-  async function createRatedConfirmedTransaction(communityId: string, buyerId: string, rating: number) {
+  async function createRatedConfirmedTransaction(
+    communityId: string,
+    buyerId: string,
+    rating: number,
+  ) {
     const listing = await prisma.listing.create({
-      data: { communityId, ownerId: owner.id, title: "Global Item", description: "Description", priceCents: 1000, kind: "FOR_SALE", stockQuantity: 10 },
+      data: {
+        communityId,
+        ownerId: owner.id,
+        title: "Global Item",
+        description: "Description",
+        priceCents: 1000,
+        kind: "FOR_SALE",
+        stockQuantity: 10,
+      },
     });
     const transaction = await prisma.transaction.create({
       data: {
@@ -188,7 +249,9 @@ test("a profile's combined rating never reveals the community a viewer doesn't s
         resolvedAt: new Date(),
       },
     });
-    await prisma.review.create({ data: { reviewerId: buyerId, reviewedId: owner.id, transactionId: transaction.id, rating } });
+    await prisma.review.create({
+      data: { reviewerId: buyerId, reviewedId: owner.id, transactionId: transaction.id, rating },
+    });
   }
 
   await createRatedConfirmedTransaction(communityC.id, buyerC.id, 5);
@@ -206,7 +269,9 @@ test("a profile's combined rating never reveals the community a viewer doesn't s
 
 // T009 (US1, FR-006, Edge Case): an account with no active listings in a shared community
 // shows a defined empty state.
-test("a profile with no active listings in a shared community shows a defined empty state", async ({ page }) => {
+test("a profile with no active listings in a shared community shows a defined empty state", async ({
+  page,
+}) => {
   const password = "correct-horse-battery-staple";
   const ownerEmail = uniqueEmail("profile-view-empty-owner");
   const viewerEmail = uniqueEmail("profile-view-empty-viewer");
@@ -227,7 +292,9 @@ test("a profile with no active listings in a shared community shows a defined em
 });
 
 // T009 (US2, FR-017): two accounts sharing no current community cannot reach each other's profile.
-test("two accounts that do not share a community cannot open each other's profile", async ({ page }) => {
+test("two accounts that do not share a community cannot open each other's profile", async ({
+  page,
+}) => {
   const password = "correct-horse-battery-staple";
   const ownerEmail = uniqueEmail("profile-view-isolated-owner");
   const outsiderEmail = uniqueEmail("profile-view-isolated-outsider");
@@ -296,8 +363,12 @@ test("clicking a counterpart's display name from /chats and the Transactions hub
       stockQuantity: 10,
     },
   });
-  const thread = await prisma.messageThread.create({ data: { listingId: listing.id, buyerId: buyer.id } });
-  await prisma.message.create({ data: { threadId: thread.id, senderId: buyer.id, body: "Still available?" } });
+  const thread = await prisma.messageThread.create({
+    data: { listingId: listing.id, buyerId: buyer.id },
+  });
+  await prisma.message.create({
+    data: { threadId: thread.id, senderId: buyer.id, body: "Still available?" },
+  });
 
   await signIn(page, buyerEmail, password);
 

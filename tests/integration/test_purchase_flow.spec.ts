@@ -25,7 +25,8 @@ async function createCommunityWithAdmin(
     data: { name, founderEmail: adminEmail, invokedBy: "playwright-test" },
   });
   const body = await response.json();
-  if (!body.ok) throw new Error(`expected community creation to succeed, got ${JSON.stringify(body)}`);
+  if (!body.ok)
+    throw new Error(`expected community creation to succeed, got ${JSON.stringify(body)}`);
   return body.community as { id: string; name: string };
 }
 
@@ -35,9 +36,22 @@ async function addMember(communityId: string, email: string, password: string) {
   return account;
 }
 
-async function createForSaleListing(communityId: string, ownerId: string, title: string, stockQuantity: number) {
+async function createForSaleListing(
+  communityId: string,
+  ownerId: string,
+  title: string,
+  stockQuantity: number,
+) {
   return prisma.listing.create({
-    data: { communityId, ownerId, title, description: "Description", priceCents: 12000, kind: "FOR_SALE", stockQuantity },
+    data: {
+      communityId,
+      ownerId,
+      title,
+      description: "Description",
+      priceCents: 12000,
+      kind: "FOR_SALE",
+      stockQuantity,
+    },
   });
 }
 
@@ -93,9 +107,12 @@ async function proposePurchaseViaApi(
   quantity: number,
   totalCents: number,
 ) {
-  const response = await request.post(`/api/communities/${communityId}/listings/${listingId}/proposals`, {
-    data: { quantity, totalCents },
-  });
+  const response = await request.post(
+    `/api/communities/${communityId}/listings/${listingId}/proposals`,
+    {
+      data: { quantity, totalCents },
+    },
+  );
   const body = await response.json();
   if (!body.ok) throw new Error(`expected proposal to succeed, got ${JSON.stringify(body)}`);
   return body.transaction as { id: string };
@@ -122,8 +139,20 @@ test("the seller can accept a pending proposal (decrementing stock) and reject a
   const buyerContext = await browser.newContext();
   const buyerPage = await buyerContext.newPage();
   await signIn(buyerPage, buyerEmail, password);
-  const toAccept = await proposePurchaseViaApi(buyerPage.request, community.id, listing.id, 3, 30000);
-  const toReject = await proposePurchaseViaApi(buyerPage.request, community.id, listing.id, 2, 20000);
+  const toAccept = await proposePurchaseViaApi(
+    buyerPage.request,
+    community.id,
+    listing.id,
+    3,
+    30000,
+  );
+  const toReject = await proposePurchaseViaApi(
+    buyerPage.request,
+    community.id,
+    listing.id,
+    2,
+    20000,
+  );
   await buyerContext.close();
 
   await signIn(page, sellerEmail, password);
@@ -144,7 +173,9 @@ test("the seller can accept a pending proposal (decrementing stock) and reject a
 });
 
 // T026 (US4) — the buyer sees every proposal's state and can cancel a still-PENDING one.
-test("the buyer sees all their proposals' states and can cancel a still-pending one (US4)", async ({ page }) => {
+test("the buyer sees all their proposals' states and can cancel a still-pending one (US4)", async ({
+  page,
+}) => {
   const password = "correct-horse-battery-staple";
   const sellerEmail = uniqueEmail("purchase-cancel-seller");
   const buyerEmail = uniqueEmail("purchase-cancel-buyer");
@@ -156,7 +187,12 @@ test("the buyer sees all their proposals' states and can cancel a still-pending 
   );
   await addMember(community.id, buyerEmail, password);
   const seller = await prisma.account.findUniqueOrThrow({ where: { email: sellerEmail } });
-  const listingOne = await createForSaleListing(community.id, seller.id, "Purchase Cancel Lamp", 10);
+  const listingOne = await createForSaleListing(
+    community.id,
+    seller.id,
+    "Purchase Cancel Lamp",
+    10,
+  );
   const listingTwo = await createForSaleListing(community.id, seller.id, "Purchase Cancel Rug", 10);
 
   await signIn(page, buyerEmail, password);
@@ -176,7 +212,9 @@ test("the buyer sees all their proposals' states and can cancel a still-pending 
 });
 
 // T031 (US6) — the non-intermediary disclosure is shown before a proposal can be submitted.
-test("the proposal screen shows the non-intermediary disclosure before submission (US6)", async ({ page }) => {
+test("the proposal screen shows the non-intermediary disclosure before submission (US6)", async ({
+  page,
+}) => {
   const password = "correct-horse-battery-staple";
   const sellerEmail = uniqueEmail("purchase-disclosure-seller");
   const buyerEmail = uniqueEmail("purchase-disclosure-buyer");
@@ -188,7 +226,12 @@ test("the proposal screen shows the non-intermediary disclosure before submissio
   );
   await addMember(community.id, buyerEmail, password);
   const seller = await prisma.account.findUniqueOrThrow({ where: { email: sellerEmail } });
-  const listing = await createForSaleListing(community.id, seller.id, "Purchase Disclosure Chair", 10);
+  const listing = await createForSaleListing(
+    community.id,
+    seller.id,
+    "Purchase Disclosure Chair",
+    10,
+  );
 
   await signIn(page, buyerEmail, password);
   await page.goto(`/communities/${community.id}/listings/${listing.id}`);

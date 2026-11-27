@@ -21,10 +21,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "email is not a valid address" }, { status: 400 });
     }
     if (result.reason === "invalid_display_name") {
-      return NextResponse.json(
-        { error: "display name must be 1-50 characters" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "display name must be 1-50 characters" }, { status: 400 });
     }
     return NextResponse.json(
       {

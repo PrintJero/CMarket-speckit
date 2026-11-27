@@ -12,7 +12,11 @@ export async function GET(
   }
 
   const { communityId, transactionId } = await params;
-  const result = await getTransaction({ communityId, transactionId, callerAccountId: account.accountId });
+  const result = await getTransaction({
+    communityId,
+    transactionId,
+    callerAccountId: account.accountId,
+  });
 
   if (result.ok) {
     return NextResponse.json(result, { status: 200 });

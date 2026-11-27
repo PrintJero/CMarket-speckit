@@ -24,10 +24,6 @@ export async function DELETE(
   }
 
   const status =
-    result.reason === "not_administrator"
-      ? 403
-      : result.reason === "not_found"
-        ? 404
-        : 409; // last_admin or conflict
+    result.reason === "not_administrator" ? 403 : result.reason === "not_found" ? 404 : 409; // last_admin or conflict
   return NextResponse.json(result, { status });
 }

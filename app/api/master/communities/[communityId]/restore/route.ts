@@ -13,7 +13,8 @@ export async function POST(
 
   const { communityId } = await params;
   const body = await request.json().catch(() => null);
-  const administratorMembershipId = typeof body?.administratorMembershipId === "string" ? body.administratorMembershipId : "";
+  const administratorMembershipId =
+    typeof body?.administratorMembershipId === "string" ? body.administratorMembershipId : "";
 
   const result = await restoreCommunity(caller.masterId, communityId, administratorMembershipId);
   if (!result.ok) {

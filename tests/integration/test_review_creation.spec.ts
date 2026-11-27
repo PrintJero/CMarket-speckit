@@ -5,7 +5,12 @@ import { uniqueEmail, signIn } from "./helpers";
 
 async function createVerifiedAccount(email: string, password: string, displayName: string) {
   return prisma.account.create({
-    data: { email, passwordHash: await hashPassword(password), emailVerifiedAt: new Date(), displayName },
+    data: {
+      email,
+      passwordHash: await hashPassword(password),
+      emailVerifiedAt: new Date(),
+      displayName,
+    },
   });
 }
 
@@ -21,11 +26,17 @@ async function createCommunityWithAdmin(
     data: { name, founderEmail: adminEmail, invokedBy: "playwright-test" },
   });
   const body = await response.json();
-  if (!body.ok) throw new Error(`expected community creation to succeed, got ${JSON.stringify(body)}`);
+  if (!body.ok)
+    throw new Error(`expected community creation to succeed, got ${JSON.stringify(body)}`);
   return body.community as { id: string; name: string };
 }
 
-async function addMember(communityId: string, email: string, password: string, displayName: string) {
+async function addMember(
+  communityId: string,
+  email: string,
+  password: string,
+  displayName: string,
+) {
   const account = await createVerifiedAccount(email, password, displayName);
   await prisma.membership.create({ data: { accountId: account.id, communityId, role: "MEMBER" } });
   return account;
@@ -39,7 +50,15 @@ async function createConfirmedTransaction(
   listingTitle: string,
 ) {
   const listing = await prisma.listing.create({
-    data: { communityId, ownerId, title: listingTitle, description: "Description", priceCents: 5000, kind: "FOR_SALE", stockQuantity: 10 },
+    data: {
+      communityId,
+      ownerId,
+      title: listingTitle,
+      description: "Description",
+      priceCents: 5000,
+      kind: "FOR_SALE",
+      stockQuantity: 10,
+    },
   });
   return prisma.transaction.create({
     data: {
@@ -64,7 +83,15 @@ async function createPendingTransaction(
   listingTitle: string,
 ) {
   const listing = await prisma.listing.create({
-    data: { communityId, ownerId, title: listingTitle, description: "Description", priceCents: 5000, kind: "FOR_SALE", stockQuantity: 10 },
+    data: {
+      communityId,
+      ownerId,
+      title: listingTitle,
+      description: "Description",
+      priceCents: 5000,
+      kind: "FOR_SALE",
+      stockQuantity: 10,
+    },
   });
   return prisma.transaction.create({
     data: {
@@ -95,7 +122,12 @@ test("confirming a transaction immediately shows a rating modal; submitting a st
   );
   const buyer = await addMember(community.id, buyerEmail, password, "Modal Buyer");
   const owner = await prisma.account.findUniqueOrThrow({ where: { email: ownerEmail } });
-  const transaction = await createPendingTransaction(community.id, owner.id, buyer.id, "Review Modal Item");
+  const transaction = await createPendingTransaction(
+    community.id,
+    owner.id,
+    buyer.id,
+    "Review Modal Item",
+  );
 
   // 013-purchase-flow-stock: the seller is the one who completes the transaction (Accept), not the buyer.
   await signIn(page, ownerEmail, password);
@@ -111,7 +143,9 @@ test("confirming a transaction immediately shows a rating modal; submitting a st
   await expect(page.getByTestId("my-review")).toContainText("4 out of 5");
 });
 
-test("dismissing the rating modal with Maybe later leaves the transaction ratable later", async ({ page }) => {
+test("dismissing the rating modal with Maybe later leaves the transaction ratable later", async ({
+  page,
+}) => {
   const password = "correct-horse-battery-staple";
   const ownerEmail = uniqueEmail("review-modal-later-owner");
   const buyerEmail = uniqueEmail("review-modal-later-buyer");
@@ -124,7 +158,12 @@ test("dismissing the rating modal with Maybe later leaves the transaction ratabl
   );
   const buyer = await addMember(community.id, buyerEmail, password, "Modal Later Buyer");
   const owner = await prisma.account.findUniqueOrThrow({ where: { email: ownerEmail } });
-  const transaction = await createPendingTransaction(community.id, owner.id, buyer.id, "Review Modal Later Item");
+  const transaction = await createPendingTransaction(
+    community.id,
+    owner.id,
+    buyer.id,
+    "Review Modal Later Item",
+  );
 
   await signIn(page, ownerEmail, password);
   await page.goto(`/communities/${community.id}/transactions/${transaction.id}`);
@@ -159,7 +198,12 @@ test("either participant of a confirmed transaction can leave a rating, independ
   );
   const buyer = await addMember(community.id, buyerEmail, password, "Review Buyer");
   const owner = await prisma.account.findUniqueOrThrow({ where: { email: ownerEmail } });
-  const transaction = await createConfirmedTransaction(community.id, owner.id, buyer.id, "Review Create Item");
+  const transaction = await createConfirmedTransaction(
+    community.id,
+    owner.id,
+    buyer.id,
+    "Review Create Item",
+  );
 
   // The buyer rates the owner.
   await signIn(page, buyerEmail, password);
@@ -177,7 +221,10 @@ test("either participant of a confirmed transaction can leave a rating, independ
   const ownerPage = await ownerContext.newPage();
   await signIn(ownerPage, ownerEmail, password);
   await ownerPage.goto(`/communities/${community.id}/transactions/${transaction.id}`);
-  await ownerPage.getByTestId("review-form").getByRole("button", { name: "3", exact: true }).click();
+  await ownerPage
+    .getByTestId("review-form")
+    .getByRole("button", { name: "3", exact: true })
+    .click();
   await expect(ownerPage.getByTestId("my-review")).toContainText("3 out of 5");
   await ownerContext.close();
 
@@ -205,7 +252,12 @@ test("a non-participant has no rating control on someone else's transaction, and
   const buyer = await addMember(community.id, buyerEmail, password, "Bypass Buyer");
   await addMember(community.id, outsiderEmail, password, "Bypass Outsider");
   const owner = await prisma.account.findUniqueOrThrow({ where: { email: ownerEmail } });
-  const transaction = await createConfirmedTransaction(community.id, owner.id, buyer.id, "Review Bypass Item");
+  const transaction = await createConfirmedTransaction(
+    community.id,
+    owner.id,
+    buyer.id,
+    "Review Bypass Item",
+  );
 
   await signIn(page, outsiderEmail, password);
   await page.goto(`/communities/${community.id}/transactions/${transaction.id}`);

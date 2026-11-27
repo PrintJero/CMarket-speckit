@@ -12,7 +12,9 @@ async function main(): Promise<void> {
     console.log("No communities due for archival.");
     return;
   }
-  console.log(`Archived ${result.archivedCommunityIds.length} community(ies): ${result.archivedCommunityIds.join(", ")}`);
+  console.log(
+    `Archived ${result.archivedCommunityIds.length} community(ies): ${result.archivedCommunityIds.join(", ")}`,
+  );
 }
 
 main().catch((error) => {
