@@ -2,7 +2,7 @@
 
 **Fecha:** 27 de noviembre de 2026
 **Repositorio:** [PrintJero/CMarket-speckit](https://github.com/PrintJero/CMarket-speckit)
-**Release:** [v1.0.0](https://github.com/PrintJero/CMarket-speckit/releases/tag/v1.0.0) (tag sobre el commit `5b651cb` de `main`)
+**Release:** [v1.0.0](https://github.com/PrintJero/CMarket-speckit/releases/tag/v1.0.0) (tag sobre `5b651cb`), seguida del hotfix [v1.0.1](https://github.com/PrintJero/CMarket-speckit/releases/tag/v1.0.1) (tag sobre `63cb92e`), que es la versión en producción
 **Constitución:** v4.1.1
 **Participantes:**
 
@@ -88,18 +88,23 @@ Las e2e pasaron de 108 a 123 (108 + 11 + 2 + 2):
 
 Todos se mergearon con _merge commit_, con el CI en verde.
 
-| PR                                                          | Origen → destino                         | Propósito                                                                                              |
-| ----------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| [#25](https://github.com/PrintJero/CMarket-speckit/pull/25) | `fix/quality-gates` → `develop`          | Lint, refactor del uploader, 2 bugs de producto, pruebas de MASTER y e2e contra la build de producción |
-| [#26](https://github.com/PrintJero/CMarket-speckit/pull/26) | `chore/gitflow-ci` → `develop`           | Triggers de gitflow, gates de format/build/docker, plantilla de PR, LF y Prettier                      |
-| [#27](https://github.com/PrintJero/CMarket-speckit/pull/27) | `fix/docker-entrypoint-crlf` → `develop` | Entrypoint con CRLF en la imagen                                                                       |
-| [#28](https://github.com/PrintJero/CMarket-speckit/pull/28) | `fix/deps` → `develop`                   | Vulnerabilidades críticas                                                                              |
-| [#29](https://github.com/PrintJero/CMarket-speckit/pull/29) | `test/011-verification` → `develop`      | Cierre de las 3 casillas de la spec 011                                                                |
-| [#30](https://github.com/PrintJero/CMarket-speckit/pull/30) | `docs/backlog` → `develop`               | `specs/BACKLOG.md` y constitución 4.1.1                                                                |
-| [#31](https://github.com/PrintJero/CMarket-speckit/pull/31) | `018-pwa-installable` → `develop`        | Spec 018: PWA instalable                                                                               |
-| [#32](https://github.com/PrintJero/CMarket-speckit/pull/32) | `chore/deploy-workflow` → `develop`      | Deploy a GHCR + webhook de Dokploy, imagen `tools`, smoke test y runbook                               |
-| [#33](https://github.com/PrintJero/CMarket-speckit/pull/33) | `release/v1.0.0` → `main`                | Release v1.0.0                                                                                         |
-| [#34](https://github.com/PrintJero/CMarket-speckit/pull/34) | `main` → `develop`                       | Back-merge posterior a la release                                                                      |
+| PR                                                          | Origen → destino                         | Propósito                                                                                                                            |
+| ----------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| [#25](https://github.com/PrintJero/CMarket-speckit/pull/25) | `fix/quality-gates` → `develop`          | Lint, refactor del uploader, 2 bugs de producto, pruebas de MASTER y e2e contra la build de producción                               |
+| [#26](https://github.com/PrintJero/CMarket-speckit/pull/26) | `chore/gitflow-ci` → `develop`           | Triggers de gitflow, gates de format/build/docker, plantilla de PR, LF y Prettier                                                    |
+| [#27](https://github.com/PrintJero/CMarket-speckit/pull/27) | `fix/docker-entrypoint-crlf` → `develop` | Entrypoint con CRLF en la imagen                                                                                                     |
+| [#28](https://github.com/PrintJero/CMarket-speckit/pull/28) | `fix/deps` → `develop`                   | Vulnerabilidades críticas                                                                                                            |
+| [#29](https://github.com/PrintJero/CMarket-speckit/pull/29) | `test/011-verification` → `develop`      | Cierre de las 3 casillas de la spec 011                                                                                              |
+| [#30](https://github.com/PrintJero/CMarket-speckit/pull/30) | `docs/backlog` → `develop`               | `specs/BACKLOG.md` y constitución 4.1.1                                                                                              |
+| [#31](https://github.com/PrintJero/CMarket-speckit/pull/31) | `018-pwa-installable` → `develop`        | Spec 018: PWA instalable                                                                                                             |
+| [#32](https://github.com/PrintJero/CMarket-speckit/pull/32) | `chore/deploy-workflow` → `develop`      | Deploy a GHCR + webhook de Dokploy, imagen `tools`, smoke test y runbook                                                             |
+| [#33](https://github.com/PrintJero/CMarket-speckit/pull/33) | `release/v1.0.0` → `main`                | Release v1.0.0                                                                                                                       |
+| [#34](https://github.com/PrintJero/CMarket-speckit/pull/34) | `main` → `develop`                       | Back-merge posterior a la release                                                                                                    |
+| [#35](https://github.com/PrintJero/CMarket-speckit/pull/35) | `docs/release-v1.0.0-report` → `develop` | Este reporte                                                                                                                         |
+| [#36](https://github.com/PrintJero/CMarket-speckit/pull/36) | `chore/cd-pipeline` → `develop`          | CD solo por imagen: `metadata-action`, `latest` solo en `main`, `workflow_dispatch`, webhook con 200 estricto, health check de 5 min |
+| [#37](https://github.com/PrintJero/CMarket-speckit/pull/37) | `docs/production-runbook` → `develop`    | Runbook del setup real de Dokploy, bootstrap, schedules, smoke en producción y backlog (OAuth, backups)                              |
+| [#38](https://github.com/PrintJero/CMarket-speckit/pull/38) | `hotfix/email-error-detail` → `main`     | Hotfix v1.0.1 (errores de correo diagnosticables, error claro y reintentable)                                                        |
+| [#39](https://github.com/PrintJero/CMarket-speckit/pull/39) | `main` → `develop`                       | Back-merge posterior al hotfix                                                                                                       |
 
 ---
 
@@ -164,8 +169,26 @@ Todos se mergearon con _merge commit_, con el CI en verde.
 - **Constitución:** **4.1.1**. Bump PATCH: la referencia "spec 001" se corrigió a `specs/004-invitations-membership`.
 - **Spec Kit:** las casillas de `specs/*/tasks.md` de las specs 002 a 018 están todas en `[x]`.
 - **Imágenes publicadas** por el workflow Deploy tras el CI en verde:
-  - `ghcr.io/printjero/cmarket-speckit:main`, `:main-tools`, `:sha-5b651cb…`;
+  - `ghcr.io/printjero/cmarket-speckit:main`, `:latest`, `:main-tools` y `:sha-<short>` por commit;
   - `:develop` y `:develop-tools`.
+
+  El paquete es público.
+
+### Hotfix v1.0.1 (27/11/2026)
+
+Después del primer despliegue, los correos de verificación fallaban. La causa fue `EMAIL_WEBHOOK_TOKEN` pegado con el prefijo `RESEND_API_KEY=` y comillas (Jero lo corrigió en Dokploy). El hotfix (`hotfix/email-error-detail` → `main`, [PR #38](https://github.com/PrintJero/CMarket-speckit/pull/38)) evita que ese tipo de fallo vuelva a ser opaco:
+
+| Archivo                                                          | Error                                                                   | Causa raíz                                                                 | Solución                                                                                                         | Commit    |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | --------- |
+| `src/lib/email/sendEmail.ts`                                     | El error de envío decía solo "status 401"                               | El transporte descartaba el cuerpo de la respuesta del proveedor           | `EmailDeliveryError` con status y cuerpo (truncado a 300 caracteres, token redactado) y fallos de red reportados | `d790be4` |
+| `accountService.ts`, rutas `sign-up` y `resend-verification`, UI | 500 sin capturar y "Something went wrong."                              | La excepción de envío escapaba de la ruta                                  | Resultado `email_delivery_failed`, 503 con un mensaje claro y reintentable, y los botones siguen habilitados     | `343f234` |
+| `verificationService.ts`                                         | **Al sexto intento fallido, el registro respondía 202 sin enviar nada** | Los tokens de envíos fallidos contaban para el límite de 5 cada 15 minutos | El token no entregado se descarta; el reintento siempre envía                                                    | `343f234` |
+
+- **Pruebas:** 10 tests nuevos escritos primero (rojo), 5 unitarios y 5 de contrato, más 1 e2e de UI.
+  - Unit/contract: **392/392**.
+  - E2E: **124/124 en 3 corridas seguidas**.
+- **Nota de diseño (spec 002, non-enumeration):** solo mientras el envío está caído, un correo ya verificado recibe 202 donde uno nuevo o sin verificar recibe 503. Quedó documentado en el CHANGELOG y en el PR para que Jero decida si prefiere mantener el 202 también en ese caso.
+- **Tag** `v1.0.1` sobre `63cb92e`, [GitHub Release](https://github.com/PrintJero/CMarket-speckit/releases/tag/v1.0.1), back-merge a `develop` ([PR #39](https://github.com/PrintJero/CMarket-speckit/pull/39)).
 
 ---
 
@@ -173,18 +196,18 @@ Todos se mergearon con _merge commit_, con el CI en verde.
 
 **Setup real** (lo configuró Jero en Dokploy; detalle en el README, "Production deployment (Dokploy)"):
 
-| Concepto            | Valor                                                                                                                                                                                                                        |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| URL                 | <https://cmarket-cmarketspeckit-pakwhf-3d0eae-18-159-111-110.sslip.io> (HTTPS con Let's Encrypt)                                                                                                                             |
-| Aplicación          | Dokploy, proyecto `CMarket` / `production`, servicio `Cmarket-SpecKit`: tipo Application, Provider Docker, imagen `ghcr.io/printjero/cmarket-speckit:main`, Autodeploy encendido (lo requiere el webhook; sin build por git) |
-| Base de datos       | Servicio aparte `cmarket-speckit-db` (`postgres:16-alpine`), solo en la red interna; nueva y exclusiva de esta app                                                                                                           |
-| Pipeline            | Solo `main` despliega: secret `DOKPLOY_WEBHOOK_URL` y variable `APP_URL` en el Environment `production`; `develop` no despliega (un solo servidor). El servidor nunca construye (3.8 GB de RAM)                              |
-| Fecha del deploy    | 27/11/2026. Jero lo hizo directamente en Dokploy con la imagen `:main` de la release (`sha-5b651cb`). El camino automático (CI → Deploy → webhook → health check) se estrena con el merge del hotfix v1.0.1 a `main`         |
-| Incidente de correo | Los correos de verificación fallaban: `EMAIL_WEBHOOK_TOKEN` se pegó como `RESEND_API_KEY="…"` (con prefijo y comillas, copiado de Bella). Jero lo corrigió. El hotfix v1.0.1 hace que este tipo de error sea diagnosticable  |
-| Tareas programadas  | Configuración exacta documentada en el README ("Scheduled jobs"): cleanup cada 15 minutos en `Cmarket-SpecKit` y archivado diario en `cmarket-tools`. **Pendiente de crearlas en Dokploy**                                   |
-| Backups             | **Pendientes:** requieren un destino S3 (ver BACKLOG)                                                                                                                                                                        |
+| Concepto            | Valor                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| URL                 | <https://cmarket-cmarketspeckit-pakwhf-3d0eae-18-159-111-110.sslip.io> (HTTPS con Let's Encrypt)                                                                                                                                                                                                                                                                                                                                        |
+| Aplicación          | Dokploy, proyecto `CMarket` / `production`, servicio `Cmarket-SpecKit`: tipo Application, Provider Docker, imagen `ghcr.io/printjero/cmarket-speckit:main`, Autodeploy encendido (lo requiere el webhook; sin build por git)                                                                                                                                                                                                            |
+| Base de datos       | Servicio aparte `cmarket-speckit-db` (`postgres:16-alpine`), solo en la red interna; nueva y exclusiva de esta app                                                                                                                                                                                                                                                                                                                      |
+| Pipeline            | Solo `main` despliega: secret `DOKPLOY_WEBHOOK_URL` y variable `APP_URL` en el Environment `production`; `develop` no despliega (un solo servidor). El servidor nunca construye (3.8 GB de RAM)                                                                                                                                                                                                                                         |
+| Fecha del deploy    | **v1.0.0:** 27/11/2026, hecho por Jero directamente en Dokploy con `:main` (`sha-5b651cb`). **v1.0.1:** 27/11/2026, a partir de las 11:46 UTC, por el pipeline completo: merge a `main` → CI verde → Deploy (run 45993628675) → Dokploy notificado (HTTP 200) → `/api/health` 200. Además se verificó que producción sirve esa build: el `BUILD_ID` `o7u3FaYkafIaApK_h9p3K` de la imagen `sha-63cb92e` aparece en el HTML de producción |
+| Incidente de correo | Los correos de verificación fallaban: `EMAIL_WEBHOOK_TOKEN` se pegó como `RESEND_API_KEY="…"` (con prefijo y comillas, copiado de Bella). Jero lo corrigió. El hotfix v1.0.1 hace que este tipo de error sea diagnosticable                                                                                                                                                                                                             |
+| Tareas programadas  | Configuración exacta documentada en el README ("Scheduled jobs"): cleanup cada 15 minutos en `Cmarket-SpecKit` y archivado diario en `cmarket-tools`. **Pendiente de crearlas en Dokploy**                                                                                                                                                                                                                                              |
+| Backups             | **Pendientes:** requieren un destino S3 (ver BACKLOG)                                                                                                                                                                                                                                                                                                                                                                                   |
 
-**Smoke test (sección 8.6), 14 puntos.** La parte automatizada se ejecutó con `npm run test:smoke` contra producción el 27/11/2026 a las 11:27 UTC: **9/9 en verde**.
+**Smoke test (sección 8.6), 14 puntos.** La parte automatizada se ejecutó con `npm run test:smoke` contra producción el 27/11/2026: a las 11:27 UTC sobre v1.0.0 y a las 11:56 UTC sobre v1.0.1. **9/9 en verde las dos veces.**
 
 | #   | Punto                                                          | Resultado                                                                                                         |
 | --- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
