@@ -339,3 +339,20 @@ start`, or the Docker image), never under `npm run dev`. `/sw.js` is served
 
 - `specs/002-accounts-authentication/` (spec, plan, tasks, data model, API contracts, quickstart validation guide) — accounts and authentication.
 - `specs/003-community-creation/` (spec, plan, tasks, data model, tooling contract, quickstart validation guide) — community creation and founding administrator.
+- `specs/004-invitations-membership/` — single-use, community-scoped email invitations and membership.
+- `specs/005-product-listings/` — community-scoped listings with an ACTIVE/PAUSED lifecycle.
+- `specs/006-user-display-names/` — display names everywhere a member appears; never emails.
+- `specs/007-listing-discovery/` — feed, search, filters and pagination in SQL.
+- `specs/008-listing-messaging/` — one thread per listing and buyer.
+- `specs/009-platform-administration/` — MASTER authority, community lifecycle, account administration, audit log.
+- `specs/010-transaction-logging/` — traceable transaction records (off-platform payment).
+- `specs/011-wanted-posts/` — "looking for" posts.
+- `specs/012-profiles-reputation/` — member profiles and transaction-backed ratings.
+- `specs/013-purchase-flow-stock/` — stock, purchase proposals, dual transaction history.
+- `specs/014-account-public-profiles/` — self profile and shared-community member profiles.
+- `specs/015-navigation-shell-community-selector/` — active-community navigation shell.
+- `specs/016-chat-conversation-redesign/` — chat-style thread UI.
+- `specs/017-cloudinary-listing-media/` — Cloudinary-backed listing images.
+- `specs/018-pwa-installable/` — installable PWA with a privacy-bounded service worker.
+
+Work deliberately not shipped in v1.0.0, and known risks, are tracked in `specs/BACKLOG.md`. Release history is in `CHANGELOG.md`.
