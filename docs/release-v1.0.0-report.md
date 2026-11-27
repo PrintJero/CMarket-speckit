@@ -187,6 +187,7 @@ Después del primer despliegue, los correos de verificación fallaban. La causa 
 - **Pruebas:** 10 tests nuevos escritos primero (rojo), 5 unitarios y 5 de contrato, más 1 e2e de UI.
   - Unit/contract: **392/392**.
   - E2E: **124/124 en 3 corridas seguidas**.
+- **Caso real en producción:** la cuenta `jgalvez@anahuac.mx`, registrada a las 11:15 UTC con el token roto, quedó sin poder verificar ni aceptar su invitación hasta que reenvió la verificación (detalle y nota operativa en la sección 8).
 - **Nota de diseño (spec 002, non-enumeration):** solo mientras el envío está caído, un correo ya verificado recibe 202 donde uno nuevo o sin verificar recibe 503. Quedó documentado en el CHANGELOG y en el PR para que Jero decida si prefiere mantener el 202 también en ese caso.
 - **Tag** `v1.0.1` sobre `63cb92e`, [GitHub Release](https://github.com/PrintJero/CMarket-speckit/releases/tag/v1.0.1), back-merge a `develop` ([PR #39](https://github.com/PrintJero/CMarket-speckit/pull/39)).
 
@@ -242,7 +243,21 @@ Después del primer despliegue, los correos de verificación fallaban. La causa 
 - **Tareas programadas:** configuradas y ejecutadas en Dokploy. `listing-media-cleanup` corre cada 15 minutos y respondió `{"ok":true}`; `archive-suspended-communities` corre a diario a las 03:00 UTC.
 - **MASTER:** se creó `jero`. Su contraseña temporal se regeneró directamente en la base por un error de copiado. Esa acción de operador quedó **fuera del audit log**.
 
-Hallazgos que pasaron al BACKLOG: los correos no llegan a dominios institucionales (`@anahuac.mx`) y las fechas se muestran en UTC.
+Hallazgos que pasaron al BACKLOG:
+
+- Los correos a `@anahuac.mx` (Microsoft 365) llegan con retraso; a `cosmic-chimps.com` (Google Workspace) llegan al instante.
+- Las fechas se muestran en UTC.
+
+**Caso real del bug que corrige v1.0.1 (evidencia del hotfix).**
+
+1. La cuenta `jgalvez@anahuac.mx` se registró a las 11:15 UTC del 27/11/2026, cuando el token de Resend todavía estaba roto.
+2. El correo de verificación nunca se envió: quedó un `VerificationToken` sin consumir.
+3. Por eso la cuenta no podía aceptar la invitación ("Verify your email before accepting").
+4. Se resolvió desde `/verify-email` con "Resend verification email".
+
+Con v1.0.0, el registro falló sin explicación y el token no entregado contaba para el límite de reenvíos. Con v1.0.1, el registro habría mostrado el error, el token no entregado se habría descartado y el reintento habría funcionado.
+
+**Nota operativa:** las cuentas que se registraron mientras el envío de correo estaba caído no recibieron su verificación. Deben usar "Resend verification email" en `/verify-email`; no hace falta tocar la base.
 
 ---
 
@@ -291,5 +306,5 @@ _Actualizado el 27/11/2026, después del smoke manual._ Ya resuelto: acceso a Do
 1. **Backups automáticos y una restauración probada** antes de onboardear la primera comunidad real. Requieren un destino S3 (BACKLOG §7).
 2. Puntos 11 (instalación en iOS) y 13 (revisar los logs en Dokploy) del smoke test.
 3. **Publicar la app de Google OAuth** cuando haya dominio propio y una página `/privacy` (BACKLOG §6).
-4. **Entregabilidad a dominios institucionales:** los correos no llegan a `@anahuac.mx` (BACKLOG §9).
+4. **Entregabilidad a dominios institucionales:** los correos a `@anahuac.mx` (Microsoft 365) llegan con retraso. El remitente ya está autenticado (DKIM de Resend, SPF en `send.anahuarket.cosmic-chimps.com` y DMARC `p=none`); la causa probable es la falta de reputación del remitente y los links a `sslip.io`. Se resuelve con dominio propio, endurecer el DMARC y un calentamiento del remitente (BACKLOG §9).
 5. Borrar o archivar el listing "[PRUEBA] Calculadora científica Casio fx-991" antes de que entre una comunidad real.
