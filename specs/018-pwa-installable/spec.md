@@ -8,6 +8,12 @@
 
 **Input**: User description: "Installable PWA for CMarket (Constitution Principle V — 'MUST be installable as a Progressive Web App'; today there is no public/, manifest, or service worker, so the app cannot be installed). Scope (Principle VII, minimum viable): a web app manifest (name 'CMarket', start URL and scope '/', standalone display, background and theme colors, 192px, 512px and maskable 512px icons); icons plus an Apple touch icon and iOS home-screen metadata; a provisional original 'CM' wordmark icon; a hand-written service worker with no new dependencies, registered only in production; a minimal static offline page shown when a navigation fails without network. Security constraints: the service worker caches only static build assets, icons, the manifest and the offline page; it never caches API responses (especially listing photos — Principle II and 017's access revocation), authenticated HTML, or anything marked private/no-store; navigations are network-first with the offline page only as a fallback; versioned cache name with old caches removed on activation; the worker script itself is served uncached. UX: document that iOS has no push unless installed; this feature implements no push. Tests: manifest and icons served; worker registers in the production build; after authenticated browsing no API URL or community page is in any cache; offline navigation shows the offline page; installability criteria verified; main screens checked at iPhone 13 and Pixel 7 viewports, fixing any desktop-only screen."
 
+## Clarifications
+
+### Session 2026-11-27
+
+- Q: How is installation offered: the browser's own install UI only, or also a custom in-app "Install" button? → A: Browser-native install UI only (Chrome/Edge install prompt, iOS "Add to Home Screen"). No custom install button or `beforeinstallprompt` handling. _Source: the v1.0.0 closure brief's production smoke test expects Chrome's own "Install app" entry, and Principle VII requires the minimal solution._
+
 ## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Install CMarket to the home screen (Priority: P1)
@@ -77,7 +83,7 @@ A member on a typical phone (for example an iPhone 13 or a Pixel 7) can use ever
 - **FR-002**: The manifest MUST reference icons of 192×192 and 512×512 pixels, plus a 512×512 icon marked as maskable. Every referenced icon MUST be served successfully.
 - **FR-003**: CMarket MUST provide a 180×180 Apple touch icon and iOS home-screen metadata (title and standalone-capable status bar), and MUST declare its theme color for the browser UI.
 - **FR-004**: The icon MUST be an original "CM" wordmark designed for CMarket, documented as provisional until an official logo exists.
-- **FR-005**: CMarket MUST satisfy the browser installability criteria (served over HTTPS in production, valid manifest, registered service worker that handles navigations) so that supporting browsers offer installation.
+- **FR-005**: CMarket MUST satisfy the browser installability criteria (served over HTTPS in production, valid manifest, registered service worker that handles navigations) so that supporting browsers offer installation through their own native install UI. CMarket MUST NOT add a custom in-app install button or intercept the browser's install prompt.
 
 **Service worker: what it may and may not store (security-critical)**
 
