@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { FormField, fieldInputClassName } from "../../_components/FormField";
+import { FormField, FormError, fieldInputClassName } from "../../_components/FormField";
 import { Button } from "../../_components/Button";
 
 function VerifyEmailContent() {
@@ -21,13 +21,21 @@ function VerifyEmailContent() {
 
   const [resendEmail, setResendEmail] = useState("");
   const [resendSent, setResendSent] = useState(false);
+  const [resendError, setResendError] = useState("");
 
+  // Hotfix v1.0.1: a failed send (503) is shown and can be retried.
   async function requestResend() {
-    await fetch("/api/auth/resend-verification", {
+    setResendError("");
+    const response = await fetch("/api/auth/resend-verification", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: resendEmail }),
     });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      setResendError(data.error ?? "Something went wrong. Please try again.");
+      return;
+    }
     setResendSent(true);
   }
 
@@ -58,6 +66,7 @@ function VerifyEmailContent() {
               If this email needs verifying, we&apos;ve sent a new link.
             </p>
           )}
+          {resendError && <FormError role="alert">{resendError}</FormError>}
         </>
       )}
     </>

@@ -15,16 +15,25 @@ export default function SignUpPage() {
   const [status, setStatus] = useState<"idle" | "submitting" | "done" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [resendSent, setResendSent] = useState(false);
+  const [resendError, setResendError] = useState("");
 
   // FR-024/FR-009/FR-021: identical, generic acknowledgement no matter the
   // email's real state (already sent, already verified, or rate-limited) —
-  // reuses the existing, unchanged resend-verification endpoint (FR-014).
+  // reuses the existing resend-verification endpoint (FR-014). Hotfix v1.0.1:
+  // a send that actually failed (503) is shown, and the button stays enabled
+  // so the member can retry.
   async function onResend() {
-    await fetch("/api/auth/resend-verification", {
+    setResendError("");
+    const response = await fetch("/api/auth/resend-verification", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
     });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      setResendError(data.error ?? "Something went wrong. Please try again.");
+      return;
+    }
     setResendSent(true);
   }
 
@@ -73,6 +82,7 @@ export default function SignUpPage() {
             If this email needs verifying, we&apos;ve sent a new link.
           </p>
         )}
+        {resendError && <FormError role="alert">{resendError}</FormError>}
         <p className="mt-5 text-center text-sm text-ink-muted">
           <a href="/sign-in" className="font-semibold text-brand hover:underline">
             Back to sign in
