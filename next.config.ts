@@ -21,6 +21,24 @@ const nextConfig: NextConfig = {
   devIndicators: {
     position: "bottom-right",
   },
+
+  /**
+   * 018-pwa-installable, FR-012: browsers must re-check the service worker
+   * script on every load, so a fixed worker reaches members on their next visit.
+   * Service-Worker-Allowed is intentionally absent: a worker served from the
+   * root (/sw.js) already has scope "/".
+   */
+  async headers() {
+    return [
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Content-Type", value: "application/javascript; charset=utf-8" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

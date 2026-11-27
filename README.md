@@ -137,6 +137,45 @@ docker run --name cmarket --network cmarket-speckit_default \
 photo irreversibly. Take and verify a database backup first — the entrypoint
 applies migrations automatically, so there is no manual gate.
 
+## PWA
+
+CMarket is installable as a Progressive Web App (Constitution Principle V,
+`specs/018-pwa-installable/`).
+
+- **How members install it:** through the browser's own UI only. In Chrome or
+  Edge (Android and desktop), use the install prompt or the install icon in the
+  address bar. On iPhone, use Safari > Share > **Add to Home Screen**. There is
+  no custom in-app install button.
+- **What ships:**
+  - `app/manifest.ts`, served at `/manifest.webmanifest`;
+  - the icons in `public/icons/`;
+  - iOS metadata and `themeColor` in `app/layout.tsx`;
+  - the service worker `public/sw.js`;
+  - the static offline page `app/offline/page.tsx`.
+- **The worker registers only in production builds** (`npm run build && npm run
+start`, or the Docker image), never under `npm run dev`. `/sw.js` is served
+  with `Cache-Control: no-cache`, so a fixed worker reaches members on their next
+  visit.
+- **Privacy invariant.** The worker stores **only** the public static shell:
+  `/_next/static/…`, `/icons/…`, the manifest and `/offline`. It never stores
+  API responses (in particular listing photos), page HTML other than `/offline`,
+  or responses marked `private`/`no-store`. Navigations are network-first, and
+  the offline page appears only when the network request fails.
+  `tests/integration/test_pwa_installable.spec.ts` enforces this with an
+  allowlist over every cached URL. **When you change the rules or the precache
+  list in `public/sw.js`, bump `CACHE`** (`cmarket-static-v1` → `v2`) so old
+  device caches are deleted on activation.
+- **Icon:** `public/icons/icon.svg` is an original, **provisional** "CM" wordmark
+  used until an official logo exists. After editing it, regenerate the PNGs
+  (192, 512, maskable 512 and the 180×180 Apple touch icon) with
+  `npx tsx scripts/generate-pwa-icons.ts`. The script uses the Playwright
+  Chromium already installed for the tests, so no image dependency is added.
+- **No push notifications.** iOS delivers web push only to apps installed on the
+  Home Screen, and this release sends none. See `specs/BACKLOG.md` §3.
+- **Tests:** the Playwright suite blocks service workers by default
+  (`playwright.config.ts`). The two PWA specs opt back in with
+  `test.use({ serviceWorkers: "allow" })`.
+
 ## Feature specs
 
 - `specs/002-accounts-authentication/` (spec, plan, tasks, data model, API contracts, quickstart validation guide) — accounts and authentication.
