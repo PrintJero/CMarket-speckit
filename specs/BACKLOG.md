@@ -162,21 +162,35 @@ Report entry and a new "Last Amended" date.
 
 ## 9. Email deliverability to institutional domains
 
-**Found:** production manual smoke, 2026-11-27. Emails sent through Resend reach other mailboxes,
-but an `@anahuac.mx` address does not receive them. Communities are expected to be universities
-and companies, so this blocks onboarding exactly the users CMarket targets.
+**Found:** production manual smoke, 2026-11-27. Email to `@anahuac.mx` **does arrive, but late**.
+That domain is on Microsoft 365 (MX `anahuac-mx.mail.protection.outlook.com`). By contrast,
+`cosmic-chimps.com`, which is on Google Workspace, receives the same email instantly. A delay on a
+verification or invitation email feels like a broken sign-up, and the target communities
+(universities, companies) are often on Microsoft 365.
+
+**Sender already checked (2026-11-27):**
+
+- DKIM: the Resend DKIM record is present.
+- SPF: on `send.anahuarket.cosmic-chimps.com`, the return-path subdomain (`include:amazonses.com`).
+- DMARC: inherited from `cosmic-chimps.com`, with `p=none`.
+
+Authentication is therefore in place. The **probable cause** is reputation:
+
+- the sender is new and external, with no sending history to Microsoft;
+- the links in the email point to an IP-based `sslip.io` hostname, which filters treat as suspicious.
+
+Microsoft 365 holds or slows down such messages.
 
 **Work:**
 
-1. Check the sender domain (`EMAIL_FROM`) in Resend. SPF, DKIM and DMARC must all pass, and the
-   domain must be verified, not Resend's shared test sender. Confirm with a header check (for
-   example, mail-tester or a Gmail "Show original").
-2. Use Resend's per-message log to see whether the destination accepted, deferred, bounced or
-   silently dropped the message.
-3. Ask the institution's IT team to check the quarantine (Microsoft 365 / Defender or Google
-   Workspace) and, if needed, allowlist the sender domain.
-4. Document in the README what a community's IT team should allowlist, as part of community
-   onboarding.
+1. **Own domain for the app** (shared with BACKLOG §6). Links in emails should point to a real
+   domain, not `sslip.io`.
+2. **DMARC:** once reports show SPF and DKIM aligned, raise the policy from `p=none` to
+   `p=quarantine`, and add `rua` reporting to watch alignment.
+3. **Warm-up:** keep the volume low and consistent at first. In Resend's per-message log, check
+   delivery time to Microsoft recipients (accepted versus deferred).
+4. **Per-community onboarding:** if delays persist, ask the institution's IT team to allowlist the
+   sender domain in Microsoft 365 / Defender. Document what to allowlist in the README.
 
 ---
 
