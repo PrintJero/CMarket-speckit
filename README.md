@@ -144,22 +144,32 @@ applies migrations automatically, so there is no manual gate.
 ```text
 merge to main ─► CI (verify + docker) green ─► Deploy workflow
                                                ├─ build + push ghcr.io/printjero/cmarket-speckit:main
-                                               │                     (+ :main-tools, + :sha-<commit>)
-                                               └─ POST DOKPLOY_WEBHOOK_URL (GitHub Environment "production")
-                                                    └─ Dokploy pulls the image, entrypoint runs
-                                                       `prisma migrate deploy`, app starts
+                                               │                     (+ :latest, :sha-<short>, :main-tools)
+                                               ├─ POST DOKPLOY_WEBHOOK_URL (GitHub Environment "production"),
+                                               │    fails unless Dokploy answers 200
+                                               │    └─ Dokploy pulls the image, entrypoint runs
+                                               │       `prisma migrate deploy`, app starts
+                                               └─ poll ${APP_URL}/api/health for up to 5 min, fail unless 200
 ```
 
 `develop` works the same way, deploying to the GitHub Environment `develop` with
-the `:develop` tags. Nothing is ever built on the server: what runs is exactly
-the commit CI validated (`.github/workflows/deploy.yml`).
+the `:develop` tags. The workflow can also be run manually (Actions > Deploy >
+Run workflow, on `develop` or `main`).
 
-**Secrets policy:**
+**The Dokploy server never builds.** It has 3.8 GB of RAM, and a Next.js build
+there runs out of memory during `npm ci`. Images are built on GitHub's runners,
+and `docker-compose.prod.yml` has no `build:` section, so Dokploy only pulls
+what runs: exactly the commit CI validated (`.github/workflows/deploy.yml`).
+
+**Secrets and variables policy:**
 
 - Application secrets live **only** in Dokploy's Environment tab.
-- Each GitHub Environment (`develop`, `production`) holds **only**
-  `DOKPLOY_WEBHOOK_URL`.
-- GHCR uses the workflow's built-in `GITHUB_TOKEN`.
+- Each GitHub Environment (`develop`, `production`) holds **one secret**,
+  `DOKPLOY_WEBHOOK_URL`, and **one variable** (not a secret), `APP_URL`, e.g.
+  `https://cmarket.example`, used for the post-deploy health check.
+- Without the webhook, the image is still published, and the deploy and health
+  check are skipped with a notice.
+- GHCR uses the workflow's built-in `GITHUB_TOKEN`. No Bella Baxter.
 
 ### 1. Pre-flight checklist (do not deploy until every box is ticked)
 
@@ -210,7 +220,8 @@ the commit CI validated (`.github/workflows/deploy.yml`).
 
 1. **GitHub:** Settings > Environments, then create `develop` and `production`.
    In each, add the secret `DOKPLOY_WEBHOOK_URL` (that environment's Dokploy
-   redeploy webhook). Optionally require Jero's approval on `production`.
+   redeploy webhook) and the variable `APP_URL` (its public URL, no trailing
+   slash). Optionally require Jero's approval on `production`.
 2. **Dokploy:** create a **Docker Compose** application from this repository,
    branch `main`, compose file `docker-compose.prod.yml`. Set the domain and the
    Environment tab as above. **Turn Dokploy's own Git auto-deploy off.**
@@ -289,7 +300,7 @@ installability.
 ### 7. Rollback and hotfix
 
 - **Rollback:** in Dokploy, set
-  `CMARKET_IMAGE=ghcr.io/printjero/cmarket-speckit:sha-<previous commit>` and
+  `CMARKET_IMAGE=ghcr.io/printjero/cmarket-speckit:sha-<previous 7-char commit>` and
   redeploy, or use Dokploy's deployment history. Migrations are forward-only, so
   restore the backup if a migration must be undone.
 - **Hotfix:** branch `hotfix/<desc>` from `main`, fix with a test, PR to `main`.
