@@ -12,6 +12,12 @@ export default defineConfig({
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000",
     trace: "on-first-retry",
+    // 018-pwa-installable: the production build registers a service worker
+    // that answers navigations. Such requests are invisible to page.route and
+    // make page.goto responses fromServiceWorker, so the suite must not
+    // silently start depending on it. The PWA specs opt back in with
+    // test.use({ serviceWorkers: "allow" }).
+    serviceWorkers: "block",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: [

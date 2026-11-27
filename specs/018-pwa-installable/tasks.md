@@ -56,7 +56,7 @@ the allowlist.
 
 ### Tests for User Story 1 (write first, confirm red) ⚠️
 
-- [ ] T005 [US1] Create `tests/integration/test_pwa_installable.spec.ts` with these tests (signed out unless stated):
+- [X] T005 [US1] Create `tests/integration/test_pwa_installable.spec.ts` with these tests (signed out unless stated):
   1. `GET /manifest.webmanifest` is 200 with `application/manifest+json` and exactly the required fields and three icons from contracts/manifest.md.
   2. Each of the four icon URLs is 200 `image/png`, and its decoded size matches. Read the PNG IHDR width/height from bytes 16–23 of the response body; no image library.
   3. The home page `<head>` contains `meta[name=theme-color][content="#7c1ff2"]`, `link[rel=manifest]`, `link[rel=apple-touch-icon][href="/icons/apple-touch-icon.png"]` and `meta[name=apple-mobile-web-app-title][content=CMarket]`.
@@ -65,7 +65,7 @@ the allowlist.
   6. Via `page.context().newCDPSession(page)`: `Page.getInstallabilityErrors` returns an empty `installabilityErrors` array, and `Page.getAppManifest` returns no `errors` (research #9).
 
   Confirm all six FAIL (red): no manifest, icons, metadata or worker exist yet.
-- [ ] T006 [US1] Extend `tests/integration/test_pwa_installable.spec.ts` with:
+- [X] T006 [US1] Extend `tests/integration/test_pwa_installable.spec.ts` with:
   1. **Cache allowlist (SC-002, FR-006 to FR-009)**: reuse the helpers pattern from `tests/integration/test_listing_media_flow.spec.ts` / `test_purchase_flow.spec.ts` to create a community with a seller and a buyer, a listing with one photo (Cloudinary stubbed via `stubCloudinaryUpload` from `tests/integration/helpers.ts`), a message thread and a pending transaction. Sign in as the buyer, wait for `navigator.serviceWorker.ready`, then visit the feed, the listing detail (wait for its image to load), the thread, `/transactions` and `/account`, and reload each once so a controlled page issues requests through the worker. Collect every key: `caches.keys()` → `cache.keys()` → `new URL(req.url).pathname`. Assert that the only cache name is `cmarket-static-v1`, that no path starts with `/api/`, and that every path matches `^/_next/static/|^/icons/|^/manifest\.webmanifest$|^/offline$`. Also assert at least one `/_next/static/` entry, which proves the worker is actually caching.
   2. **Old caches removed (FR-011, SC-004)**: in the page, `await caches.open("cmarket-static-v0")` and put one dummy entry. Then `navigator.serviceWorker.getRegistration()` → `registration.unregister()`, reload, wait for `ready` (a fresh install and activate run), and assert that `caches.keys()` equals `["cmarket-static-v1"]`.
 
@@ -73,9 +73,9 @@ the allowlist.
 
 ### Implementation for User Story 1
 
-- [ ] T007 [P] [US1] Create `app/manifest.ts` exporting `default function manifest(): MetadataRoute.Manifest` with exactly the fields of contracts/manifest.md (name/short_name "CMarket", description "Community marketplaces", start_url/scope "/", display "standalone", background `#f7f7f9`, theme `#7c1ff2`, the three icons with `purpose` "any"/"any"/"maskable").
-- [ ] T008 [P] [US1] Create `app/_components/ServiceWorkerRegistrar.tsx` (`"use client"`). It returns `null`, and in a `useEffect` returns early unless `process.env.NODE_ENV === "production"` and `"serviceWorker" in navigator`. Otherwise it calls `navigator.serviceWorker.register("/sw.js", { scope: "/" })`. On rejection it logs a single `console.warn` (no rethrow), since the app must keep working as a plain website (spec edge case).
-- [ ] T009 [P] [US1] Create `public/sw.js` implementing contracts/service-worker.md exactly, in plain ES2020 with no imports:
+- [X] T007 [P] [US1] Create `app/manifest.ts` exporting `default function manifest(): MetadataRoute.Manifest` with exactly the fields of contracts/manifest.md (name/short_name "CMarket", description "Community marketplaces", start_url/scope "/", display "standalone", background `#f7f7f9`, theme `#7c1ff2`, the three icons with `purpose` "any"/"any"/"maskable").
+- [X] T008 [P] [US1] Create `app/_components/ServiceWorkerRegistrar.tsx` (`"use client"`). It returns `null`, and in a `useEffect` returns early unless `process.env.NODE_ENV === "production"` and `"serviceWorker" in navigator`. Otherwise it calls `navigator.serviceWorker.register("/sw.js", { scope: "/" })`. On rejection it logs a single `console.warn` (no rethrow), since the app must keep working as a plain website (spec edge case).
+- [X] T009 [P] [US1] Create `public/sw.js` implementing contracts/service-worker.md exactly, in plain ES2020 with no imports:
   - `CACHE = "cmarket-static-v1"`; `PRECACHE = ["/offline", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png", "/icons/icon-maskable-512.png", "/icons/apple-touch-icon.png"]`.
   - **install**: `cache.addAll(PRECACHE.map(u => new Request(u, { credentials: "omit" })))`, then `skipWaiting()`.
   - **activate**: delete every `cmarket-*` cache ≠ `CACHE`, then `clients.claim()`.
@@ -86,9 +86,9 @@ the allowlist.
     4. everything else: return.
 
   Add a header comment stating the privacy invariant, and that changing the rules or the precache list requires bumping `CACHE`. FR-009's private/no-store guard is defence in depth (allowlisted paths are never private today) and is verified by code review rather than an e2e test (analysis C1).
-- [ ] T010 [P] [US1] In `next.config.ts`, add `async headers()` returning, for `source: "/sw.js"`, `Cache-Control: no-cache, no-store, must-revalidate` and `Content-Type: application/javascript; charset=utf-8`. Add a comment noting that `Service-Worker-Allowed` is intentionally absent, because a root-level worker already has scope `/` (research #6).
-- [ ] T011 [US1] In `app/layout.tsx`, extend `metadata` with `appleWebApp: { capable: true, title: "CMarket", statusBarStyle: "default" }` and `icons: { apple: "/icons/apple-touch-icon.png" }`; add `export const viewport: Viewport = { themeColor: "#7c1ff2" }`; render `<ServiceWorkerRegistrar />` inside `<body>` after `{children}`.
-- [ ] T012 [US1] In `playwright.config.ts`, set `use.serviceWorkers: "block"` as the suite default, with a comment: a worker that answers navigations hides those requests from `page.route` and makes `page.goto` responses `fromServiceWorker`, so the existing suite must not silently start depending on it. In both PWA specs (`test_pwa_installable.spec.ts`, and `test_pwa_mobile_viewports.spec.ts` from T015), add `test.use({ serviceWorkers: "allow" })` (analysis U1). Then `npm run build` and run `tests/integration/test_pwa_installable.spec.ts`: T005 and T006 must be green. Finally run the full `npm run test:e2e` to confirm nothing else changed.
+- [X] T010 [P] [US1] In `next.config.ts`, add `async headers()` returning, for `source: "/sw.js"`, `Cache-Control: no-cache, no-store, must-revalidate` and `Content-Type: application/javascript; charset=utf-8`. Add a comment noting that `Service-Worker-Allowed` is intentionally absent, because a root-level worker already has scope `/` (research #6).
+- [X] T011 [US1] In `app/layout.tsx`, extend `metadata` with `appleWebApp: { capable: true, title: "CMarket", statusBarStyle: "default" }` and `icons: { apple: "/icons/apple-touch-icon.png" }`; add `export const viewport: Viewport = { themeColor: "#7c1ff2" }`; render `<ServiceWorkerRegistrar />` inside `<body>` after `{children}`.
+- [X] T012 [US1] In `playwright.config.ts`, set `use.serviceWorkers: "block"` as the suite default, with a comment: a worker that answers navigations hides those requests from `page.route` and makes `page.goto` responses `fromServiceWorker`, so the existing suite must not silently start depending on it. In both PWA specs (`test_pwa_installable.spec.ts`, and `test_pwa_mobile_viewports.spec.ts` from T015), add `test.use({ serviceWorkers: "allow" })` (analysis U1). Then `npm run build` and run `tests/integration/test_pwa_installable.spec.ts`: T005 and T006 must be green. Finally run the full `npm run test:e2e` to confirm nothing else changed.
 
 **Checkpoint**: US1 is fully functional and testable on its own (MVP).
 
