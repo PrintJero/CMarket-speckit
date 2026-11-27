@@ -124,7 +124,7 @@ primary action is visible.
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T015 [US3] Create `tests/integration/test_pwa_mobile_viewports.spec.ts`. Set up one community with a seller, a buyer, a listing with a photo (stubbed), a thread with a message and a pending transaction. For each of `devices["iPhone 13"]` and `devices["Pixel 7"]` (via `browser.newContext({ ...devices[name] })`, research #11), sign in as the buyer and visit the five screens:
+- [X] T015 [US3] Create `tests/integration/test_pwa_mobile_viewports.spec.ts`. Set up one community with a seller, a buyer, a listing with a photo (stubbed), a thread with a message and a pending transaction. For each of `devices["iPhone 13"]` and `devices["Pixel 7"]` (via `browser.newContext({ ...devices[name] })`, research #11), sign in as the buyer and visit the five screens:
   - feed `/communities/{id}/listings` (primary action: the search/filter control);
   - listing detail (primary action: "Message" composer / propose purchase);
   - the thread (primary action: "Send reply");
@@ -132,7 +132,7 @@ primary action is visible.
   - `/account` (primary action: "Save").
 
   On each, assert `document.documentElement.scrollWidth <= window.innerWidth + 1` and that the primary action is visible.
-- [ ] T016 [US3] For every screen T015 reports as overflowing or hiding its primary action, fix its layout in the owning component (e.g. `app/communities/[communityId]/listings/page.tsx`, `app/communities/[communityId]/listings/[listingId]/page.tsx`, `app/communities/[communityId]/threads/[threadId]/page.tsx`, `app/transactions/page.tsx`, `app/account/page.tsx`) until T015 is green. Record which screens, if any, needed changes.
+- [X] T016 [US3] For every screen T015 reports as overflowing or hiding its primary action, fix its layout in the owning component (e.g. `app/communities/[communityId]/listings/page.tsx`, `app/communities/[communityId]/listings/[listingId]/page.tsx`, `app/communities/[communityId]/threads/[threadId]/page.tsx`, `app/transactions/page.tsx`, `app/account/page.tsx`) until T015 is green. Record which screens, if any, needed changes. **Outcome (2026-11-27): none needed.** All five screens passed at both iPhone 13 and Pixel 7 on the first run (no horizontal overflow; primary action visible). The only adjustment was in the test itself: the transactions row links to the same transaction twice, so the locator takes the first.
 
 **Checkpoint**: all three stories independently functional.
 
