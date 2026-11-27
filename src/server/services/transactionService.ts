@@ -55,7 +55,9 @@ function deriveParty(
     seller: { displayName: string | null };
   },
   callerAccountId: string,
-): { ok: true; role: PartyRole; counterpartId: string; counterpartDisplayName: string | null } | { ok: false } {
+):
+  | { ok: true; role: PartyRole; counterpartId: string; counterpartDisplayName: string | null }
+  | { ok: false } {
   const isBuyer = row.buyerId === callerAccountId;
   const isSeller = row.sellerId === callerAccountId;
   if (!isBuyer && !isSeller) return { ok: false };
@@ -164,7 +166,10 @@ export async function proposePurchase(input: ProposePurchaseInput): Promise<Prop
     prisma.account.findUnique({ where: { id: listing.ownerId }, select: { displayName: true } }),
   ]);
 
-  return { ok: true, transaction: { ...toRecord(created), sellerDisplayName: seller?.displayName ?? null } };
+  return {
+    ok: true,
+    transaction: { ...toRecord(created), sellerDisplayName: seller?.displayName ?? null },
+  };
 }
 
 export type AcceptProposalResult =
@@ -212,7 +217,9 @@ export async function acceptProposal(input: ResolveProposalInput): Promise<Accep
   if (transaction.state !== "PENDING") {
     return { ok: false, reason: "not_pending" };
   }
-  if (!(await requireCommunityMembership(transaction.buyerId, communityId, { allowSuspended: true }))) {
+  if (
+    !(await requireCommunityMembership(transaction.buyerId, communityId, { allowSuspended: true }))
+  ) {
     return { ok: false, reason: "not_a_member" };
   }
 
@@ -315,7 +322,14 @@ export async function cancelProposal(input: ResolveProposalInput): Promise<Cance
 }
 
 export type GetTransactionResult =
-  | { ok: true; transaction: TransactionRecord & { role: PartyRole; counterpartId: string; counterpartDisplayName: string | null } }
+  | {
+      ok: true;
+      transaction: TransactionRecord & {
+        role: PartyRole;
+        counterpartId: string;
+        counterpartDisplayName: string | null;
+      };
+    }
   | { ok: false; reason: "not_a_member" }
   | { ok: false; reason: "not_found" }
   | { ok: false; reason: "not_a_party" };
@@ -374,7 +388,9 @@ export type ListMyTransactionsResult = {
  * a query per row, and is the one bit of new state this view needs beyond
  * what getMyReview() already exposes per-transaction on the detail page.
  */
-export async function listMyTransactions(callerAccountId: string): Promise<ListMyTransactionsResult> {
+export async function listMyTransactions(
+  callerAccountId: string,
+): Promise<ListMyTransactionsResult> {
   const rows = await prisma.transaction.findMany({
     where: { OR: [{ buyerId: callerAccountId }, { sellerId: callerAccountId }] },
     orderBy: { createdAt: "desc" },
@@ -388,7 +404,9 @@ export async function listMyTransactions(callerAccountId: string): Promise<ListM
         select: { transactionId: true, rating: true },
       })
     : [];
-  const myRatingByTransactionId = new Map(myReviews.map((review) => [review.transactionId, review.rating]));
+  const myRatingByTransactionId = new Map(
+    myReviews.map((review) => [review.transactionId, review.rating]),
+  );
 
   return {
     ok: true,
@@ -396,7 +414,10 @@ export async function listMyTransactions(callerAccountId: string): Promise<ListM
     // so deriveParty() always succeeds here.
     transactions: rows.map((row) => {
       const party = deriveParty(row, callerAccountId);
-      if (!party.ok) throw new Error("unreachable: row matched the party OR clause but deriveParty() rejected it");
+      if (!party.ok)
+        throw new Error(
+          "unreachable: row matched the party OR clause but deriveParty() rejected it",
+        );
       return {
         ...toRecord(row),
         communityId: row.communityId,
@@ -411,7 +432,11 @@ export async function listMyTransactions(callerAccountId: string): Promise<ListM
 export type ListTransactionsResult =
   | {
       ok: true;
-      transactions: (TransactionRecord & { role: PartyRole; counterpartId: string; counterpartDisplayName: string | null })[];
+      transactions: (TransactionRecord & {
+        role: PartyRole;
+        counterpartId: string;
+        counterpartDisplayName: string | null;
+      })[];
     }
   | { ok: false; reason: "not_a_member" };
 
@@ -446,7 +471,10 @@ export async function listTransactions(
     // so deriveParty() always succeeds here.
     transactions: rows.map((row) => {
       const party = deriveParty(row, callerAccountId);
-      if (!party.ok) throw new Error("unreachable: row matched the party OR clause but deriveParty() rejected it");
+      if (!party.ok)
+        throw new Error(
+          "unreachable: row matched the party OR clause but deriveParty() rejected it",
+        );
       return { ...toRecord(row), ...party };
     }),
   };

@@ -14,10 +14,13 @@
 
 name: CI
 
+# Gitflow: every PR into main/develop, and every push to the long-lived and
+# release/hotfix branches, must pass the same gate.
 on:
   pull_request:
+    branches: [main, develop]
   push:
-    branches: [main]
+    branches: [main, develop, "release/**", "hotfix/**"]
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -87,6 +90,16 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Format check
+        run: npm run format:check
+
+      # The production build is what ships. Typecheck alone does not catch
+      # Next-specific build failures (route segment config, server/client
+      # boundary violations, prerender errors). The e2e suite also runs
+      # against this build (playwright.config.ts).
+      - name: Production build
+        run: npm run build
+
       - name: Unit and contract tests
         run: npm run test:unit
 
@@ -103,3 +116,16 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  # Catches a broken production image (Dockerfile drift, standalone-trace gaps,
+  # the isolated Prisma CLI install) before it reaches a deploy. Built only —
+  # never pushed to a registry from here; publishing is deploy.yml's job.
+  docker:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build production image
+        run: docker build -t cmarket:ci .

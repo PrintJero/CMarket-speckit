@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AlertIcon } from "../../_components/icons";
 import { MasterButton, type MasterButtonVariant } from "./MasterButton";
@@ -64,6 +64,7 @@ export function MasterConfirmDialog({
   const dialogRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
   const [typedValue, setTypedValue] = useState("");
+  const typedInputId = useId();
   const mounted = useIsClient();
 
   // Reset the typed-confirmation field when `open` flips closed. Adjusted
@@ -118,12 +119,18 @@ export function MasterConfirmDialog({
         ? "bg-warning-tint text-warning-dark"
         : "bg-master-tint text-master";
 
-  const resolvedConfirmVariant: MasterButtonVariant = confirmVariant ?? (tone === "danger" ? "dangerOutline" : "primary");
-  const typedGateBlocked = Boolean(typedConfirmationPhrase) && typedValue !== typedConfirmationPhrase;
+  const resolvedConfirmVariant: MasterButtonVariant =
+    confirmVariant ?? (tone === "danger" ? "dangerOutline" : "primary");
+  const typedGateBlocked =
+    Boolean(typedConfirmationPhrase) && typedValue !== typedConfirmationPhrase;
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-ink/45" onClick={busy ? undefined : onClose} aria-hidden="true" />
+      <div
+        className="absolute inset-0 bg-ink/45"
+        onClick={busy ? undefined : onClose}
+        aria-hidden="true"
+      />
       <div
         ref={dialogRef}
         role="alertdialog"
@@ -132,7 +139,9 @@ export function MasterConfirmDialog({
         className="relative flex w-full max-w-md flex-col rounded-xl bg-surface shadow-xl"
       >
         <div className="flex gap-3 border-b border-border px-5 py-4">
-          <span className={`flex h-9 w-9 flex-none items-center justify-center rounded-lg ${toneIconClassName}`}>
+          <span
+            className={`flex h-9 w-9 flex-none items-center justify-center rounded-lg ${toneIconClassName}`}
+          >
             <AlertIcon />
           </span>
           <div className="min-w-0">
@@ -147,11 +156,18 @@ export function MasterConfirmDialog({
 
         {typedConfirmationPhrase && (
           <div className="px-5 pb-1">
-            <label className="mb-1.5 block text-[12.5px] font-semibold text-ink">
-              Type <code className="rounded bg-bg px-1 py-0.5 font-master-mono">{typedConfirmationPhrase}</code> to
-              confirm
+            <label
+              htmlFor={typedInputId}
+              className="mb-1.5 block text-[12.5px] font-semibold text-ink"
+            >
+              Type{" "}
+              <code className="rounded bg-bg px-1 py-0.5 font-master-mono">
+                {typedConfirmationPhrase}
+              </code>{" "}
+              to confirm
             </label>
             <input
+              id={typedInputId}
               value={typedValue}
               onChange={(event) => setTypedValue(event.target.value)}
               className="w-full rounded-lg border border-border bg-surface px-3 py-2 font-master-mono text-[13px] outline-none focus:border-master focus:ring-2 focus:ring-master/25"

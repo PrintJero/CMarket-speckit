@@ -4,7 +4,10 @@ import { prisma } from "@/lib/prisma";
 import { requireCloudinaryConfig, uploadEndpoint } from "@/lib/cloudinary/config";
 import { signUploadParams, type SignedUploadParams } from "@/lib/cloudinary/signature";
 import { verifyAsset } from "@/lib/cloudinary/admin";
-import { MAX_PHOTOS_PER_LISTING, requireCommunityMembership } from "@/server/services/listingService";
+import {
+  MAX_PHOTOS_PER_LISTING,
+  requireCommunityMembership,
+} from "@/server/services/listingService";
 import { enqueueCleanup, renumberListingPhotos } from "@/server/services/mediaCleanupService";
 
 /**
@@ -100,9 +103,7 @@ function signAuthorization(publicId: string, context: string): UploadAuthorizati
  * has no membership, so a membership-first order here would report
  * `not_a_member` and hide the real reason — Principle IX).
  */
-export async function authorizeUpload(
-  input: AuthorizeUploadInput,
-): Promise<AuthorizeUploadResult> {
+export async function authorizeUpload(input: AuthorizeUploadInput): Promise<AuthorizeUploadResult> {
   if (!input.communityId || !input.draftId) return { ok: false, reason: "invalid_input" };
   if (input.listingId !== undefined && input.listingId !== input.draftId) {
     return { ok: false, reason: "invalid_input" };
@@ -132,11 +133,7 @@ export async function authorizeUpload(
     const pending = await prisma.pendingListingMedia.findUnique({
       where: { cloudinaryPublicId: input.publicId },
     });
-    if (
-      !pending ||
-      pending.accountId !== input.accountId ||
-      pending.draftId !== input.draftId
-    ) {
+    if (!pending || pending.accountId !== input.accountId || pending.draftId !== input.draftId) {
       return { ok: false, reason: "unauthorized_asset" };
     }
     if (pending.expiresAt.getTime() <= Date.now()) {
@@ -210,9 +207,7 @@ export interface AssociatePhotosInput {
  * The client sends its chosen order as data, wholly independent of the order
  * uploads happened to complete in (FR-017, SC-003).
  */
-export async function associatePhotos(
-  input: AssociatePhotosInput,
-): Promise<AssociatePhotosResult> {
+export async function associatePhotos(input: AssociatePhotosInput): Promise<AssociatePhotosResult> {
   const listing = await prisma.listing.findUnique({ where: { id: input.listingId } });
   if (!listing) return { ok: false, reason: "not_found" };
   if (listing.ownerId !== input.accountId) return { ok: false, reason: "not_owner" };
@@ -422,8 +417,7 @@ export async function reorderPhotos(input: ReorderPhotosInput): Promise<ReorderP
   const currentIds = new Set(current.map((photo) => photo.id));
   const requestedIds = new Set(input.photoIds);
   const isPermutation =
-    currentIds.size === requestedIds.size &&
-    [...currentIds].every((id) => requestedIds.has(id));
+    currentIds.size === requestedIds.size && [...currentIds].every((id) => requestedIds.has(id));
   if (!isPermutation) return { ok: false, reason: "stale_photo_set" };
 
   const photos = await prisma.$transaction(async (tx) => {

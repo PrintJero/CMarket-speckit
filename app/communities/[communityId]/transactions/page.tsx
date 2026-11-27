@@ -37,12 +37,18 @@ export default async function TransactionsPage({
   function historyRow(transaction: (typeof transactions)[number]) {
     return (
       <Card key={transaction.id} className="max-w-xl" data-testid="history-row">
-        <Link href={`/communities/${communityId}/transactions/${transaction.id}`} className="block hover:no-underline">
+        <Link
+          href={`/communities/${communityId}/transactions/${transaction.id}`}
+          className="block hover:no-underline"
+        >
           <p className="text-[15px] font-semibold">{transaction.listingTitle}</p>
         </Link>
         <p className="text-[13px] text-ink-muted">
           {transaction.role === "buyer" ? "Purchased from" : "Sold to"}{" "}
-          <Link href={`/communities/${communityId}/members/${transaction.counterpartId}`} className="hover:underline">
+          <Link
+            href={`/communities/${communityId}/members/${transaction.counterpartId}`}
+            className="hover:underline"
+          >
             {resolveDisplayName(transaction.counterpartDisplayName)}
           </Link>{" "}
           · {new Date(transaction.createdAt).toLocaleString()}

@@ -36,7 +36,9 @@ export default async function MemberProfilePage({
       <Card className="mb-5 max-w-xl">
         <div className="flex gap-8" data-testid="profile-reputation">
           <div>
-            <p className="text-[22px] font-bold text-ink">{formatAverageRating(profile.averageRating)}</p>
+            <p className="text-[22px] font-bold text-ink">
+              {formatAverageRating(profile.averageRating)}
+            </p>
             <p className="text-[12px] text-ink-muted">
               {profile.reviewCount} {profile.reviewCount === 1 ? "review" : "reviews"}
             </p>
@@ -74,7 +76,8 @@ export default async function MemberProfilePage({
                   >
                     <p className="font-semibold text-ink">{listing.title}</p>
                     <p className="text-[13px] text-ink-muted">
-                      {listing.kind === "WANTED" ? "Wanted" : "For sale"} · {formatListingPrice(listing.priceCents)}
+                      {listing.kind === "WANTED" ? "Wanted" : "For sale"} ·{" "}
+                      {formatListingPrice(listing.priceCents)}
                     </p>
                   </Link>
                 ))}

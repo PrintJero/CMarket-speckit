@@ -2,10 +2,20 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { MasterFormField, MasterFormMessage, masterFieldInputClassName } from "../../_components/MasterFormField";
+import {
+  MasterFormField,
+  MasterFormMessage,
+  masterFieldInputClassName,
+} from "../../_components/MasterFormField";
 import { MasterButton } from "../../_components/MasterButton";
 
-export function EditCommunityForm({ communityId, initialName }: { communityId: string; initialName: string }) {
+export function EditCommunityForm({
+  communityId,
+  initialName,
+}: {
+  communityId: string;
+  initialName: string;
+}) {
   const router = useRouter();
   const [name, setName] = useState(initialName);
   const [message, setMessage] = useState<{ kind: "success" | "error"; text: string } | null>(null);
@@ -43,7 +53,9 @@ export function EditCommunityForm({ communityId, initialName }: { communityId: s
         />
       </MasterFormField>
       {message && (
-        <MasterFormMessage tone={message.kind === "error" ? "error" : "success"}>{message.text}</MasterFormMessage>
+        <MasterFormMessage tone={message.kind === "error" ? "error" : "success"}>
+          {message.text}
+        </MasterFormMessage>
       )}
       <MasterButton type="submit" variant="secondary" disabled={submitting}>
         Save

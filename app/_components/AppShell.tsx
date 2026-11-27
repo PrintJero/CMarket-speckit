@@ -43,9 +43,10 @@ export function AppShell({
   const activeMembership = account?.memberships.find(
     (membership) => membership.communityId === account.activeCommunityId,
   );
-  const otherMemberships = account?.memberships.filter(
-    (membership) => membership.communityId !== account.activeCommunityId,
-  ) ?? [];
+  const otherMemberships =
+    account?.memberships.filter(
+      (membership) => membership.communityId !== account.activeCommunityId,
+    ) ?? [];
 
   /**
    * True only on the community-selection screen itself (memberships exist,
@@ -55,7 +56,8 @@ export function AppShell({
    * community context at all, which read as a bug rather than a deliberate
    * empty state.
    */
-  const onSelectorScreen = Boolean(account) && !activeMembership && (account?.memberships.length ?? 0) > 0;
+  const onSelectorScreen =
+    Boolean(account) && !activeMembership && (account?.memberships.length ?? 0) > 0;
 
   /** The communityId segment of whatever page AppShell is currently wrapping, if any. */
   const communityIdInPath = pathname.match(/^\/communities\/([^/]+)/)?.[1];
@@ -96,7 +98,10 @@ export function AppShell({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ communityId }),
     });
-    window.location.href = `/communities/${communityId}`;
+    // Full navigation on purpose: it re-renders every Server Component under the
+    // newly active community. router.push without router.refresh() would leave
+    // the previous community's data on screen (Principle II).
+    window.location.assign(`/communities/${communityId}`);
   }
 
   return (
@@ -160,10 +165,15 @@ export function AppShell({
 
             <nav className="mt-4 border-t border-border pt-4" aria-label="Main">
               {onSelectorScreen ? (
-                <p className="px-2.5 py-2 text-[12.5px] text-ink-muted">Choose a community to get started.</p>
+                <p className="px-2.5 py-2 text-[12.5px] text-ink-muted">
+                  Choose a community to get started.
+                </p>
               ) : (
                 <>
-                  <Link href="/chats" className={navLinkClassName(isNavPathActive(pathname, "/chats"))}>
+                  <Link
+                    href="/chats"
+                    className={navLinkClassName(isNavPathActive(pathname, "/chats"))}
+                  >
                     Chats
                   </Link>
                   <Link
@@ -190,15 +200,22 @@ export function AppShell({
                     aria-label={`Switch community, currently ${activeMembership.communityName}`}
                     className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-[13.5px] font-semibold text-ink hover:bg-bg"
                   >
-                    <span className="min-w-0 flex-1 truncate text-left" title={activeMembership.communityName}>
+                    <span
+                      className="min-w-0 flex-1 truncate text-left"
+                      title={activeMembership.communityName}
+                    >
                       {activeMembership.communityName}
                     </span>
-                    <span className="flex-none text-[11px] text-ink-muted">{switcherOpen ? "▲" : "▼"}</span>
+                    <span className="flex-none text-[11px] text-ink-muted">
+                      {switcherOpen ? "▲" : "▼"}
+                    </span>
                   </button>
 
                   {switcherOpen &&
                     (otherMemberships.length === 0 ? (
-                      <p className="px-2.5 py-2 text-[12px] text-ink-muted">No other communities to switch to.</p>
+                      <p className="px-2.5 py-2 text-[12px] text-ink-muted">
+                        No other communities to switch to.
+                      </p>
                     ) : (
                       <ul className="mt-1 flex flex-col gap-0.5">
                         {otherMemberships.map((membership) => (
@@ -223,7 +240,10 @@ export function AppShell({
                   <Link
                     href={`/communities/${activeMembership.communityId}/admin`}
                     className={navLinkClassName(
-                      isNavPathActive(pathname, `/communities/${activeMembership.communityId}/admin`),
+                      isNavPathActive(
+                        pathname,
+                        `/communities/${activeMembership.communityId}/admin`,
+                      ),
                     )}
                   >
                     Admin
@@ -231,7 +251,10 @@ export function AppShell({
                 )}
                 {/* Account is personal, not community-scoped, so it stays reachable even
                     before a community is chosen (unlike the cross-community hubs above). */}
-                <Link href="/account" className={navLinkClassName(isNavPathActive(pathname, "/account"))}>
+                <Link
+                  href="/account"
+                  className={navLinkClassName(isNavPathActive(pathname, "/account"))}
+                >
                   Account
                 </Link>
               </div>

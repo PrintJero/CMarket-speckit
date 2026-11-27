@@ -44,9 +44,7 @@ const sourceFiles = SEARCH_ROOTS.flatMap((root) => collectSourceFiles(path.join(
  * yourself would just get the comments deleted.
  */
 function stripComments(source: string): string {
-  return source
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/(^|[^:])\/\/.*$/gm, "$1");
+  return source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
 }
 
 const codeByFile = new Map(
@@ -141,9 +139,8 @@ describe("no legacy listing-image paths remain", () => {
       const isClient = /^\s*["']use client["']/m.test(source);
       // The variants module is a pure frozen lookup table with no node: imports
       // and no secret, so a type-only import of it is harmless.
-      const importsProviderCode = /from "@\/lib\/cloudinary\/(config|signature|admin|delivery|logging)"/.test(
-        source,
-      );
+      const importsProviderCode =
+        /from "@\/lib\/cloudinary\/(config|signature|admin|delivery|logging)"/.test(source);
       return isClient && importsProviderCode;
     });
     expect(clientComponentsImportingCloudinary).toEqual([]);

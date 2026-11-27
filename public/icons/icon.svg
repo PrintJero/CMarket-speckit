@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!--
+    CMarket app icon: PROVISIONAL (018-pwa-installable, FR-004).
+    An original "CM" wordmark on the brand color (#7c1ff2, the color-brand token),
+    used until an official logo exists. Full-bleed background; the wordmark sits
+    well inside the central 80% circle (maskable safe zone, r = 204.8), so the
+    same source works for both "any" and "maskable" icons.
+    Regenerate the PNGs with: npx tsx scripts/generate-pwa-icons.ts
+  -->
+  <rect width="512" height="512" fill="#7c1ff2"/>
+  <text
+    x="256"
+    y="256"
+    fill="#ffffff"
+    font-family="Manrope, 'Segoe UI', Arial, Helvetica, sans-serif"
+    font-size="184"
+    font-weight="800"
+    letter-spacing="-6"
+    text-anchor="middle"
+    dominant-baseline="central"
+  >CM</text>
+</svg>

@@ -62,7 +62,9 @@ describe("scripts/create-community.ts (CLI contract)", () => {
     expect(status).toBe(0);
     expect(output).toContain("CLI Test Community One");
 
-    const community = await prisma.community.findFirst({ where: { name: "CLI Test Community One" } });
+    const community = await prisma.community.findFirst({
+      where: { name: "CLI Test Community One" },
+    });
     expect(community).not.toBeNull();
     expect(output).toContain(community!.id);
   });

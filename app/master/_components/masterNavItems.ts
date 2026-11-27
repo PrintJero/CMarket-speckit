@@ -19,5 +19,7 @@ export const MASTER_NAV_ITEMS: MasterNavItem[] = [
 ];
 
 export function isMasterNavItemActive(pathname: string, item: MasterNavItem): boolean {
-  return item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`);
+  return item.exact
+    ? pathname === item.href
+    : pathname === item.href || pathname.startsWith(`${item.href}/`);
 }

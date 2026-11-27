@@ -59,11 +59,14 @@ export function BuyForm({ communityId, listingId, priceCents }: BuyFormProps) {
     setSubmitting(true);
 
     const totalCents = Math.round(Number(total) * 100);
-    const response = await fetch(`/api/communities/${communityId}/listings/${listingId}/proposals`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ quantity, totalCents }),
-    });
+    const response = await fetch(
+      `/api/communities/${communityId}/listings/${listingId}/proposals`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quantity, totalCents }),
+      },
+    );
     const data: ProposePurchaseResponse = await response.json();
     setSubmitting(false);
 

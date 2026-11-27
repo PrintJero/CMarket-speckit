@@ -53,7 +53,11 @@ export function MasterMobileNav({ master }: { master: CurrentMasterPayload }) {
 
       {open && (
         <div className="fixed inset-0 z-40">
-          <div className="absolute inset-0 bg-ink/40" onClick={() => setOpen(false)} aria-hidden="true" />
+          <div
+            className="absolute inset-0 bg-ink/40"
+            onClick={() => setOpen(false)}
+            aria-hidden="true"
+          />
           <div
             role="dialog"
             aria-modal="true"
@@ -74,7 +78,10 @@ export function MasterMobileNav({ master }: { master: CurrentMasterPayload }) {
                 <CloseIcon />
               </button>
             </div>
-            <nav className="flex-1 overflow-y-auto px-2.5 py-2" aria-label="Platform administration">
+            <nav
+              className="flex-1 overflow-y-auto px-2.5 py-2"
+              aria-label="Platform administration"
+            >
               {MASTER_NAV_ITEMS.map((item) => {
                 const active = isMasterNavItemActive(pathname, item);
                 const Icon = item.icon;

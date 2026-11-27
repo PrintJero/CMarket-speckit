@@ -2,15 +2,24 @@ import { expect, test } from "@playwright/test";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth/passwordHash";
 import { archiveDueSuspendedCommunities } from "@/server/services/communityLifecycleService";
-import { signIn } from "./helpers";
+import { confirmMasterDialog, expectMasterPageStatus, signIn } from "./helpers";
 
 async function createMasterFixture(masterId: string, password: string) {
   return prisma.masterIdentity.create({
-    data: { masterId, email: `${masterId}@example.com`, passwordHash: await hashPassword(password), mustChangePassword: false },
+    data: {
+      masterId,
+      email: `${masterId}@example.com`,
+      passwordHash: await hashPassword(password),
+      mustChangePassword: false,
+    },
   });
 }
 
-async function signInAsMaster(page: import("@playwright/test").Page, masterId: string, password: string) {
+async function signInAsMaster(
+  page: import("@playwright/test").Page,
+  masterId: string,
+  password: string,
+) {
   await page.goto("/master/sign-in");
   await page.getByLabel("Master ID").fill(masterId);
   await page.getByLabel("Password").fill(password);
@@ -37,8 +46,12 @@ test.describe("Community creation, both founder modes (User Story 4)", () => {
     await page.getByRole("button", { name: "Create community" }).click();
 
     await page.waitForURL(/\/master\/communities\/.+/);
-    await expect(page.getByText(communityName)).toBeVisible();
-    await expect(page.getByText(founderEmail)).toBeVisible();
+    await expect(page.getByRole("heading", { name: communityName, level: 1 })).toBeVisible();
+
+    // The existing account is the founding administrator (Members tab).
+    await page.getByRole("tab", { name: "Members" }).click();
+    const founderRow = page.locator("tr", { hasText: founderEmail });
+    await expect(founderRow.getByText("Administrator", { exact: true })).toBeVisible();
   });
 
   test("provisions a new account as founder when none exists", async ({ page }) => {
@@ -56,14 +69,20 @@ test.describe("Community creation, both founder modes (User Story 4)", () => {
     await page.getByLabel("Display name").fill("Provisioned Founder");
     await page.getByRole("button", { name: "Create community" }).click();
 
-    await page.waitForURL(/\/master\/communities\/.+/);
-    await expect(page.getByText(communityName)).toBeVisible();
+    // Provision mode stays on the creation screen on purpose: the new founder's
+    // temporary password is shown there, exactly once (spec 009, US4 scenario 2).
+    await expect(page.getByRole("status")).toHaveText(`Created "${communityName}".`);
+    await expect(
+      page.getByText("Founding administrator's temporary password — shown once"),
+    ).toBeVisible();
 
     const account = await prisma.account.findUnique({ where: { email: founderEmail } });
     expect(account?.emailVerifiedAt).not.toBeNull();
 
     // The MASTER never becomes a member of any community it creates.
-    const masterAccountMembership = await prisma.membership.findFirst({ where: { accountId: masterId } });
+    const masterAccountMembership = await prisma.membership.findFirst({
+      where: { accountId: masterId },
+    });
     expect(masterAccountMembership).toBeNull();
   });
 });
@@ -81,17 +100,32 @@ test.describe("Community management from outside (User Story 5)", () => {
     });
     const memberEmail = `us5-member-${process.pid}-${Math.floor(Math.random() * 1e9)}@example.com`;
     const member = await prisma.account.create({
-      data: { email: memberEmail, passwordHash: "irrelevant", emailVerifiedAt: new Date(), displayName: "US5 Member" },
+      data: {
+        email: memberEmail,
+        passwordHash: "irrelevant",
+        emailVerifiedAt: new Date(),
+        displayName: "US5 Member",
+      },
     });
 
     const community = await prisma.community.create({
       data: { name: `US5 Community ${Math.floor(Math.random() * 1e9)}`, createdByOperator: "test" },
     });
     await prisma.membership.create({
-      data: { accountId: founder.id, communityId: community.id, role: "ADMINISTRATOR", operationalEpoch: 1 },
+      data: {
+        accountId: founder.id,
+        communityId: community.id,
+        role: "ADMINISTRATOR",
+        operationalEpoch: 1,
+      },
     });
     await prisma.membership.create({
-      data: { accountId: member.id, communityId: community.id, role: "MEMBER", operationalEpoch: 1 },
+      data: {
+        accountId: member.id,
+        communityId: community.id,
+        role: "MEMBER",
+        operationalEpoch: 1,
+      },
     });
 
     await signInAsMaster(page, masterId, "master-password-1");
@@ -103,25 +137,26 @@ test.describe("Community management from outside (User Story 5)", () => {
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Saved.")).toBeVisible();
 
-    // Promote the member.
+    // Promote the member (Members tab).
+    await page.getByRole("tab", { name: "Members" }).click();
     const memberRow = page.locator("tr", { hasText: "US5 Member" });
     await memberRow.getByRole("button", { name: "Promote" }).click();
-    await expect(memberRow.getByText("ADMINISTRATOR")).toBeVisible();
+    await expect(memberRow.getByText("Administrator", { exact: true })).toBeVisible();
 
     // Remove one administrator (revoke) — succeeds since two now exist.
     const founderRow = page.locator("tr", { hasText: founderEmail });
     await founderRow.getByRole("button", { name: "Remove…" }).click();
     await founderRow.getByRole("button", { name: "Revoke membership" }).click();
+    await confirmMasterDialog(page, "Revoke membership");
     await expect(founderRow).toHaveCount(0);
 
     // Attempting to remove the sole remaining administrator without a replacement is rejected.
     const remainingAdminRow = page.locator("tr", { hasText: "US5 Member" });
     await remainingAdminRow.getByRole("button", { name: "Remove…" }).click();
-    const alert = page.waitForEvent("dialog");
     await remainingAdminRow.getByRole("button", { name: "Revoke membership" }).click();
-    expect((await alert).message()).toContain("would_orphan_community");
-    await (await alert).dismiss().catch(() => undefined);
-    await expect(remainingAdminRow).toBeVisible();
+    await confirmMasterDialog(page, "Revoke membership");
+    await expect(remainingAdminRow.getByText("Failed: would_orphan_community")).toBeVisible();
+    await expect(remainingAdminRow.getByText("Administrator", { exact: true })).toBeVisible();
   });
 });
 
@@ -147,7 +182,12 @@ test.describe("Community suspension (User Story 8)", () => {
       data: { name: `US8 Community ${Math.floor(Math.random() * 1e9)}`, createdByOperator: "test" },
     });
     await prisma.membership.create({
-      data: { accountId: founder.id, communityId: community.id, role: "ADMINISTRATOR", operationalEpoch: 1 },
+      data: {
+        accountId: founder.id,
+        communityId: community.id,
+        role: "ADMINISTRATOR",
+        operationalEpoch: 1,
+      },
     });
     const listing = await prisma.listing.create({
       data: {
@@ -160,10 +200,11 @@ test.describe("Community suspension (User Story 8)", () => {
     });
 
     await signInAsMaster(page, masterId, "master-password-1");
-    await page.goto(`/master/communities/${community.id}`);
+    await page.goto(`/master/communities/${community.id}?tab=lifecycle`);
     await page.getByLabel("Suspension reason").fill("Payment overdue");
     await page.getByRole("button", { name: "Suspend" }).click();
-    await expect(page.getByText("Status: SUSPENDED")).toBeVisible();
+    await confirmMasterDialog(page, "Suspend community");
+    await expectMasterPageStatus(page, "Suspended");
 
     // The founder, in a separate browser context, still sees the pre-existing listing.
     const founderContext = await browser.newContext();
@@ -173,14 +214,20 @@ test.describe("Community suspension (User Story 8)", () => {
     await expect(founderPage.getByText("Pre-suspension listing")).toBeVisible();
 
     // But creating a new listing is blocked.
-    const createResponse = await founderPage.request.post(`/api/communities/${community.id}/listings`, {
-      data: { title: "New listing while suspended", description: "d", priceCents: 100 },
-    });
+    const createResponse = await founderPage.request.post(
+      `/api/communities/${community.id}/listings`,
+      {
+        data: { title: "New listing while suspended", description: "d", priceCents: 100 },
+      },
+    );
     expect(createResponse.status()).toBe(403);
     await founderContext.close();
 
+    // While suspended, lifecycle actions live in the page banner (shown on every tab).
+    await page.goto(`/master/communities/${community.id}`);
     await page.getByRole("button", { name: "Reactivate" }).click();
-    await expect(page.getByText("Status: ACTIVE")).toBeVisible();
+    await confirmMasterDialog(page, "Reactivate community");
+    await expectMasterPageStatus(page, "Active");
   });
 });
 
@@ -213,7 +260,12 @@ test.describe("Automatic archival (User Story 9)", () => {
       },
     });
     await prisma.membership.create({
-      data: { accountId: founder.id, communityId: community.id, role: "ADMINISTRATOR", operationalEpoch: 1 },
+      data: {
+        accountId: founder.id,
+        communityId: community.id,
+        role: "ADMINISTRATOR",
+        operationalEpoch: 1,
+      },
     });
 
     await archiveDueSuspendedCommunities();
@@ -222,14 +274,17 @@ test.describe("Automatic archival (User Story 9)", () => {
     const memberContext = await browser.newContext();
     const memberPage = await memberContext.newPage();
     await signIn(memberPage, memberEmail, memberPassword);
-    const listingsResponse = await memberPage.request.get(`/api/communities/${community.id}/listings`);
+    const listingsResponse = await memberPage.request.get(
+      `/api/communities/${community.id}/listings`,
+    );
     expect(listingsResponse.status()).toBe(403);
     await memberContext.close();
 
     // MASTER still sees full history.
     await signInAsMaster(page, masterId, "master-password-1");
     await page.goto(`/master/communities/${community.id}`);
-    await expect(page.getByText("Status: ARCHIVED")).toBeVisible();
+    await expectMasterPageStatus(page, "Archived");
+    await page.getByRole("tab", { name: "Members" }).click();
     await expect(page.getByRole("cell", { name: "US9 Founder" })).toBeVisible();
 
     // Re-running the archival process is a harmless no-op.
@@ -258,7 +313,12 @@ test.describe("Restoring an archived community (User Story 10)", () => {
     });
     const otherMemberEmail = `us10-member-${process.pid}-${Math.floor(Math.random() * 1e9)}@example.com`;
     const otherMember = await prisma.account.create({
-      data: { email: otherMemberEmail, passwordHash: await hashPassword("member-password-1"), emailVerifiedAt: new Date(), displayName: "US10 Member" },
+      data: {
+        email: otherMemberEmail,
+        passwordHash: await hashPassword("member-password-1"),
+        emailVerifiedAt: new Date(),
+        displayName: "US10 Member",
+      },
     });
 
     const community = await prisma.community.create({
@@ -272,27 +332,40 @@ test.describe("Restoring an archived community (User Story 10)", () => {
       },
     });
     const adminMembership = await prisma.membership.create({
-      data: { accountId: admin.id, communityId: community.id, role: "ADMINISTRATOR", operationalEpoch: 1 },
+      data: {
+        accountId: admin.id,
+        communityId: community.id,
+        role: "ADMINISTRATOR",
+        operationalEpoch: 1,
+      },
     });
     await prisma.membership.create({
-      data: { accountId: otherMember.id, communityId: community.id, role: "MEMBER", operationalEpoch: 1 },
+      data: {
+        accountId: otherMember.id,
+        communityId: community.id,
+        role: "MEMBER",
+        operationalEpoch: 1,
+      },
     });
 
     await archiveDueSuspendedCommunities();
 
     await signInAsMaster(page, masterId, "master-password-1");
     await page.goto(`/master/communities/${community.id}`);
-    await expect(page.getByText("Status: ARCHIVED")).toBeVisible();
+    await expectMasterPageStatus(page, "Archived");
 
     await page.getByLabel("Restore with administrator").selectOption({ label: "US10 Admin" });
-    await page.getByRole("button", { name: "Restore" }).click();
-    await expect(page.getByText("Status: ACTIVE")).toBeVisible();
+    await page.getByRole("button", { name: "Restore", exact: true }).click();
+    await confirmMasterDialog(page, "Restore community");
+    await expectMasterPageStatus(page, "Active");
 
     // The restored administrator regains ordinary marketplace access.
     const adminContext = await browser.newContext();
     const adminPage = await adminContext.newPage();
     await signIn(adminPage, adminEmail, adminPassword);
-    const adminListResponse = await adminPage.request.get(`/api/communities/${community.id}/listings`);
+    const adminListResponse = await adminPage.request.get(
+      `/api/communities/${community.id}/listings`,
+    );
     expect(adminListResponse.status()).toBe(200);
     await adminContext.close();
 
@@ -300,14 +373,19 @@ test.describe("Restoring an archived community (User Story 10)", () => {
     const otherContext = await browser.newContext();
     const otherPage = await otherContext.newPage();
     await signIn(otherPage, otherMemberEmail, "member-password-1");
-    const otherListResponse = await otherPage.request.get(`/api/communities/${community.id}/listings`);
+    const otherListResponse = await otherPage.request.get(
+      `/api/communities/${community.id}/listings`,
+    );
     expect(otherListResponse.status()).toBe(403);
     await otherContext.close();
 
     // Restoring an already-ACTIVE community is rejected.
-    const reRestoreResponse = await page.request.post(`/api/master/communities/${community.id}/restore`, {
-      data: { administratorMembershipId: adminMembership.id },
-    });
+    const reRestoreResponse = await page.request.post(
+      `/api/master/communities/${community.id}/restore`,
+      {
+        data: { administratorMembershipId: adminMembership.id },
+      },
+    );
     expect(reRestoreResponse.status()).toBe(409);
   });
 });

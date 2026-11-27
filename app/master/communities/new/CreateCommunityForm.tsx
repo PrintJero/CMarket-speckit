@@ -19,7 +19,11 @@ export function CreateCommunityForm() {
   const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [created, setCreated] = useState<{ id: string; name: string; temporaryPassword?: string } | null>(null);
+  const [created, setCreated] = useState<{
+    id: string;
+    name: string;
+    temporaryPassword?: string;
+  } | null>(null);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -43,7 +47,11 @@ export function CreateCommunityForm() {
         // inline instead of redirecting immediately — an immediate
         // router.push here would unmount this component before the password
         // could ever be read or copied, defeating the point of showing it.
-        setCreated({ id: data.community.id, name: data.community.name, temporaryPassword: data.temporaryPassword });
+        setCreated({
+          id: data.community.id,
+          name: data.community.name,
+          temporaryPassword: data.temporaryPassword,
+        });
         return;
       }
       // Existing-account mode: nothing to reveal, so the original
@@ -66,7 +74,9 @@ export function CreateCommunityForm() {
             />
           </div>
         )}
-        <MasterLinkButton href={`/master/communities/${created.id}`}>Continue to community</MasterLinkButton>
+        <MasterLinkButton href={`/master/communities/${created.id}`}>
+          Continue to community
+        </MasterLinkButton>
       </div>
     );
   }

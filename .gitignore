@@ -31,3 +31,6 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# Python bytecode from Spec Kit extension hooks
+__pycache__/

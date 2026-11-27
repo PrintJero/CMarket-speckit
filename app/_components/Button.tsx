@@ -9,8 +9,7 @@ const base =
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
     "bg-brand px-5 py-3 text-[13px] font-bold uppercase tracking-wider text-white hover:bg-brand-dark",
-  secondary:
-    "border border-border bg-surface px-5 py-3 text-sm text-ink hover:bg-bg",
+  secondary: "border border-border bg-surface px-5 py-3 text-sm text-ink hover:bg-bg",
   dangerOutline:
     "border border-danger bg-transparent px-3.5 py-1.5 text-sm text-danger hover:bg-danger hover:text-white",
 };

@@ -10,12 +10,17 @@ async function createVerifiedAccount(email: string, password: string) {
   });
 }
 
-async function createCommunityWithAdmin(request: import("@playwright/test").APIRequestContext, name: string, adminEmail: string) {
+async function createCommunityWithAdmin(
+  request: import("@playwright/test").APIRequestContext,
+  name: string,
+  adminEmail: string,
+) {
   const response = await request.post("/api/operator/create-community", {
     data: { name, founderEmail: adminEmail, invokedBy: "playwright-test" },
   });
   const body = await response.json();
-  if (!body.ok) throw new Error(`expected community creation to succeed, got ${JSON.stringify(body)}`);
+  if (!body.ok)
+    throw new Error(`expected community creation to succeed, got ${JSON.stringify(body)}`);
   return body.community as { id: string; name: string };
 }
 
@@ -30,7 +35,11 @@ test("administrator invites an already-verified account, who accepts (US1)", asy
   const inviteeEmail = uniqueEmail("invite-invitee");
   await createVerifiedAccount(adminEmail, password);
   await createVerifiedAccount(inviteeEmail, password);
-  const community = await createCommunityWithAdmin(request, `Invite Flow Community ${Date.now()}`, adminEmail);
+  const community = await createCommunityWithAdmin(
+    request,
+    `Invite Flow Community ${Date.now()}`,
+    adminEmail,
+  );
 
   await signIn(page, adminEmail, password);
   await page.goto(`/communities/${community.id}/admin`);
@@ -44,7 +53,9 @@ test("administrator invites an already-verified account, who accepts (US1)", asy
   const inviteePage = await inviteeContext.newPage();
   await signIn(inviteePage, inviteeEmail, password);
   await inviteePage.goto(acceptLink);
-  await expect(inviteePage.getByRole("heading", { name: `Accept invitation to ${community.name}` })).toBeVisible();
+  await expect(
+    inviteePage.getByRole("heading", { name: `Accept invitation to ${community.name}` }),
+  ).toBeVisible();
   await inviteePage.getByRole("button", { name: "Accept invitation" }).click();
   await expect(inviteePage.getByText("You're now a member of this community.")).toBeVisible();
 
@@ -56,7 +67,9 @@ test("administrator invites an already-verified account, who accepts (US1)", asy
 
   // SC-006: the same link is single-use — re-opening it now shows it's dead.
   await inviteePage.goto(acceptLink);
-  await expect(inviteePage.getByRole("heading", { name: "Invitation no longer valid" })).toBeVisible();
+  await expect(
+    inviteePage.getByRole("heading", { name: "Invitation no longer valid" }),
+  ).toBeVisible();
   await inviteeContext.close();
 });
 
@@ -70,7 +83,11 @@ test("administrator invites someone with no account yet, who signs up and verifi
   const adminEmail = uniqueEmail("invite2-admin");
   const newPersonEmail = uniqueEmail("invite2-newperson");
   await createVerifiedAccount(adminEmail, password);
-  const community = await createCommunityWithAdmin(request, `Invite Flow Community 2 ${Date.now()}`, adminEmail);
+  const community = await createCommunityWithAdmin(
+    request,
+    `Invite Flow Community 2 ${Date.now()}`,
+    adminEmail,
+  );
 
   await signIn(page, adminEmail, password);
   await page.goto(`/communities/${community.id}/admin`);
@@ -125,7 +142,11 @@ test("administrator revokes a member via the admin page; the last-admin guard re
   const memberEmail = uniqueEmail("revoke-member");
   const admin = await createVerifiedAccount(adminEmail, password);
   const member = await createVerifiedAccount(memberEmail, password);
-  const community = await createCommunityWithAdmin(request, `Revoke Flow Community ${Date.now()}`, adminEmail);
+  const community = await createCommunityWithAdmin(
+    request,
+    `Revoke Flow Community ${Date.now()}`,
+    adminEmail,
+  );
   await prisma.membership.create({
     data: { accountId: member.id, communityId: community.id, role: "MEMBER" },
   });
@@ -166,7 +187,11 @@ test("an administrator promotes a peer member; both can then administer, and nei
   const memberEmail = uniqueEmail("promote-member");
   await createVerifiedAccount(adminEmail, password);
   const member = await createVerifiedAccount(memberEmail, password);
-  const community = await createCommunityWithAdmin(request, `Promote Flow Community ${Date.now()}`, adminEmail);
+  const community = await createCommunityWithAdmin(
+    request,
+    `Promote Flow Community ${Date.now()}`,
+    adminEmail,
+  );
   await prisma.membership.create({
     data: { accountId: member.id, communityId: community.id, role: "MEMBER" },
   });

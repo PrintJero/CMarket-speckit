@@ -1,0 +1,10 @@
+# Normalise line endings to LF in the repo and in every checkout.
+# Without this, Windows checkouts (core.autocrlf=true) get CRLF, which breaks
+# `prettier --check` locally and — worse — ships a CRLF docker-entrypoint.sh
+# into the Linux image when it is built from a Windows working tree.
+* text=auto eol=lf
+*.sh text eol=lf
+*.png binary
+*.ico binary
+*.jpg binary
+*.webp binary

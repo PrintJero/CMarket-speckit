@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { requireMaster } from "@/lib/auth/currentMaster";
-import { removeMembershipAsMaster, type RemoveMembershipDisposition } from "@/server/services/masterAdministrationService";
+import {
+  removeMembershipAsMaster,
+  type RemoveMembershipDisposition,
+} from "@/server/services/masterAdministrationService";
 
 export async function POST(
   request: Request,

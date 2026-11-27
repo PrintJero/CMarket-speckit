@@ -18,7 +18,9 @@ export default async function AcceptInvitationPage({
   if (!token) {
     return (
       <AuthShell>
-        <h1 className="mb-1 text-center text-[1.375rem] font-bold text-ink">Invitation link invalid</h1>
+        <h1 className="mb-1 text-center text-[1.375rem] font-bold text-ink">
+          Invitation link invalid
+        </h1>
         <p className="text-center">This link is missing its invitation token.</p>
       </AuthShell>
     );
@@ -29,8 +31,12 @@ export default async function AcceptInvitationPage({
   if (!metadata.ok) {
     return (
       <AuthShell>
-        <h1 className="mb-1 text-center text-[1.375rem] font-bold text-ink">Invitation no longer valid</h1>
-        <p className="text-center">This invitation has already been used, superseded, or does not exist.</p>
+        <h1 className="mb-1 text-center text-[1.375rem] font-bold text-ink">
+          Invitation no longer valid
+        </h1>
+        <p className="text-center">
+          This invitation has already been used, superseded, or does not exist.
+        </p>
       </AuthShell>
     );
   }

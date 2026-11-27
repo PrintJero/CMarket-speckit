@@ -3,8 +3,7 @@ import { createHash } from "node:crypto";
 export const MIN_PASSWORD_LENGTH = 8;
 
 export type PasswordValidationResult =
-  | { valid: true }
-  | { valid: false; reason: "too_short" | "breached" };
+  { valid: true } | { valid: false; reason: "too_short" | "breached" };
 
 let breachChecker: typeof isPasswordBreached = isPasswordBreached;
 
@@ -57,7 +56,5 @@ export async function isPasswordBreached(password: string): Promise<boolean> {
   }
 
   const body = await response.text();
-  return body
-    .split("\n")
-    .some((line) => line.split(":")[0]?.trim().toUpperCase() === suffix);
+  return body.split("\n").some((line) => line.split(":")[0]?.trim().toUpperCase() === suffix);
 }

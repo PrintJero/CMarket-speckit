@@ -31,8 +31,12 @@ export default function MasterSignInPage() {
 
   return (
     <AuthShell>
-      <h1 className="mb-1 text-center text-[1.375rem] font-bold text-ink">Platform administration</h1>
-      <p className="mb-5 text-center text-[13px] text-ink-muted">Separate from the marketplace sign-in.</p>
+      <h1 className="mb-1 text-center text-[1.375rem] font-bold text-ink">
+        Platform administration
+      </h1>
+      <p className="mb-5 text-center text-[13px] text-ink-muted">
+        Separate from the marketplace sign-in.
+      </p>
       <form onSubmit={onSubmit}>
         <FormField label="Master ID">
           <input

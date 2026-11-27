@@ -20,7 +20,8 @@ async function createCommunityWithAdmin(
     data: { name, founderEmail: adminEmail, invokedBy: "playwright-test" },
   });
   const body = await response.json();
-  if (!body.ok) throw new Error(`expected community creation to succeed, got ${JSON.stringify(body)}`);
+  if (!body.ok)
+    throw new Error(`expected community creation to succeed, got ${JSON.stringify(body)}`);
   return body.community as { id: string; name: string };
 }
 
@@ -253,7 +254,9 @@ test("a direct deep-link navigation into a different community resyncs Session.a
   // Given: navigate directly into A first (no prior active community at all).
   await page.goto(`/communities/${communityA.id}/listings`);
   await expect(page.getByText("Deeplink A exclusive item")).toBeVisible();
-  await expect(page.getByRole("button", { name: /Switch community, currently/ })).toContainText(communityA.name);
+  await expect(page.getByRole("button", { name: /Switch community, currently/ })).toContainText(
+    communityA.name,
+  );
   await expect(page.getByRole("link", { name: "Admin" })).toHaveCount(0);
   let session = await prisma.session.findFirstOrThrow({ where: { accountId: memberAccount.id } });
   expect(session.activeCommunityId).toBe(communityA.id);
@@ -265,7 +268,9 @@ test("a direct deep-link navigation into a different community resyncs Session.a
   // and the Admin entry appears since the account is ADMINISTRATOR only in B.
   await expect(page.getByText("Deeplink B exclusive item")).toBeVisible();
   await expect(page.getByText("Deeplink A exclusive item")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /Switch community, currently/ })).toContainText(communityB.name);
+  await expect(page.getByRole("button", { name: /Switch community, currently/ })).toContainText(
+    communityB.name,
+  );
   await expect(page.getByRole("link", { name: "Admin" })).toBeVisible();
   session = await prisma.session.findFirstOrThrow({ where: { accountId: memberAccount.id } });
   expect(session.activeCommunityId).toBe(communityB.id);
@@ -274,7 +279,9 @@ test("a direct deep-link navigation into a different community resyncs Session.a
   await page.goto(`/communities/${communityA.id}/listings`);
   await expect(page.getByText("Deeplink A exclusive item")).toBeVisible();
   await expect(page.getByText("Deeplink B exclusive item")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /Switch community, currently/ })).toContainText(communityA.name);
+  await expect(page.getByRole("button", { name: /Switch community, currently/ })).toContainText(
+    communityA.name,
+  );
   await expect(page.getByRole("link", { name: "Admin" })).toHaveCount(0);
   session = await prisma.session.findFirstOrThrow({ where: { accountId: memberAccount.id } });
   expect(session.activeCommunityId).toBe(communityA.id);

@@ -13,10 +13,17 @@ type MasterAction = "disable" | "reactivate" | "reset-password";
 // anything unanticipated, same information the old window.alert showed.
 const DISABLE_FAILURE_MESSAGES: Record<string, string> = {
   cannot_disable_self: "You cannot disable your own MASTER identity while signed in as it.",
-  last_active_master: "This is the last active MASTER operator — reactivate or create another before disabling this one.",
+  last_active_master:
+    "This is the last active MASTER operator — reactivate or create another before disabling this one.",
 };
 
-export function MasterActions({ masterId, status }: { masterId: string; status: "ACTIVE" | "DISABLED" }) {
+export function MasterActions({
+  masterId,
+  status,
+}: {
+  masterId: string;
+  status: "ACTIVE" | "DISABLED";
+}) {
   const router = useRouter();
   const [openAction, setOpenAction] = useState<MasterAction | null>(null);
   const [busy, setBusy] = useState(false);
@@ -46,7 +53,11 @@ export function MasterActions({ masterId, status }: { masterId: string; status: 
     router.refresh();
 
     if (!data.ok) {
-      setDialogError(action === "disable" ? (DISABLE_FAILURE_MESSAGES[data.reason] ?? `Failed: ${data.reason}`) : `Failed: ${data.reason}`);
+      setDialogError(
+        action === "disable"
+          ? (DISABLE_FAILURE_MESSAGES[data.reason] ?? `Failed: ${data.reason}`)
+          : `Failed: ${data.reason}`,
+      );
       return;
     }
 

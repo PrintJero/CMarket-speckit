@@ -63,6 +63,10 @@ RUN mkdir -p /app && chown -R node:node /app
 # Next's standalone output: a minimal server plus only the modules it traced.
 COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+# public/ is NOT part of the standalone output by design. Without this copy,
+# /sw.js and /icons/* return 404 in production and the app is not installable
+# (018-pwa-installable, research.md #8).
+COPY --from=builder --chown=node:node /app/public ./public
 
 # Prisma pieces the standalone tracer does not reliably include: the generated
 # client, its Linux query engine, and the migration files.
@@ -92,7 +96,12 @@ RUN PRISMA_VERSION="$(node -p "require('/tmp/app-package.json').devDependencies.
   && chown -R node:node /opt/prisma-cli
 
 COPY --chown=node:node docker-entrypoint.sh ./docker-entrypoint.sh
-RUN chmod +x ./docker-entrypoint.sh
+# Strip any CR: a Windows working tree checked out before .gitattributes
+# existed (or with core.autocrlf=true) hands the build a CRLF script, whose
+# "#!/bin/sh\r" shebang makes the container die with "exec ./docker-entrypoint.sh:
+# no such file or directory". Normalising here keeps the image correct no
+# matter where it is built.
+RUN sed -i 's/\r$//' ./docker-entrypoint.sh && chmod +x ./docker-entrypoint.sh
 
 USER node
 EXPOSE 3000

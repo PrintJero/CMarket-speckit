@@ -45,13 +45,22 @@ async function main() {
   const email = `mediadiag-${Date.now()}@example.com`;
   const password = "correct-horse-battery-staple";
   await prisma.account.create({
-    data: { email, passwordHash: await hashPassword(password), emailVerifiedAt: new Date(), displayName: "Diag" },
+    data: {
+      email,
+      passwordHash: await hashPassword(password),
+      emailVerifiedAt: new Date(),
+      displayName: "Diag",
+    },
   });
 
   const communityResponse = await fetch(`${BASE}/api/operator/create-community`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name: `MediaDiag ${Date.now()}`, founderEmail: email, invokedBy: "diagnose" }),
+    body: JSON.stringify({
+      name: `MediaDiag ${Date.now()}`,
+      founderEmail: email,
+      invokedBy: "diagnose",
+    }),
   });
   const communityBody = await communityResponse.json();
   if (!communityBody.ok) {
@@ -104,7 +113,9 @@ async function main() {
     return;
   }
   if (!authResponse.ok) {
-    console.log(`   FAIL — authorize returned HTTP ${authResponse.status}: ${authText.slice(0, 200)}`);
+    console.log(
+      `   FAIL — authorize returned HTTP ${authResponse.status}: ${authText.slice(0, 200)}`,
+    );
     await cleanup();
     process.exitCode = 1;
     return;
@@ -132,7 +143,9 @@ async function main() {
     process.exitCode = 1;
     return;
   }
-  console.log(`   OK — cloud in URL: ${upload.url.split("/v1_1/")[1]?.split("/")[0]}, apiKey len ${upload.apiKey.length}`);
+  console.log(
+    `   OK — cloud in URL: ${upload.url.split("/v1_1/")[1]?.split("/")[0]}, apiKey len ${upload.apiKey.length}`,
+  );
 
   // ---- 2. current code, or stale Turbopack cache? ---------------------
   const currentString =
@@ -173,7 +186,9 @@ async function main() {
   const uploadResponse = await fetch(upload.url, { method: "POST", body: form });
   console.log("\n3. Signed upload to Cloudinary");
   if (!uploadResponse.ok) {
-    console.log(`   FAIL — HTTP ${uploadResponse.status}: ${(await uploadResponse.text()).slice(0, 300)}`);
+    console.log(
+      `   FAIL — HTTP ${uploadResponse.status}: ${(await uploadResponse.text()).slice(0, 300)}`,
+    );
     await cleanup();
     process.exitCode = 1;
     return;
@@ -184,7 +199,11 @@ async function main() {
   const listingResponse = await fetch(`${BASE}/api/communities/${communityId}/listings`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Cookie: cookie },
-    body: JSON.stringify({ title: "MediaDiag listing", description: "diagnostic", priceCents: 100 }),
+    body: JSON.stringify({
+      title: "MediaDiag listing",
+      description: "diagnostic",
+      priceCents: 100,
+    }),
   });
   const listingId = (await listingResponse.json()).listing.id as string;
 

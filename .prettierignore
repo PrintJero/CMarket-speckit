@@ -5,3 +5,8 @@ coverage
 playwright-report
 test-results
 package-lock.json
+
+# Spec Kit artifacts and templates — prose managed by /speckit-* commands, not code.
+specs
+.specify
+.claude

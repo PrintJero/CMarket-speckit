@@ -75,6 +75,15 @@ export function buildPrismaAuthAdapter(): Adapter {
     },
 
     async linkAccount(account: AdapterAccount) {
+      // Defence in depth: every write below is scoped by account.userId, and
+      // Prisma silently drops an undefined `where` field — a missing userId
+      // would verify every account, discard every password and revoke every
+      // session on the platform. Refuse instead.
+      if (typeof account.userId !== "string" || account.userId.length === 0) {
+        throw new Error(
+          "[auth] linkAccount called without a userId — refusing an unscoped update.",
+        );
+      }
       // FR-015/FR-018: Google auto-linked to an existing password account.
       // `verifiedNow.count` is the atomic check-and-act signal for "this
       // account was unverified and this call is what verified it" — not a
@@ -130,7 +139,11 @@ export function buildPrismaAuthAdapter(): Adapter {
       await extendSession(sessionToken, expires);
       const found = await findSessionWithAccount(sessionToken);
       if (!found) return null;
-      return { sessionToken: found.sessionToken, userId: found.accountId, expires: found.expiresAt };
+      return {
+        sessionToken: found.sessionToken,
+        userId: found.accountId,
+        expires: found.expiresAt,
+      };
     },
 
     async deleteSession(sessionToken) {

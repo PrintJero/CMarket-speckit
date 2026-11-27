@@ -2,8 +2,8 @@
 export function NonIntermediaryDisclosure() {
   return (
     <p className="mb-3 text-[13px] text-ink-muted" role="note">
-      CMarket is not a financial intermediary and takes no responsibility for this payment. Money changes hands
-      directly between you and the other member, entirely outside the app.
+      CMarket is not a financial intermediary and takes no responsibility for this payment. Money
+      changes hands directly between you and the other member, entirely outside the app.
     </p>
   );
 }

@@ -6,7 +6,10 @@ import { FormError } from "../../_components/FormField";
 
 type AcceptResponse =
   | { ok: true; membership: { communityId: string; role: "MEMBER" } }
-  | { ok: false; reason: "invalid_or_consumed" | "email_mismatch" | "not_verified" | "already_member" };
+  | {
+      ok: false;
+      reason: "invalid_or_consumed" | "email_mismatch" | "not_verified" | "already_member";
+    };
 
 export function AcceptButton({ token }: { token: string }) {
   const [result, setResult] = useState<AcceptResponse | null>(null);

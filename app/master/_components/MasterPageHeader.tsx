@@ -30,7 +30,10 @@ export function MasterPageHeader({
   return (
     <div className="mb-6">
       {breadcrumb && breadcrumb.length > 0 && (
-        <nav aria-label="Breadcrumb" className="mb-1.5 flex flex-wrap items-center gap-1.5 text-[12px] text-ink-muted">
+        <nav
+          aria-label="Breadcrumb"
+          className="mb-1.5 flex flex-wrap items-center gap-1.5 text-[12px] text-ink-muted"
+        >
           {breadcrumb.map((crumb, index) => (
             <span key={`${crumb.label}-${index}`} className="flex items-center gap-1.5">
               {index > 0 && <span aria-hidden="true">/</span>}
@@ -49,7 +52,9 @@ export function MasterPageHeader({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2.5">
             <h1 className="truncate text-[1.375rem] font-bold tracking-tight text-ink">{title}</h1>
-            {status}
+            {/* The page-level status (the same badge also appears in tables and
+                detail lists), addressable on its own by the integration tests. */}
+            {status && <span data-testid="page-status">{status}</span>}
           </div>
           {subtitle && <p className="mt-1 text-[13px] text-ink-muted">{subtitle}</p>}
         </div>

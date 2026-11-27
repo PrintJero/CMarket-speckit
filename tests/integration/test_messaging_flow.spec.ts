@@ -31,7 +31,8 @@ async function createCommunityWithAdmin(
     data: { name, founderEmail: adminEmail, invokedBy: "playwright-test" },
   });
   const body = await response.json();
-  if (!body.ok) throw new Error(`expected community creation to succeed, got ${JSON.stringify(body)}`);
+  if (!body.ok)
+    throw new Error(`expected community creation to succeed, got ${JSON.stringify(body)}`);
   return body.community as { id: string; name: string };
 }
 
@@ -77,7 +78,10 @@ test("a buyer messages a listing's owner from the listing; the owner replies and
   await expect(page.getByText("Is this still available?")).toBeVisible();
 
   const thread = await prisma.messageThread.findFirstOrThrow({
-    where: { listingId: listing.id, buyerId: (await prisma.account.findUniqueOrThrow({ where: { email: buyerEmail } })).id },
+    where: {
+      listingId: listing.id,
+      buyerId: (await prisma.account.findUniqueOrThrow({ where: { email: buyerEmail } })).id,
+    },
   });
 
   // Owner opens the same thread and replies.
@@ -89,7 +93,9 @@ test("a buyer messages a listing's owner from the listing; the owner replies and
   await ownerPage.getByLabel("Reply").fill("Yes, still available.");
   const [replyResponse] = await Promise.all([
     ownerPage.waitForResponse(
-      (response) => response.url().includes(`/threads/${thread.id}/messages`) && response.request().method() === "POST",
+      (response) =>
+        response.url().includes(`/threads/${thread.id}/messages`) &&
+        response.request().method() === "POST",
     ),
     ownerPage.getByRole("button", { name: "Send reply" }).click(),
   ]);
@@ -252,24 +258,48 @@ test("Chats groups threads by community, marks owner vs. buyer, orders by recent
   );
   const shared = await prisma.account.findUniqueOrThrow({ where: { email: sharedEmail } });
   const ownerB = await prisma.account.findUniqueOrThrow({ where: { email: ownerBEmail } });
-  await prisma.membership.create({ data: { accountId: shared.id, communityId: communityB.id, role: "MEMBER" } });
+  await prisma.membership.create({
+    data: { accountId: shared.id, communityId: communityB.id, role: "MEMBER" },
+  });
   const buyerInA = await addMember(communityA.id, buyerInAEmail, password);
 
   // Thread where `shared` is the owner (Community A) — older activity.
   const listingInA = await prisma.listing.create({
-    data: { communityId: communityA.id, ownerId: shared.id, title: "Chats A Item", description: "Description", priceCents: 1000 },
+    data: {
+      communityId: communityA.id,
+      ownerId: shared.id,
+      title: "Chats A Item",
+      description: "Description",
+      priceCents: 1000,
+    },
   });
   const older = new Date(Date.now() - 60_000);
   const threadInA = await prisma.messageThread.create({
-    data: { listingId: listingInA.id, buyerId: buyerInA.id, createdAt: older, lastMessageAt: older },
+    data: {
+      listingId: listingInA.id,
+      buyerId: buyerInA.id,
+      createdAt: older,
+      lastMessageAt: older,
+    },
   });
   await prisma.message.create({
-    data: { threadId: threadInA.id, senderId: buyerInA.id, body: "Interested in A item", createdAt: older },
+    data: {
+      threadId: threadInA.id,
+      senderId: buyerInA.id,
+      body: "Interested in A item",
+      createdAt: older,
+    },
   });
 
   // Thread where `shared` is the buyer (Community B) — more recent activity.
   const listingInB = await prisma.listing.create({
-    data: { communityId: communityB.id, ownerId: ownerB.id, title: "Chats B Item", description: "Description", priceCents: 2000 },
+    data: {
+      communityId: communityB.id,
+      ownerId: ownerB.id,
+      title: "Chats B Item",
+      description: "Description",
+      priceCents: 2000,
+    },
   });
   const threadInB = await prisma.messageThread.create({
     data: { listingId: listingInB.id, buyerId: shared.id },
@@ -339,7 +369,13 @@ test("My listings shows every owned listing regardless of status with correct th
   const buyerTwo = await addMember(community.id, buyerTwoEmail, password);
 
   const activeListing = await prisma.listing.create({
-    data: { communityId: community.id, ownerId: owner.id, title: "My Active Listing", description: "Description", priceCents: 1000 },
+    data: {
+      communityId: community.id,
+      ownerId: owner.id,
+      title: "My Active Listing",
+      description: "Description",
+      priceCents: 1000,
+    },
   });
   const pausedListing = await prisma.listing.create({
     data: {
@@ -355,7 +391,9 @@ test("My listings shows every owned listing regardless of status with correct th
     const thread = await prisma.messageThread.create({
       data: { listingId: activeListing.id, buyerId: buyer.id },
     });
-    await prisma.message.create({ data: { threadId: thread.id, senderId: buyer.id, body: "Interested" } });
+    await prisma.message.create({
+      data: { threadId: thread.id, senderId: buyer.id, body: "Interested" },
+    });
   }
 
   await signIn(page, ownerEmail, password);
@@ -365,11 +403,15 @@ test("My listings shows every owned listing regardless of status with correct th
   await myListingsLink.click();
   await page.waitForURL("**/my-listings");
 
-  const activeRow = page.locator('[data-testid="my-listing-row"]', { hasText: "My Active Listing" });
+  const activeRow = page.locator('[data-testid="my-listing-row"]', {
+    hasText: "My Active Listing",
+  });
   await expect(activeRow).toContainText("ACTIVE");
   await expect(activeRow).toContainText("2");
 
-  const pausedRow = page.locator('[data-testid="my-listing-row"]', { hasText: "My Paused Listing" });
+  const pausedRow = page.locator('[data-testid="my-listing-row"]', {
+    hasText: "My Paused Listing",
+  });
   await expect(pausedRow).toContainText("PAUSED");
   await expect(pausedRow).toContainText("0");
 

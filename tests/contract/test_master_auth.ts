@@ -26,7 +26,11 @@ describe("masterAuthService (contract)", () => {
 
   describe("createMaster — bootstrap path (User Story 2, FR-007, FR-008)", () => {
     it("creates exactly one ACTIVE, mustChangePassword MasterIdentity against an empty table, with a SUCCESS audit entry", async () => {
-      const result = await createMaster({ masterId: "root", email: "root@example.com", createdByMasterId: null });
+      const result = await createMaster({
+        masterId: "root",
+        email: "root@example.com",
+        createdByMasterId: null,
+      });
 
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error("expected success");
@@ -37,7 +41,9 @@ describe("masterAuthService (contract)", () => {
       expect(master?.mustChangePassword).toBe(true);
       expect(master?.createdByMasterId).toBeNull();
 
-      const entries = await prisma.administrativeAuditEntry.findMany({ where: { targetId: result.master.id } });
+      const entries = await prisma.administrativeAuditEntry.findMany({
+        where: { targetId: result.master.id },
+      });
       expect(entries).toHaveLength(1);
       expect(entries[0].outcome).toBe("SUCCESS");
       expect(entries[0].actorType).toBe("SYSTEM");
@@ -46,7 +52,11 @@ describe("masterAuthService (contract)", () => {
     it("refuses a second bootstrap once a MasterIdentity exists, writing an independent FAILURE entry with no new row", async () => {
       await createMaster({ masterId: "root", email: "root@example.com", createdByMasterId: null });
 
-      const second = await createMaster({ masterId: "root2", email: "root2@example.com", createdByMasterId: null });
+      const second = await createMaster({
+        masterId: "root2",
+        email: "root2@example.com",
+        createdByMasterId: null,
+      });
 
       expect(second).toEqual({ ok: false, reason: "bootstrap_already_completed" });
       expect(await prisma.masterIdentity.count()).toBe(1);
@@ -58,17 +68,25 @@ describe("masterAuthService (contract)", () => {
     });
 
     it("rejects an invalid masterId or email, and an email already used by an Account (research.md #4)", async () => {
-      expect(await createMaster({ masterId: "  ", email: "a@example.com", createdByMasterId: null })).toEqual({
+      expect(
+        await createMaster({ masterId: "  ", email: "a@example.com", createdByMasterId: null }),
+      ).toEqual({
         ok: false,
         reason: "invalid_master_id",
       });
-      expect(await createMaster({ masterId: "root", email: "not-an-email", createdByMasterId: null })).toEqual({
+      expect(
+        await createMaster({ masterId: "root", email: "not-an-email", createdByMasterId: null }),
+      ).toEqual({
         ok: false,
         reason: "invalid_email",
       });
 
       await prisma.account.create({
-        data: { email: "master-auth-test-shared@example.com", passwordHash: null, emailVerifiedAt: null },
+        data: {
+          email: "master-auth-test-shared@example.com",
+          passwordHash: null,
+          emailVerifiedAt: null,
+        },
       });
       expect(
         await createMaster({
@@ -82,7 +100,11 @@ describe("masterAuthService (contract)", () => {
 
   describe("signInAsMaster / changeMasterPassword (User Story 1, FR-003, FR-010, research.md #11)", () => {
     it("signs in with valid credentials, then rejects wrong id, wrong password, and a DISABLED identity identically", async () => {
-      const created = await createMaster({ masterId: "alpha", email: "alpha@example.com", createdByMasterId: null });
+      const created = await createMaster({
+        masterId: "alpha",
+        email: "alpha@example.com",
+        createdByMasterId: null,
+      });
       if (!created.ok) throw new Error("setup failed");
 
       const signedIn = await signInAsMaster("alpha", created.temporaryPassword);
@@ -102,7 +124,10 @@ describe("masterAuthService (contract)", () => {
         reason: "invalid_credentials",
       });
 
-      await prisma.masterIdentity.update({ where: { id: created.master.id }, data: { status: "DISABLED" } });
+      await prisma.masterIdentity.update({
+        where: { id: created.master.id },
+        data: { status: "DISABLED" },
+      });
       expect(await signInAsMaster("alpha", created.temporaryPassword)).toEqual({
         ok: false,
         reason: "invalid_credentials",
@@ -110,14 +135,24 @@ describe("masterAuthService (contract)", () => {
     });
 
     it("changeMasterPassword clears mustChangePassword, and rejects a wrong current or weak new password", async () => {
-      const created = await createMaster({ masterId: "beta", email: "beta@example.com", createdByMasterId: null });
+      const created = await createMaster({
+        masterId: "beta",
+        email: "beta@example.com",
+        createdByMasterId: null,
+      });
       if (!created.ok) throw new Error("setup failed");
 
       expect(
-        await changeMasterPassword(created.master.id, "wrong-current", "a-perfectly-fine-new-password-1"),
+        await changeMasterPassword(
+          created.master.id,
+          "wrong-current",
+          "a-perfectly-fine-new-password-1",
+        ),
       ).toEqual({ ok: false, reason: "invalid_current_password" });
 
-      expect(await changeMasterPassword(created.master.id, created.temporaryPassword, "short")).toEqual({
+      expect(
+        await changeMasterPassword(created.master.id, created.temporaryPassword, "short"),
+      ).toEqual({
         ok: false,
         reason: "invalid_password",
         passwordReason: "too_short",
@@ -140,10 +175,18 @@ describe("masterAuthService (contract)", () => {
 
   describe("MASTER lifecycle management (User Story 3, FR-009, FR-011–FR-014, research.md #6/#11)", () => {
     it("an authenticated MASTER creates another, recording who created it", async () => {
-      const a = await createMaster({ masterId: "gamma-a", email: "gamma-a@example.com", createdByMasterId: null });
+      const a = await createMaster({
+        masterId: "gamma-a",
+        email: "gamma-a@example.com",
+        createdByMasterId: null,
+      });
       if (!a.ok) throw new Error("setup failed");
 
-      const b = await createMaster({ masterId: "gamma-b", email: "gamma-b@example.com", createdByMasterId: a.master.id });
+      const b = await createMaster({
+        masterId: "gamma-b",
+        email: "gamma-b@example.com",
+        createdByMasterId: a.master.id,
+      });
       expect(b.ok).toBe(true);
       if (!b.ok) throw new Error("expected success");
 
@@ -152,9 +195,17 @@ describe("masterAuthService (contract)", () => {
     });
 
     it("disableMaster rejects self-disable, writing an independent FAILURE entry and leaving status unchanged", async () => {
-      const a = await createMaster({ masterId: "delta-a", email: "delta-a@example.com", createdByMasterId: null });
+      const a = await createMaster({
+        masterId: "delta-a",
+        email: "delta-a@example.com",
+        createdByMasterId: null,
+      });
       if (!a.ok) throw new Error("setup failed");
-      await createMaster({ masterId: "delta-b", email: "delta-b@example.com", createdByMasterId: a.master.id });
+      await createMaster({
+        masterId: "delta-b",
+        email: "delta-b@example.com",
+        createdByMasterId: a.master.id,
+      });
 
       const result = await disableMaster(a.master.id, a.master.id);
       expect(result).toEqual({ ok: false, reason: "cannot_disable_self" });
@@ -169,7 +220,11 @@ describe("masterAuthService (contract)", () => {
     });
 
     it("disableMaster rejects disabling the last active MASTER, and the guarded mutation genuinely did not commit", async () => {
-      const only = await createMaster({ masterId: "epsilon", email: "epsilon@example.com", createdByMasterId: null });
+      const only = await createMaster({
+        masterId: "epsilon",
+        email: "epsilon@example.com",
+        createdByMasterId: null,
+      });
       if (!only.ok) throw new Error("setup failed");
 
       const result = await disableMaster("some-other-caller-id", only.master.id);
@@ -185,9 +240,17 @@ describe("masterAuthService (contract)", () => {
     });
 
     it("disableMaster succeeds against a non-last, non-self target and revokes its sessions", async () => {
-      const a = await createMaster({ masterId: "zeta-a", email: "zeta-a@example.com", createdByMasterId: null });
+      const a = await createMaster({
+        masterId: "zeta-a",
+        email: "zeta-a@example.com",
+        createdByMasterId: null,
+      });
       if (!a.ok) throw new Error("setup failed");
-      const b = await createMaster({ masterId: "zeta-b", email: "zeta-b@example.com", createdByMasterId: a.master.id });
+      const b = await createMaster({
+        masterId: "zeta-b",
+        email: "zeta-b@example.com",
+        createdByMasterId: a.master.id,
+      });
       if (!b.ok) throw new Error("setup failed");
 
       const signedInB = await signInAsMaster("zeta-b", b.temporaryPassword);
@@ -207,13 +270,24 @@ describe("masterAuthService (contract)", () => {
     });
 
     it("reactivateMaster restores sign-in eligibility", async () => {
-      const a = await createMaster({ masterId: "eta-a", email: "eta-a@example.com", createdByMasterId: null });
+      const a = await createMaster({
+        masterId: "eta-a",
+        email: "eta-a@example.com",
+        createdByMasterId: null,
+      });
       if (!a.ok) throw new Error("setup failed");
-      const b = await createMaster({ masterId: "eta-b", email: "eta-b@example.com", createdByMasterId: a.master.id });
+      const b = await createMaster({
+        masterId: "eta-b",
+        email: "eta-b@example.com",
+        createdByMasterId: a.master.id,
+      });
       if (!b.ok) throw new Error("setup failed");
 
       await disableMaster(a.master.id, b.master.id);
-      expect(await signInAsMaster("eta-b", b.temporaryPassword)).toEqual({ ok: false, reason: "invalid_credentials" });
+      expect(await signInAsMaster("eta-b", b.temporaryPassword)).toEqual({
+        ok: false,
+        reason: "invalid_credentials",
+      });
 
       await reactivateMaster(a.master.id, b.master.id);
       const signedIn = await signInAsMaster("eta-b", b.temporaryPassword);
@@ -221,9 +295,17 @@ describe("masterAuthService (contract)", () => {
     });
 
     it("resetMasterPassword issues a new temporary password, revokes sessions, and requires a change on next sign-in", async () => {
-      const a = await createMaster({ masterId: "theta-a", email: "theta-a@example.com", createdByMasterId: null });
+      const a = await createMaster({
+        masterId: "theta-a",
+        email: "theta-a@example.com",
+        createdByMasterId: null,
+      });
       if (!a.ok) throw new Error("setup failed");
-      const b = await createMaster({ masterId: "theta-b", email: "theta-b@example.com", createdByMasterId: a.master.id });
+      const b = await createMaster({
+        masterId: "theta-b",
+        email: "theta-b@example.com",
+        createdByMasterId: a.master.id,
+      });
       if (!b.ok) throw new Error("setup failed");
 
       await changeMasterPassword(b.master.id, b.temporaryPassword, "an-original-password-1");

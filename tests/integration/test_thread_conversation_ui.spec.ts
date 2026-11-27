@@ -3,9 +3,18 @@ import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth/passwordHash";
 import { uniqueEmail, signIn } from "./helpers";
 
-async function createVerifiedAccount(email: string, password: string, displayName: string | null = "Chat UI Account") {
+async function createVerifiedAccount(
+  email: string,
+  password: string,
+  displayName: string | null = "Chat UI Account",
+) {
   return prisma.account.create({
-    data: { email, passwordHash: await hashPassword(password), emailVerifiedAt: new Date(), displayName },
+    data: {
+      email,
+      passwordHash: await hashPassword(password),
+      emailVerifiedAt: new Date(),
+      displayName,
+    },
   });
 }
 
@@ -21,11 +30,17 @@ async function createCommunityWithAdmin(
     data: { name, founderEmail: adminEmail, invokedBy: "playwright-test" },
   });
   const body = await response.json();
-  if (!body.ok) throw new Error(`expected community creation to succeed, got ${JSON.stringify(body)}`);
+  if (!body.ok)
+    throw new Error(`expected community creation to succeed, got ${JSON.stringify(body)}`);
   return body.community as { id: string; name: string };
 }
 
-async function addMember(communityId: string, email: string, password: string, displayName: string | null = "Chat UI Buyer") {
+async function addMember(
+  communityId: string,
+  email: string,
+  password: string,
+  displayName: string | null = "Chat UI Buyer",
+) {
   const account = await createVerifiedAccount(email, password, displayName);
   await prisma.membership.create({ data: { accountId: account.id, communityId, role: "MEMBER" } });
   return account;
@@ -38,14 +53,24 @@ async function createListingAndThread(
   title = "Chat UI Bicycle",
 ) {
   const listing = await prisma.listing.create({
-    data: { communityId, ownerId, title, description: "Description", priceCents: 5000, kind: "FOR_SALE", stockQuantity: 10 },
+    data: {
+      communityId,
+      ownerId,
+      title,
+      description: "Description",
+      priceCents: 5000,
+      kind: "FOR_SALE",
+      stockQuantity: 10,
+    },
   });
   const thread = await prisma.messageThread.create({ data: { listingId: listing.id, buyerId } });
   return { listing, thread };
 }
 
 async function seedMessage(threadId: string, senderId: string, body: string, createdAt?: Date) {
-  return prisma.message.create({ data: { threadId, senderId, body, ...(createdAt ? { createdAt } : {}) } });
+  return prisma.message.create({
+    data: { threadId, senderId, body, ...(createdAt ? { createdAt } : {}) },
+  });
 }
 
 /** Every message row's bounding box relative to the message-area container, for alignment assertions. */
@@ -69,7 +94,12 @@ test("own messages render right-aligned and the counterpart's render left-aligne
   const password = "correct-horse-battery-staple";
   const ownerEmail = uniqueEmail("chatui-owner");
   const buyerEmail = uniqueEmail("chatui-buyer");
-  const community = await createCommunityWithAdmin(page.request, `Chat UI Community ${Date.now()}`, ownerEmail, password);
+  const community = await createCommunityWithAdmin(
+    page.request,
+    `Chat UI Community ${Date.now()}`,
+    ownerEmail,
+    password,
+  );
   const buyer = await addMember(community.id, buyerEmail, password);
   const owner = await prisma.account.findUniqueOrThrow({ where: { email: ownerEmail } });
   const { thread } = await createListingAndThread(community.id, owner.id, buyer.id);
@@ -79,7 +109,9 @@ test("own messages render right-aligned and the counterpart's render left-aligne
   await seedMessage(thread.id, owner.id, "Yes, it is.", new Date(base + 1000));
   await seedMessage(thread.id, buyer.id, "Can I buy two?", new Date(base + 2000));
   await seedMessage(thread.id, owner.id, "Sure.", new Date(base + 3000));
-  const longBody = "This is a much longer message that should wrap across multiple lines ".repeat(6).trim();
+  const longBody = "This is a much longer message that should wrap across multiple lines "
+    .repeat(6)
+    .trim();
   await seedMessage(thread.id, buyer.id, longBody, new Date(base + 4000));
 
   await signIn(page, buyerEmail, password);
@@ -112,8 +144,16 @@ test("own messages render right-aligned and the counterpart's render left-aligne
   }
 
   // Distinguishable styles: own vs. counterpart bubbles differ in background color.
-  const ownBg = await rows.nth(0).locator("> *").first().evaluate((el) => getComputedStyle(el).backgroundColor);
-  const counterpartBg = await rows.nth(1).locator("> *").first().evaluate((el) => getComputedStyle(el).backgroundColor);
+  const ownBg = await rows
+    .nth(0)
+    .locator("> *")
+    .first()
+    .evaluate((el) => getComputedStyle(el).backgroundColor);
+  const counterpartBg = await rows
+    .nth(1)
+    .locator("> *")
+    .first()
+    .evaluate((el) => getComputedStyle(el).backgroundColor);
   expect(ownBg).not.toBe(counterpartBg);
 
   // Sizing: no bubble exceeds ~75% of the message area's width; the long message wraps, no horizontal page overflow.
@@ -126,15 +166,19 @@ test("own messages render right-aligned and the counterpart's render left-aligne
   expect(hasHorizontalOverflow).toBe(false);
 
   // Padding: bubble content never touches the bubble's own edge.
-  const padding = await rows.nth(0).locator("> *").first().evaluate((el) => {
-    const style = getComputedStyle(el);
-    return {
-      top: parseFloat(style.paddingTop),
-      right: parseFloat(style.paddingRight),
-      bottom: parseFloat(style.paddingBottom),
-      left: parseFloat(style.paddingLeft),
-    };
-  });
+  const padding = await rows
+    .nth(0)
+    .locator("> *")
+    .first()
+    .evaluate((el) => {
+      const style = getComputedStyle(el);
+      return {
+        top: parseFloat(style.paddingTop),
+        right: parseFloat(style.paddingRight),
+        bottom: parseFloat(style.paddingBottom),
+        left: parseFloat(style.paddingLeft),
+      };
+    });
   expect(padding.top).toBeGreaterThan(0);
   expect(padding.right).toBeGreaterThan(0);
   expect(padding.bottom).toBeGreaterThan(0);
@@ -159,7 +203,12 @@ test("renders one conversation panel with header, message area, and composer, bo
   const password = "correct-horse-battery-staple";
   const ownerEmail = uniqueEmail("chatui-panel-owner");
   const buyerEmail = uniqueEmail("chatui-panel-buyer");
-  const community = await createCommunityWithAdmin(page.request, `Chat UI Panel Community ${Date.now()}`, ownerEmail, password);
+  const community = await createCommunityWithAdmin(
+    page.request,
+    `Chat UI Panel Community ${Date.now()}`,
+    ownerEmail,
+    password,
+  );
   const buyer = await addMember(community.id, buyerEmail, password);
   const owner = await prisma.account.findUniqueOrThrow({ where: { email: ownerEmail } });
   const { thread } = await createListingAndThread(community.id, owner.id, buyer.id);
@@ -191,14 +240,26 @@ test("renders one conversation panel with header, message area, and composer, bo
   expect(hasPageScroll).toBe(false);
 });
 
-test("shows a 'Start the conversation' empty state for a thread with no messages, composer still usable", async ({ page }) => {
+test("shows a 'Start the conversation' empty state for a thread with no messages, composer still usable", async ({
+  page,
+}) => {
   const password = "correct-horse-battery-staple";
   const ownerEmail = uniqueEmail("chatui-empty-owner");
   const buyerEmail = uniqueEmail("chatui-empty-buyer");
-  const community = await createCommunityWithAdmin(page.request, `Chat UI Empty Community ${Date.now()}`, ownerEmail, password);
+  const community = await createCommunityWithAdmin(
+    page.request,
+    `Chat UI Empty Community ${Date.now()}`,
+    ownerEmail,
+    password,
+  );
   const buyer = await addMember(community.id, buyerEmail, password);
   const owner = await prisma.account.findUniqueOrThrow({ where: { email: ownerEmail } });
-  const { thread } = await createListingAndThread(community.id, owner.id, buyer.id, "Chat UI Empty Listing");
+  const { thread } = await createListingAndThread(
+    community.id,
+    owner.id,
+    buyer.id,
+    "Chat UI Empty Listing",
+  );
 
   await signIn(page, buyerEmail, password);
   await page.goto(`/communities/${community.id}/threads/${thread.id}`);
@@ -209,14 +270,26 @@ test("shows a 'Start the conversation' empty state for a thread with no messages
   await expect(page.getByLabel("Reply")).toBeEditable();
 });
 
-test("opening a thread from Chats and from a listing's thread list both land on the same conversation route", async ({ page }) => {
+test("opening a thread from Chats and from a listing's thread list both land on the same conversation route", async ({
+  page,
+}) => {
   const password = "correct-horse-battery-staple";
   const ownerEmail = uniqueEmail("chatui-nav-owner");
   const buyerEmail = uniqueEmail("chatui-nav-buyer");
-  const community = await createCommunityWithAdmin(page.request, `Chat UI Nav Community ${Date.now()}`, ownerEmail, password);
+  const community = await createCommunityWithAdmin(
+    page.request,
+    `Chat UI Nav Community ${Date.now()}`,
+    ownerEmail,
+    password,
+  );
   const buyer = await addMember(community.id, buyerEmail, password);
   const owner = await prisma.account.findUniqueOrThrow({ where: { email: ownerEmail } });
-  const { listing, thread } = await createListingAndThread(community.id, owner.id, buyer.id, "Chat UI Nav Listing");
+  const { listing, thread } = await createListingAndThread(
+    community.id,
+    owner.id,
+    buyer.id,
+    "Chat UI Nav Listing",
+  );
   await seedMessage(thread.id, buyer.id, "Is this still available?");
 
   const expectedUrl = new RegExp(`/communities/${community.id}/threads/${thread.id}$`);
@@ -239,10 +312,20 @@ test("opens a long conversation with the newest message already visible, keeps i
   const password = "correct-horse-battery-staple";
   const ownerEmail = uniqueEmail("chatui-scroll-owner");
   const buyerEmail = uniqueEmail("chatui-scroll-buyer");
-  const community = await createCommunityWithAdmin(page.request, `Chat UI Scroll Community ${Date.now()}`, ownerEmail, password);
+  const community = await createCommunityWithAdmin(
+    page.request,
+    `Chat UI Scroll Community ${Date.now()}`,
+    ownerEmail,
+    password,
+  );
   const buyer = await addMember(community.id, buyerEmail, password);
   const owner = await prisma.account.findUniqueOrThrow({ where: { email: ownerEmail } });
-  const { thread } = await createListingAndThread(community.id, owner.id, buyer.id, "Chat UI Scroll Listing");
+  const { thread } = await createListingAndThread(
+    community.id,
+    owner.id,
+    buyer.id,
+    "Chat UI Scroll Listing",
+  );
 
   // Anchored well into the past so the composer's real (actual-now) send always sorts after every seeded message.
   const base = Date.now() - 120_000;
@@ -298,7 +381,12 @@ test("the chat header shows the counterpart's display name (linking to their pro
   );
   const buyer = await addMember(community.id, buyerEmail, password, "Chat UI Header Buyer");
   const owner = await prisma.account.findUniqueOrThrow({ where: { email: ownerEmail } });
-  const { thread } = await createListingAndThread(community.id, owner.id, buyer.id, "Chat UI Header Listing");
+  const { thread } = await createListingAndThread(
+    community.id,
+    owner.id,
+    buyer.id,
+    "Chat UI Header Listing",
+  );
   // The buyer has sent every message so far — the owner hasn't replied yet.
   await seedMessage(thread.id, buyer.id, "Is this still available?");
 
@@ -319,11 +407,21 @@ test("the chat header shows the neutral placeholder for a counterpart with no di
   const password = "correct-horse-battery-staple";
   const ownerEmail = uniqueEmail("chatui-noname-owner");
   const buyerEmail = uniqueEmail("chatui-noname-buyer");
-  const community = await createCommunityWithAdmin(page.request, `Chat UI No Name Community ${Date.now()}`, ownerEmail, password);
+  const community = await createCommunityWithAdmin(
+    page.request,
+    `Chat UI No Name Community ${Date.now()}`,
+    ownerEmail,
+    password,
+  );
   const buyer = await addMember(community.id, buyerEmail, password);
   const owner = await prisma.account.findUniqueOrThrow({ where: { email: ownerEmail } });
   await prisma.account.update({ where: { id: owner.id }, data: { displayName: null } });
-  const { thread } = await createListingAndThread(community.id, owner.id, buyer.id, "Chat UI No Name Listing");
+  const { thread } = await createListingAndThread(
+    community.id,
+    owner.id,
+    buyer.id,
+    "Chat UI No Name Listing",
+  );
   await seedMessage(thread.id, buyer.id, "Hello?");
 
   await signIn(page, buyerEmail, password);
@@ -340,10 +438,20 @@ test("the rendered thread page never shows email, authentication data, or raw in
   const password = "correct-horse-battery-staple";
   const ownerEmail = uniqueEmail("chatui-privacy-owner");
   const buyerEmail = uniqueEmail("chatui-privacy-buyer");
-  const community = await createCommunityWithAdmin(page.request, `Chat UI Privacy Community ${Date.now()}`, ownerEmail, password);
+  const community = await createCommunityWithAdmin(
+    page.request,
+    `Chat UI Privacy Community ${Date.now()}`,
+    ownerEmail,
+    password,
+  );
   const buyer = await addMember(community.id, buyerEmail, password);
   const owner = await prisma.account.findUniqueOrThrow({ where: { email: ownerEmail } });
-  const { thread } = await createListingAndThread(community.id, owner.id, buyer.id, "Chat UI Privacy Listing");
+  const { thread } = await createListingAndThread(
+    community.id,
+    owner.id,
+    buyer.id,
+    "Chat UI Privacy Listing",
+  );
   await seedMessage(thread.id, buyer.id, "Is this still available?");
   await seedMessage(thread.id, owner.id, "Yes, it is.");
 
@@ -367,15 +475,27 @@ test("at a common mobile width, the panel uses the full width with no horizontal
   const password = "correct-horse-battery-staple";
   const ownerEmail = uniqueEmail("chatui-mobile-owner");
   const buyerEmail = uniqueEmail("chatui-mobile-buyer");
-  const community = await createCommunityWithAdmin(page.request, `Chat UI Mobile Community ${Date.now()}`, ownerEmail, password);
+  const community = await createCommunityWithAdmin(
+    page.request,
+    `Chat UI Mobile Community ${Date.now()}`,
+    ownerEmail,
+    password,
+  );
   const buyer = await addMember(community.id, buyerEmail, password);
   const owner = await prisma.account.findUniqueOrThrow({ where: { email: ownerEmail } });
-  const { thread } = await createListingAndThread(community.id, owner.id, buyer.id, "Chat UI Mobile Listing");
+  const { thread } = await createListingAndThread(
+    community.id,
+    owner.id,
+    buyer.id,
+    "Chat UI Mobile Listing",
+  );
 
   const base = Date.now();
   await seedMessage(thread.id, buyer.id, "Is this still available?", new Date(base));
   await seedMessage(thread.id, owner.id, "Yes, it is.", new Date(base + 1000));
-  const longBody = "This is a much longer message that should wrap across multiple lines ".repeat(6).trim();
+  const longBody = "This is a much longer message that should wrap across multiple lines "
+    .repeat(6)
+    .trim();
   await seedMessage(thread.id, buyer.id, longBody, new Date(base + 2000));
 
   await signIn(page, buyerEmail, password);

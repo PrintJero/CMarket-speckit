@@ -19,7 +19,9 @@ export function MasterLifecycleBanner({
   action?: ReactNode;
 }) {
   const toneClassName =
-    tone === "warning" ? "border-warning-border bg-warning-tint text-warning-dark" : "border-border bg-bg text-ink-muted";
+    tone === "warning"
+      ? "border-warning-border bg-warning-tint text-warning-dark"
+      : "border-border bg-bg text-ink-muted";
   const Icon = tone === "warning" ? AlertIcon : ArchiveIcon;
 
   return (

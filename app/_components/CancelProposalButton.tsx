@@ -21,9 +21,12 @@ export function CancelProposalButton({ communityId, transactionId }: CancelPropo
   async function onClick() {
     setError(null);
     setSubmitting(true);
-    const response = await fetch(`/api/communities/${communityId}/transactions/${transactionId}/cancel`, {
-      method: "POST",
-    });
+    const response = await fetch(
+      `/api/communities/${communityId}/transactions/${transactionId}/cancel`,
+      {
+        method: "POST",
+      },
+    );
     const data: CancelProposalResponse = await response.json();
     setSubmitting(false);
     if (!data.ok) {

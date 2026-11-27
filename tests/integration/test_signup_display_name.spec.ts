@@ -29,6 +29,9 @@ test("registration collects a display name up front, and the account can then si
 
   const link = await getVerificationLink(request, email);
   await page.goto(link);
+  // Verification is a client-side fetch fired after the page mounts; navigating
+  // away before it completes aborts it and the account stays unverified.
+  await expect(page.getByText("Your email is verified.")).toBeVisible();
 
   // Sign in afterward using only email and password — no name field here.
   await page.goto("/sign-in");

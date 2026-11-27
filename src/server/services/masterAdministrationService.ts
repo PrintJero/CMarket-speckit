@@ -41,7 +41,9 @@ export type GetCommunityForMasterResult =
  * including its historical (non-current-epoch) memberships once it has been
  * through a restoration — without ever gaining a Membership itself.
  */
-export async function getCommunityForMaster(communityId: string): Promise<GetCommunityForMasterResult> {
+export async function getCommunityForMaster(
+  communityId: string,
+): Promise<GetCommunityForMasterResult> {
   const community = await prisma.community.findUnique({
     where: { id: communityId },
     include: {
@@ -115,9 +117,7 @@ export async function editCommunity(
   return { ok: true, community: { id: after.id, name: after.name } };
 }
 
-export type PromoteMembershipResult =
-  | { ok: true }
-  | { ok: false; reason: "not_eligible" };
+export type PromoteMembershipResult = { ok: true } | { ok: false; reason: "not_eligible" };
 
 /** FR-031: promotes a current member to ADMINISTRATOR. */
 export async function promoteMembershipAsMaster(
@@ -151,7 +151,8 @@ export async function promoteMembershipAsMaster(
   return { ok: true };
 }
 
-export type RemoveMembershipDisposition = "demote" | "revoke_membership" | "disable_account" | "delete_account";
+export type RemoveMembershipDisposition =
+  "demote" | "revoke_membership" | "disable_account" | "delete_account";
 
 export type RemoveMembershipResult =
   | { ok: true }
@@ -167,7 +168,10 @@ export async function removeMembershipAsMaster(
   callerMasterId: string,
   communityId: string,
   membershipId: string,
-  options: { disposition: RemoveMembershipDisposition; replacementAdministratorMembershipId?: string },
+  options: {
+    disposition: RemoveMembershipDisposition;
+    replacementAdministratorMembershipId?: string;
+  },
 ): Promise<RemoveMembershipResult> {
   const community = await prisma.community.findUnique({ where: { id: communityId } });
   const target = await prisma.membership.findUnique({ where: { id: membershipId } });
@@ -199,7 +203,13 @@ export async function removeMembershipAsMaster(
     }
   }
 
-  await applyDisposition(callerMasterId, target.accountId, communityId, membershipId, options.disposition);
+  await applyDisposition(
+    callerMasterId,
+    target.accountId,
+    communityId,
+    membershipId,
+    options.disposition,
+  );
 
   await writeAuditEntry(prisma, {
     actorType: "MASTER",
@@ -261,7 +271,10 @@ export async function suspendAccount(
   const account = await prisma.account.findUnique({ where: { id: accountId } });
   if (!account) return { ok: false, reason: "not_found" };
 
-  const orphanCheck = await findOrphanedCommunities(accountId, options.replacementAdministratorAssignments ?? []);
+  const orphanCheck = await findOrphanedCommunities(
+    accountId,
+    options.replacementAdministratorAssignments ?? [],
+  );
   if (orphanCheck.length > 0) {
     await writeAuditEntry(prisma, {
       actorType: "MASTER",
@@ -294,7 +307,10 @@ export async function suspendAccount(
 
 export type ReactivateAccountResult = { ok: true } | { ok: false; reason: "not_found" };
 
-export async function reactivateAccount(callerMasterId: string, accountId: string): Promise<ReactivateAccountResult> {
+export async function reactivateAccount(
+  callerMasterId: string,
+  accountId: string,
+): Promise<ReactivateAccountResult> {
   const account = await prisma.account.findUnique({ where: { id: accountId } });
   if (!account) return { ok: false, reason: "not_found" };
 
@@ -314,8 +330,7 @@ export async function reactivateAccount(callerMasterId: string, accountId: strin
 }
 
 export type ResetAccountPasswordResult =
-  | { ok: true; temporaryPassword: string }
-  | { ok: false; reason: "not_found" };
+  { ok: true; temporaryPassword: string } | { ok: false; reason: "not_found" };
 
 export async function resetAccountPassword(
   callerMasterId: string,
@@ -385,12 +400,18 @@ export async function editAccount(
       targetType: "Account",
       targetId: accountId,
       outcome: "SUCCESS",
-      detail: { before: { email: account.email, displayName: account.displayName }, after: { email: result.email, displayName: result.displayName } },
+      detail: {
+        before: { email: account.email, displayName: account.displayName },
+        after: { email: result.email, displayName: result.displayName },
+      },
     });
     return result;
   });
 
-  return { ok: true, account: { id: updated.id, email: updated.email, displayName: updated.displayName } };
+  return {
+    ok: true,
+    account: { id: updated.id, email: updated.email, displayName: updated.displayName },
+  };
 }
 
 export type DeleteAccountResult =
@@ -413,7 +434,10 @@ export async function deleteAccount(
   const account = await prisma.account.findUnique({ where: { id: accountId } });
   if (!account) return { ok: false, reason: "not_found" };
 
-  const orphanCheck = await findOrphanedCommunities(accountId, options.replacementAdministratorAssignments ?? []);
+  const orphanCheck = await findOrphanedCommunities(
+    accountId,
+    options.replacementAdministratorAssignments ?? [],
+  );
   if (orphanCheck.length > 0) {
     await writeAuditEntry(prisma, {
       actorType: "MASTER",
@@ -431,7 +455,11 @@ export async function deleteAccount(
     await applyReplacementAssignments(tx, options.replacementAdministratorAssignments ?? []);
     await tx.account.update({
       where: { id: accountId },
-      data: { email: `deleted-${accountId}@deleted.cmarket.invalid`, passwordHash: null, deletedAt: new Date() },
+      data: {
+        email: `deleted-${accountId}@deleted.cmarket.invalid`,
+        passwordHash: null,
+        deletedAt: new Date(),
+      },
     });
     await tx.authIdentity.deleteMany({ where: { accountId } });
     await tx.session.deleteMany({ where: { accountId } });
@@ -488,7 +516,10 @@ async function applyReplacementAssignments(
   assignments: AccountAdministratorAssignment[],
 ): Promise<void> {
   for (const assignment of assignments) {
-    await tx.membership.update({ where: { id: assignment.membershipId }, data: { role: "ADMINISTRATOR" } });
+    await tx.membership.update({
+      where: { id: assignment.membershipId },
+      data: { role: "ADMINISTRATOR" },
+    });
   }
 }
 
@@ -503,9 +534,11 @@ export type ListCommunitiesForMasterResult = {
   }[];
 };
 
-export async function listCommunitiesForMaster(options: {
-  status?: "ACTIVE" | "SUSPENDED" | "ARCHIVED";
-} = {}): Promise<ListCommunitiesForMasterResult> {
+export async function listCommunitiesForMaster(
+  options: {
+    status?: "ACTIVE" | "SUSPENDED" | "ARCHIVED";
+  } = {},
+): Promise<ListCommunitiesForMasterResult> {
   const communities = await prisma.community.findMany({
     where: options.status ? { status: options.status } : undefined,
     orderBy: { createdAt: "desc" },
@@ -537,9 +570,11 @@ export type ListAccountsForMasterResult = {
 };
 
 /** FR-040: paginated/searchable list for the MASTER account-management surface (User Story 7). */
-export async function listAccountsForMaster(options: {
-  search?: string;
-} = {}): Promise<ListAccountsForMasterResult> {
+export async function listAccountsForMaster(
+  options: {
+    search?: string;
+  } = {},
+): Promise<ListAccountsForMasterResult> {
   const accounts = await prisma.account.findMany({
     where: options.search
       ? { email: { contains: options.search, mode: "insensitive" } }
