@@ -24,7 +24,7 @@ CMarket v1.0.0 queda **cerrado, probado y publicado como release**. Las cinco qu
 
 Se adoptó gitflow con ramas protegidas. Se completó la spec 018 (PWA instalable), que era el único principio de la constitución sin cumplir. Al estabilizar las pruebas aparecieron **dos bugs reales de producto**, ambos corregidos con prueba de regresión. El más grave renombraba cuentas ajenas entre comunidades.
 
-La imagen de producción ya está publicada en GHCR. **El despliegue en Dokploy y el smoke test de producción quedan pendientes de los accesos que entregará Jero** (sección 10).
+**Producción está desplegada y funcionando** en Dokploy (sección 8). El smoke test automatizado pasó 9/9 contra la URL de producción, y Jero verificó a mano el registro con correo real, la verificación por Resend y el inicio de sesión con Google. Quedan el bootstrap de datos, las tareas programadas y los backups automáticos (secciones 8 y 11).
 
 ---
 
@@ -171,30 +171,37 @@ Todos se mergearon con _merge commit_, con el CI en verde.
 
 ## 8. Producción
 
-| Concepto                | Estado                                                                                                                                                                                                                                 |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| URL                     | **Pendiente** (dominio de Jero)                                                                                                                                                                                                        |
-| Fecha y hora del deploy | **Pendiente.** El workflow Deploy de `main` corrió el 27/11/2026 a las 10:27 UTC, publicó la imagen y **omitió el deploy** porque falta `DOKPLOY_WEBHOOK_URL` en el Environment `production`, como estaba previsto                     |
-| Tareas programadas      | Documentadas en el README ("Production deployment (Dokploy)", paso 5): cleanup cada 15 min, archivado diario en el contenedor `tools` y backups diarios con retención de 7 días o más. **Sin configurar** (requieren acceso a Dokploy) |
+**Setup real** (lo configuró Jero en Dokploy; detalle en el README, "Production deployment (Dokploy)"):
 
-**Smoke test (sección 8.6), 14 puntos:**
+| Concepto            | Valor                                                                                                                                                                                                                        |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| URL                 | <https://cmarket-cmarketspeckit-pakwhf-3d0eae-18-159-111-110.sslip.io> (HTTPS con Let's Encrypt)                                                                                                                             |
+| Aplicación          | Dokploy, proyecto `CMarket` / `production`, servicio `Cmarket-SpecKit`: tipo Application, Provider Docker, imagen `ghcr.io/printjero/cmarket-speckit:main`, Autodeploy encendido (lo requiere el webhook; sin build por git) |
+| Base de datos       | Servicio aparte `cmarket-speckit-db` (`postgres:16-alpine`), solo en la red interna; nueva y exclusiva de esta app                                                                                                           |
+| Pipeline            | Solo `main` despliega: secret `DOKPLOY_WEBHOOK_URL` y variable `APP_URL` en el Environment `production`; `develop` no despliega (un solo servidor). El servidor nunca construye (3.8 GB de RAM)                              |
+| Fecha del deploy    | 27/11/2026. Jero lo hizo directamente en Dokploy con la imagen `:main` de la release (`sha-5b651cb`). El camino automático (CI → Deploy → webhook → health check) se estrena con el merge del hotfix v1.0.1 a `main`         |
+| Incidente de correo | Los correos de verificación fallaban: `EMAIL_WEBHOOK_TOKEN` se pegó como `RESEND_API_KEY="…"` (con prefijo y comillas, copiado de Bella). Jero lo corrigió. El hotfix v1.0.1 hace que este tipo de error sea diagnosticable  |
+| Tareas programadas  | Configuración exacta documentada en el README ("Scheduled jobs"): cleanup cada 15 minutos en `Cmarket-SpecKit` y archivado diario en `cmarket-tools`. **Pendiente de crearlas en Dokploy**                                   |
+| Backups             | **Pendientes:** requieren un destino S3 (ver BACKLOG)                                                                                                                                                                        |
 
-| #   | Punto                                                          | Resultado                                                     |
-| --- | -------------------------------------------------------------- | ------------------------------------------------------------- |
-| 1   | `GET /api/health` → 200                                        | Pendiente en producción. Verificado en el contenedor local    |
-| 2   | Home y login sin errores de consola                            | Pendiente. Automatizado en `npm run test:smoke`               |
-| 3   | Registro, correo real, verificación e inicio de sesión         | Pendiente (requiere el proveedor de correo)                   |
-| 4   | Inicio de sesión con Google                                    | Pendiente (requiere credenciales de Google)                   |
-| 5   | Invitación, aceptación y feed                                  | Pendiente                                                     |
-| 6   | Listing con foto en Cloudinary                                 | Pendiente (requiere Cloudinary)                               |
-| 7   | Foto sin cookie → 401                                          | Pendiente. Automatizado (verificado en local)                 |
-| 8   | Mensaje recibido por la otra cuenta                            | Pendiente                                                     |
-| 9   | Propuesta aceptada en ambos historiales, sin datos de contacto | Pendiente                                                     |
-| 10  | Otra comunidad no ve el listing ni la imagen                   | Pendiente                                                     |
-| 11  | PWA: manifest, worker e instalación (Android e iOS)            | Pendiente. La instalabilidad está automatizada; iOS es manual |
-| 12  | Cleanup con token → 200; sin token → 401                       | Pendiente. La parte sin token está automatizada               |
-| 13  | Logs sin errores ni secretos                                   | Pendiente                                                     |
-| 14  | Limpieza de datos de prueba (si Jero lo pide)                  | Pendiente                                                     |
+**Smoke test (sección 8.6), 14 puntos.** La parte automatizada se ejecutó con `npm run test:smoke` contra producción el 27/11/2026 a las 11:27 UTC: **9/9 en verde**.
+
+| #   | Punto                                                          | Resultado                                                                                                         |
+| --- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| 1   | `GET /api/health` → 200                                        | ✅ Automatizado (11:27 UTC) y verificado por Jero                                                                 |
+| 2   | Home y login sin errores de consola                            | ✅ Automatizado: `/`, `/sign-in` y `/sign-up` sin errores                                                         |
+| 3   | Registro, correo real, verificación e inicio de sesión         | ✅ Verificado por Jero (Resend), tras corregir el token                                                           |
+| 4   | Inicio de sesión con Google                                    | ✅ Verificado por Jero. OAuth en modo **Prueba** (solo usuarios de prueba; ver BACKLOG)                           |
+| 5   | Invitación, aceptación y feed                                  | ⏳ Pendiente: requiere el bootstrap (comunidad piloto)                                                            |
+| 6   | Listing con foto en Cloudinary                                 | ⏳ Pendiente: requiere el bootstrap                                                                               |
+| 7   | Foto sin cookie → 401                                          | ✅ Automatizado, y verificado por Jero                                                                            |
+| 8   | Mensaje recibido por la otra cuenta                            | ⏳ Pendiente: requiere el bootstrap                                                                               |
+| 9   | Propuesta aceptada en ambos historiales, sin datos de contacto | ⏳ Pendiente: requiere el bootstrap                                                                               |
+| 10  | Otra comunidad no ve el listing ni la imagen                   | ⏳ Pendiente: requiere dos comunidades                                                                            |
+| 11  | PWA: manifest, worker e instalación                            | ✅ Instalabilidad automatizada (motor de Chrome: 0 errores) y verificada por Jero. ⏳ Instalación en iOS (manual) |
+| 12  | Cleanup con token → 200; sin token → 401                       | ✅ Sin token → 401 (automatizado). ⏳ Con token: se verifica al crear el schedule                                 |
+| 13  | Logs sin errores ni secretos                                   | ⏳ Pendiente de revisar en Dokploy                                                                                |
+| 14  | Switches de prueba apagados                                    | ✅ Automatizado: `/operator`, `/api/operator/create-community` y `/api/test/last-email` → 404                     |
 
 ---
 
@@ -230,17 +237,18 @@ Detalle completo en [`specs/BACKLOG.md`](../specs/BACKLOG.md):
 - instalabilidad verificada con CDP `Page.getInstallabilityErrors`, porque Lighthouse ya no tiene categoría PWA;
 - service workers bloqueados por defecto en la suite (hallazgo U1 de `/speckit-analyze`).
 
-8. **Deploy por imagen** (GHCR + webhook) en lugar de construir en el servidor, según la política de secretos de Jero. Se agregó un contenedor `tools`, porque la imagen standalone no puede ejecutar `bootstrap-master`, `create-community` ni el archivado diario de la spec 009.
-9. **El auto-deploy propio de Dokploy debe ir desactivado.** El disparador es el webhook del workflow, que corre después del CI y del push de la imagen; así se evita desplegar antes de que la imagen exista.
+8. **Deploy por imagen** (GHCR + webhook) en lugar de construir en el servidor, según la política de secretos de Jero y porque el servidor (3.8 GB de RAM) no puede compilar Next.js. Se agregó una imagen `-tools`, porque la imagen standalone no puede ejecutar `bootstrap-master`, `create-community` ni el archivado diario de la spec 009.
+9. **El schedule de cleanup corre dentro de `Cmarket-SpecKit` con el `fetch` de Node** (las imágenes no traen `curl`), usando el `CLEANUP_TOKEN` que el contenedor ya tiene. Así el token no se copia en la configuración de Dokploy.
 10. **Documentación técnica en inglés** (README, CHANGELOG, BACKLOG), por consistencia con el repositorio. Este reporte va en español.
 
 ---
 
 ## 11. Pendientes que requieren a Jero
 
-1. **Acceso a Dokploy** y **dominio con HTTPS**.
-2. **Backup verificado y una restauración probada** de la base de producción (si ya tiene datos, la migración de 017 borra las fotos anteriores).
-3. **Variables de entorno de producción** en Dokploy (lista completa en el README, paso 1): `DATABASE_URL`, `NEXTAUTH_*`, Google OAuth, proveedor de correo (Resend, con el dominio verificado), Cloudinary y `CLEANUP_TOKEN`.
-4. En GitHub, en los Environments `develop` y `production`: el secret **`DOKPLOY_WEBHOOK_URL`**.
-5. Si el paquete GHCR es privado: un registro GHCR en Dokploy (token con `read:packages`).
-6. Con eso, Claude Code puede ejecutar el despliegue, el bootstrap de datos, las tareas programadas y el smoke test, y completar la sección 8 de este reporte.
+_Actualizado el 27/11/2026, después del despliegue._ Ya resuelto por Jero: acceso a Dokploy, HTTPS, variables de entorno, la base nueva, y `DOKPLOY_WEBHOOK_URL` y `APP_URL` en `production`. Queda:
+
+1. **Bootstrap** en Dokploy: el servicio `cmarket-tools`, el primer MASTER y la comunidad piloto con su cuenta ya verificada (pasos exactos en el README, "Bootstrap").
+2. **Crear los dos schedules** en Dokploy (configuración exacta en el README, "Scheduled jobs").
+3. **Backups automáticos y una restauración probada** antes de onboardear la primera comunidad real. Requieren un destino S3 (BACKLOG).
+4. Completar a mano los puntos 5, 6, 8, 9, 10, 11 (iOS) y 13 del smoke test.
+5. **Publicar la app de Google OAuth** cuando haya dominio propio y una página `/privacy` (BACKLOG).
