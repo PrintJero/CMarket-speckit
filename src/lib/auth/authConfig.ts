@@ -87,11 +87,19 @@ export const authOptions: NextAuthOptions = {
     // auto-link-by-email path). The WHERE clause makes "only when this
     // account doesn't already have one" an atomic condition of the update
     // itself (data-model.md's Atomicity section), not a separate read.
-    async linkAccount({ account, profile }) {
+    //
+    // Scope by `user.id`, NOT `account.userId`: NextAuth v4 passes the raw
+    // provider account to this event (userId is only added to the copy handed
+    // to the adapter), so `account.userId` is undefined here — and Prisma
+    // silently drops an undefined `where` field, which turned this into
+    // "rename every nameless account on the platform". The guard below makes
+    // an unscoped update impossible even if the event payload changes again.
+    async linkAccount({ user, profile }) {
       const name = (profile as Profile | undefined)?.name;
-      if (!name) return;
+      const accountId = user?.id;
+      if (!name || typeof accountId !== "string" || accountId.length === 0) return;
       await prisma.account.updateMany({
-        where: { id: account.userId, displayName: null },
+        where: { id: accountId, displayName: null },
         data: { displayName: name },
       });
     },

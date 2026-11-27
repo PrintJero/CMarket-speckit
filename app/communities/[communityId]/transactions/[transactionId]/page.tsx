@@ -79,13 +79,19 @@ export default async function TransactionDetailPage({
           {resolvedCaption ? ` · ${resolvedCaption}` : ""}
         </p>
 
-        {transaction.state === "PENDING" && transaction.role === "seller" && (
-          <AcceptRejectButtons
-            communityId={communityId}
-            transactionId={transaction.id}
-            counterpartDisplayName={transaction.counterpartDisplayName}
-          />
-        )}
+        {/* Kept mounted (same slot) from PENDING through ACCEPTED so the
+            post-accept rating prompt survives any router.refresh() that lands
+            mid-flow — e.g. AppShell syncing the active community. Unmounting
+            it on the state change used to close the prompt before it opened. */}
+        {transaction.role === "seller" &&
+          (transaction.state === "PENDING" || transaction.state === "ACCEPTED") && (
+            <AcceptRejectButtons
+              communityId={communityId}
+              transactionId={transaction.id}
+              counterpartDisplayName={transaction.counterpartDisplayName}
+              pending={transaction.state === "PENDING"}
+            />
+          )}
         {transaction.state === "PENDING" && transaction.role === "buyer" && (
           <CancelProposalButton communityId={communityId} transactionId={transaction.id} />
         )}

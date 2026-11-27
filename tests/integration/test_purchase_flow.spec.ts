@@ -204,7 +204,9 @@ test("the buyer sees all their proposals' states and can cancel a still-pending 
   await expect(page.getByText("Purchase Cancel Rug")).toBeVisible();
 
   await page.goto(`/communities/${community.id}/transactions/${toCancel.id}`);
-  await page.getByRole("button", { name: "Cancel" }).click();
+  // exact: the community switcher's accessible name contains this community's
+  // name ("…Purchase Cancel Community…") and would also match a substring.
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(page.getByText(/cancelled/i)).toBeVisible();
 
   const stillTen = await prisma.listing.findUniqueOrThrow({ where: { id: listingOne.id } });

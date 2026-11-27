@@ -94,11 +94,15 @@ export function ListingMediaUploader({
   // at authorization time. In create mode it is a stable per-session opaque id.
   const draftIdRef = useRef<string>(listingId ?? newId());
 
-  const [items, setItems] = useState<Map<string, MediaItem>>(() => {
-    const initial = new Map<string, MediaItem>();
+  // Seed items, order and cover from the saved photos exactly once, in a single
+  // lazy initializer so all three agree from the very first render.
+  const [seed] = useState(() => {
+    const seededItems = new Map<string, MediaItem>();
+    const ids: string[] = [];
     for (const photo of initialPhotos) {
       const id = newId();
-      initial.set(id, {
+      ids.push(id);
+      seededItems.set(id, {
         id,
         state: "uploaded",
         previewUrl: null,
@@ -109,10 +113,13 @@ export function ListingMediaUploader({
         progress: 100,
       });
     }
-    return initial;
+    const coverIndex = initialPhotos.findIndex((photo) => photo.isCover);
+    const seededCover = coverIndex >= 0 ? (ids[coverIndex] ?? null) : (ids[0] ?? null);
+    return { items: seededItems, order: ids, coverId: seededCover };
   });
-  const [order, setOrder] = useState<string[]>(() => []);
-  const [coverId, setCoverId] = useState<string | null>(null);
+  const [items, setItems] = useState<Map<string, MediaItem>>(seed.items);
+  const [order, setOrder] = useState<string[]>(seed.order);
+  const [coverId, setCoverId] = useState<string | null>(seed.coverId);
 
   // Files and abort handles never belong in React state — they are not rendered
   // and must not trigger re-renders.
@@ -123,17 +130,12 @@ export function ListingMediaUploader({
    *  stale undefined here would make a retry mint a second asset identity. */
   const issuedPublicIdRef = useRef<Map<string, string>>(new Map());
 
-  // Seed order/cover from the saved photos exactly once.
-  const seeded = useRef(false);
+  // Latest onChange, kept in a ref so the report-upward effect below does not
+  // re-fire (or loop) when the parent passes a fresh callback every render.
+  const onChangeRef = useRef(onChange);
   useEffect(() => {
-    if (seeded.current) return;
-    seeded.current = true;
-    const ids = [...items.keys()];
-    setOrder(ids);
-    const coverIndex = initialPhotos.findIndex((photo) => photo.isCover);
-    setCoverId(coverIndex >= 0 ? (ids[coverIndex] ?? null) : (ids[0] ?? null));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   const update = useCallback((id: string, patch: Partial<MediaItem>) => {
     setItems((prev) => {
@@ -445,7 +447,7 @@ export function ListingMediaUploader({
 
     const coverItem = effectiveCoverId ? items.get(effectiveCoverId) : undefined;
 
-    onChange({
+    onChangeRef.current({
       photos: pendingPhotos,
       coverPublicId: coverItem?.publicId,
       savedPhotoIds,
@@ -454,7 +456,6 @@ export function ListingMediaUploader({
       hasFailures,
       draftId: draftIdRef.current,
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, effectiveCoverId, items]);
 
   const liveCount = visible.length;

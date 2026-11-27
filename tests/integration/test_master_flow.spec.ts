@@ -1,7 +1,9 @@
 import { expect, test } from "@playwright/test";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth/passwordHash";
-import { uniqueEmail } from "./helpers";
+import { confirmMasterDialog, uniqueEmail } from "./helpers";
+
+const SELF_DISABLE_MESSAGE = "You cannot disable your own MASTER identity while signed in as it.";
 
 async function createMasterFixture(masterId: string, password: string, mustChangePassword = false) {
   return prisma.masterIdentity.create({
@@ -31,7 +33,9 @@ test.describe("MASTER sign-in and marketplace-action denial (User Story 1)", () 
     await page.getByLabel("New password").fill("a-brand-new-password-1");
     await page.getByRole("button", { name: "Set password" }).click();
     await page.waitForURL("/master");
-    await expect(page.getByRole("heading", { name: "Platform administration" })).toBeVisible();
+    // The dashboard: "Platform administration" is the sidebar nav; the page heading is "Overview".
+    await expect(page.getByRole("navigation", { name: "Platform administration" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Overview", level: 1 })).toBeVisible();
 
     await page.getByRole("button", { name: "Sign out" }).click();
     await page.waitForURL("/master/sign-in");
@@ -107,24 +111,27 @@ test.describe("MASTER lifecycle management (User Story 3)", () => {
     await page.getByLabel("Master ID").fill(bId);
     await page.getByLabel("Operational email").fill(`${bId}@example.com`);
     await page.getByRole("button", { name: "Create MASTER" }).click();
-    await expect(page.getByText("Temporary password (shown once")).toBeVisible();
-    await expect(page.getByText(bId)).toBeVisible();
+    await expect(page.getByText("Temporary password — shown once")).toBeVisible();
+    await expect(page.getByRole("cell", { name: bId, exact: true })).toBeVisible();
 
     // Self-disable is rejected (A's own row is listed alongside B's).
     const aRow = page.locator("tr", { hasText: aId });
-    const selfDisableAlert = page.waitForEvent("dialog");
     await aRow.getByRole("button", { name: "Disable" }).click();
-    expect((await selfDisableAlert).message()).toContain("cannot_disable_self");
-    await (await selfDisableAlert).dismiss().catch(() => undefined);
+    await confirmMasterDialog(page, "Disable this MASTER");
+    await expect(page.getByRole("alertdialog").getByRole("alert")).toHaveText(SELF_DISABLE_MESSAGE);
+    await page.getByRole("alertdialog").getByRole("button", { name: "Cancel" }).click();
+    await expect(aRow.getByText("Active", { exact: true })).toBeVisible();
 
     // Disable B (not self) succeeds.
     const bRow = page.locator("tr", { hasText: bId });
     await bRow.getByRole("button", { name: "Disable" }).click();
-    await expect(bRow.getByText("DISABLED")).toBeVisible();
+    await confirmMasterDialog(page, "Disable this MASTER");
+    await expect(bRow.getByText("Disabled", { exact: true })).toBeVisible();
 
     // Reactivate B.
     await bRow.getByRole("button", { name: "Reactivate" }).click();
-    await expect(bRow.getByText("ACTIVE")).toBeVisible();
+    await confirmMasterDialog(page, "Reactivate");
+    await expect(bRow.getByText("Active", { exact: true })).toBeVisible();
   });
 });
 
@@ -145,10 +152,9 @@ test.describe("Every platform-administration action is auditable (User Story 11)
     // With A the only active MASTER, attempt self-disable via the masters page — rejected.
     await page.goto("/master/masters");
     const aRow = page.locator("tr", { hasText: aId });
-    const alert = page.waitForEvent("dialog");
     await aRow.getByRole("button", { name: "Disable" }).click();
-    expect((await alert).message()).toContain("cannot_disable_self");
-    await (await alert).dismiss().catch(() => undefined);
+    await confirmMasterDialog(page, "Disable this MASTER");
+    await expect(page.getByRole("alertdialog").getByRole("alert")).toHaveText(SELF_DISABLE_MESSAGE);
 
     // The FAILURE entry is visible in the audit log, filtered by action.
     await page.goto("/master/audit-log?action=master.disable");

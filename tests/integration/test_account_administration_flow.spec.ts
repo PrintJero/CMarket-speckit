@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth/passwordHash";
-import { signIn, uniqueEmail } from "./helpers";
+import { confirmMasterDialog, expectMasterPageStatus, signIn, uniqueEmail } from "./helpers";
 
 async function createMasterFixture(masterId: string, password: string) {
   return prisma.masterIdentity.create({
@@ -56,7 +56,8 @@ test("a MASTER edits, suspends, reactivates, resets, and permanently deletes an 
 
   // Suspend — sign-in now denied.
   await page.getByRole("button", { name: "Suspend" }).click();
-  await expect(page.getByText("Status: SUSPENDED")).toBeVisible();
+  await confirmMasterDialog(page, "Suspend account");
+  await expectMasterPageStatus(page, "Suspended");
 
   const suspendedContext = await browser.newContext();
   const suspendedPage = await suspendedContext.newPage();
@@ -69,7 +70,8 @@ test("a MASTER edits, suspends, reactivates, resets, and permanently deletes an 
 
   // Reactivate — sign-in works again.
   await page.getByRole("button", { name: "Reactivate" }).click();
-  await expect(page.getByText("Status: ACTIVE")).toBeVisible();
+  await confirmMasterDialog(page, "Reactivate account");
+  await expectMasterPageStatus(page, "Active");
 
   const reactivatedContext = await browser.newContext();
   const reactivatedPage = await reactivatedContext.newPage();
@@ -80,11 +82,10 @@ test("a MASTER edits, suspends, reactivates, resets, and permanently deletes an 
   const passwordHashBefore = (await prisma.account.findUniqueOrThrow({ where: { id: account.id } }))
     .passwordHash;
   await page.goto(`/master/accounts/${account.id}`);
-  const resetAlertPromise = page.waitForEvent("dialog");
   await page.getByRole("button", { name: "Reset password" }).click();
-  const resetAlert = await resetAlertPromise;
-  expect(resetAlert.message()).toContain("New temporary password");
-  await resetAlert.dismiss().catch(() => undefined);
+  await confirmMasterDialog(page, "Reset password");
+  // The new temporary password is shown once, on screen (MasterTemporaryPasswordPanel).
+  await expect(page.getByText("New temporary password — shown once")).toBeVisible();
 
   const accountAfterReset = await prisma.account.findUniqueOrThrow({ where: { id: account.id } });
   expect(accountAfterReset.passwordHash).not.toBe(passwordHashBefore);
@@ -93,7 +94,11 @@ test("a MASTER edits, suspends, reactivates, resets, and permanently deletes an 
   // Permanently delete.
   await page.goto(`/master/accounts/${account.id}`);
   await page.getByRole("button", { name: "Delete permanently" }).click();
-  await expect(page.getByText("This account has been permanently deleted.")).toBeVisible();
+  await confirmMasterDialog(page, "Delete account permanently", { typedPhrase: "DELETE" });
+  await expectMasterPageStatus(page, "Deleted");
+  await expect(
+    page.getByText("This account has been permanently deleted.", { exact: true }),
+  ).toBeVisible();
 
   const deletedAccount = await prisma.account.findUnique({ where: { id: account.id } });
   expect(deletedAccount?.email).not.toBe(newEmail);
@@ -184,17 +189,21 @@ test("suspending/deleting an account that alone administers multiple communities
   await signInAsMaster(page, masterId, "master-password-1");
   await page.goto(`/master/accounts/${admin.id}`);
   await page.getByRole("button", { name: "Suspend" }).click();
+  await confirmMasterDialog(page, "Suspend account");
 
-  await expect(page.getByText(/last active administrator of 2 community/i)).toBeVisible();
-  await page
+  // The backend reports would_orphan_communities; the SAME dialog then asks for
+  // a replacement administrator per affected community.
+  const dialog = page.getByRole("alertdialog");
+  await expect(dialog.getByText(/last active administrator of 2 communities/i)).toBeVisible();
+  await dialog
     .getByLabel("US7 Community X", { exact: false })
     .selectOption({ label: "Replacement X" });
-  await page
+  await dialog
     .getByLabel("US7 Community Y", { exact: false })
     .selectOption({ label: "Replacement Y" });
-  await page.getByRole("button", { name: "Confirm suspend" }).click();
+  await dialog.getByRole("button", { name: "Confirm suspend" }).click();
 
-  await expect(page.getByText("Status: SUSPENDED")).toBeVisible();
+  await expectMasterPageStatus(page, "Suspended");
   const replacementXMembership = await prisma.membership.findFirstOrThrow({
     where: { accountId: replacementX.id, communityId: communityX.id },
   });
