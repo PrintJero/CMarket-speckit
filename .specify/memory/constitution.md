@@ -91,6 +91,21 @@ Template propagation required in same change:
   plan-authoring time.
 -->
 
+<!--
+SYNC IMPACT REPORT
+Version: 4.1.0 → 4.1.1 (PATCH)
+Date: 2026-11-27
+Status: Reference correction made while closing release v1.0.0 (see specs/BACKLOG.md).
+
+PATCH (wording/reference fix; no principle added, removed, or redefined):
+- Additional Constraints, "Access codes": the direct-invitation membership path was cited as
+  "spec 001", a folder that never existed in specs/. It now cites the feature that actually
+  implements it, specs/004-invitations-membership. The rule itself is unchanged: no access-code
+  spec may be created until a concrete adopting community requires bulk onboarding.
+
+Template propagation required in same change: none — no template references the corrected text.
+-->
+
 # CMarket Constitution
 
 ## Core Principles
@@ -193,7 +208,7 @@ _Rationale:_ A closed, community-gated marketplace still needs a global actor wh
 - **Tenancy.** Community membership is the tenancy boundary for all data access; any new data store, cache, or search index MUST be designed with community scoping as a first-class dimension, not retrofitted later.
 - **Stack (decided).** The stack in use is: Next.js (App Router), Prisma ORM, PostgreSQL, Docker, deployed via Dokploy. Feature plans MUST NOT mark these as NEEDS CLARIFICATION; any deviation from this stack MUST be justified in the plan's Technical Context against the cost of fragmenting the stack.
 - **Migrations & backups.** Every schema change reaches production exclusively through versioned Prisma migrations applied by the deployment pipeline — never by manual modification of the production database. Automated database backups MUST exist, and restoration MUST be verified (actually performed) at least once before the first production community onboards.
-- **Access codes are constitutionally permitted but not yet in scope.** No feature spec for community access codes may be created until a concrete adopting community requires bulk onboarding; until then, direct invitation (spec 001) is the only implemented membership path.
+- **Access codes are constitutionally permitted but not yet in scope.** No feature spec for community access codes may be created until a concrete adopting community requires bulk onboarding; until then, direct invitation (specs/004-invitations-membership) is the only implemented membership path.
 
 ## Development Workflow & Quality Gates
 
@@ -214,4 +229,4 @@ This constitution supersedes any conflicting ad-hoc practice for this repository
 
 All feature plans MUST include a Constitution Check gate referencing the Core Principles in this document. Complexity that cannot be justified against Principle VII (Simplicity & MVP-First) MUST be simplified before merge.
 
-**Version:** 4.1.0 | **Ratified:** 2026-07-09 | **Last Amended:** 2026-07-23
+**Version:** 4.1.1 | **Ratified:** 2026-07-09 | **Last Amended:** 2026-11-27
