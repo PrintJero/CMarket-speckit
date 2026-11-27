@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { prisma } from "@/lib/prisma";
 import {
   coreScreens,
   ensureControlledByWorker,
@@ -159,4 +160,59 @@ test("activating the worker removes storage left by previous versions (FR-011, S
   await expect
     .poll(async () => (await readCacheStorage(page)).names)
     .toEqual(["cmarket-static-v1"]);
+});
+
+// ---------------------------------------------------------------- T013 (US2)
+
+test("a navigation without network shows the CMarket offline page, and Try again reloads the live page (FR-010, FR-014, SC-003)", async ({
+  page,
+  context,
+}) => {
+  const marketplace = await seedMarketplace(page, "offline");
+  const [feed, listing] = coreScreens(marketplace);
+  await page.goto(feed.path);
+  await ensureControlledByWorker(page);
+
+  await context.setOffline(true);
+  await page.goto(listing.path);
+  await expect(page.getByRole("heading", { level: 1, name: "You're offline" })).toBeVisible();
+  // The worker answers the ORIGINAL navigation, so the address bar keeps the requested URL.
+  expect(new URL(page.url()).pathname).toBe(listing.path);
+
+  await context.setOffline(false);
+  await page.getByRole("link", { name: "Try again" }).click();
+  await expect(page.getByRole("heading", { name: marketplace.listingTitle })).toBeVisible();
+});
+
+test("online navigations always come from the server, never a stored copy (US2-AS3)", async ({
+  page,
+}) => {
+  const marketplace = await seedMarketplace(page, "fresh");
+  const listing = coreScreens(marketplace)[1];
+  await page.goto(listing.path);
+  await ensureControlledByWorker(page);
+  await expect(page.getByRole("heading", { name: marketplace.listingTitle })).toBeVisible();
+
+  const renamed = `${marketplace.listingTitle} (renamed)`;
+  await prisma.listing.update({ where: { id: marketplace.listingId }, data: { title: renamed } });
+  await page.reload();
+  await expect(page.getByRole("heading", { name: renamed })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: marketplace.listingTitle, exact: true }),
+  ).toHaveCount(0);
+});
+
+test("the stored offline page carries no personal data (FR-014)", async ({ page }) => {
+  const marketplace = await seedMarketplace(page, "nopii");
+  await page.goto(coreScreens(marketplace)[0].path);
+  await ensureControlledByWorker(page);
+
+  const offlineHtml = await page.evaluate(async () => {
+    const response = await caches.match("/offline");
+    return response ? response.text() : null;
+  });
+  expect(offlineHtml).not.toBeNull();
+  expect(offlineHtml).toContain("You&#x27;re offline");
+  expect(offlineHtml).not.toContain(marketplace.buyer.email);
+  expect(offlineHtml).not.toContain(marketplace.buyer.displayName);
 });

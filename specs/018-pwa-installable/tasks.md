@@ -103,13 +103,13 @@ back online, "Try again" → the live page.
 
 ### Tests for User Story 2 (write first) ⚠️
 
-- [ ] T013 [US2] Extend `tests/integration/test_pwa_installable.spec.ts` with:
+- [X] T013 [US2] Extend `tests/integration/test_pwa_installable.spec.ts` with:
   1. **Offline fallback (SC-003)**: sign in as a member, open the community feed, wait for `navigator.serviceWorker.ready` and for the page to be controlled (`navigator.serviceWorker.controller` non-null, reloading once if needed). Then `context.setOffline(true)`, `page.goto(<listing detail URL>)`. Assert the `h1` "You're offline" is visible and `page.url()` is still the listing URL. Then `context.setOffline(false)`, click "Try again", and assert the listing title is visible.
   2. **Network-first, never stale (US2-AS3)**: while online and controlled, open a listing detail, rename the listing directly through Prisma, reload, and assert the new title is shown and the old one is not.
   3. **Offline page carries no personal data (FR-014)**: with the signed-in member's display name and email known, read the cached offline response in the page (`caches.match("/offline")` → `.text()`) and assert it contains neither.
 
   Because the worker from T009 already implements the navigation branch, these are expected to pass immediately (the pattern of spec 011 T010/T013). If any is red, that reveals a defect to fix in T014.
-- [ ] T014 [US2] Only if T013 is red: fix the navigation branch or the precache in `public/sw.js` (bumping `CACHE` if the caching rules change) until T013 is green. Record the outcome here.
+- [X] T014 [US2] Only if T013 is red: fix the navigation branch or the precache in `public/sw.js` (bumping `CACHE` if the caching rules change) until T013 is green. Record the outcome here. **Outcome (2026-11-27): not needed.** All three T013 tests passed on the first run against T009's worker; `public/sw.js` was left unchanged.
 
 **Checkpoint**: US1 and US2 both work independently.
 
