@@ -5,6 +5,36 @@ All notable changes to CMarket are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Every feature has a
 full Spec Kit record under `specs/###-name/` (spec, plan, tasks, contracts).
 
+## [1.0.1] - 2026-11-27
+
+Hotfix after the first production deployment. Verification emails were
+failing; the cause was `EMAIL_WEBHOOK_TOKEN` pasted with a `RESEND_API_KEY=`
+prefix and quotes, already corrected in Dokploy. The failure was hard to
+diagnose and left members stuck.
+
+### Fixed
+
+- **Email delivery errors are diagnosable.** The email transport's error now
+  carries the provider's HTTP status and response body, truncated and with the
+  credential redacted (e.g. Resend's `API key is invalid`). It is logged on the
+  server only, never sent to the browser. Network failures are reported too.
+- **Clear message instead of a generic error.** When the verification email
+  cannot be sent, sign-up and "Resend verification email" respond `503`, and
+  the UI says so and invites the member to try again. Previously the response
+  was an unhandled `500`, shown as "Something went wrong.".
+- **A failed sign-up can always be retried.** A verification token whose email
+  was never delivered is discarded, so failed attempts no longer count against
+  the 5-per-15-minutes issuance limit. Previously, after five failed sends, the
+  next sign-up returned success without sending anything.
+
+### Notes
+
+- **Account non-enumeration trade-off (spec 002).** While email delivery is
+  failing, sign-up answers `503` for new and unverified emails but still `202`
+  for an already-verified account (no email is sent in that case). The same
+  applies to resend for unverified accounts. This is only observable during a
+  delivery outage, which is now logged explicitly.
+
 ## [1.0.0] - 2026-11-27
 
 First production release: a closed, community-gated marketplace delivered as a
@@ -118,4 +148,5 @@ See [`specs/BACKLOG.md`](specs/BACKLOG.md):
 - Prisma 7, which resolves the remaining 4 high-severity `npm audit` findings in
   Prisma's own toolchain.
 
+[1.0.1]: https://github.com/PrintJero/CMarket-speckit/releases/tag/v1.0.1
 [1.0.0]: https://github.com/PrintJero/CMarket-speckit/releases/tag/v1.0.0
