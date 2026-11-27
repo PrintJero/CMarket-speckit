@@ -60,7 +60,7 @@ Single existing Next.js/Prisma project (extends 002-010), per plan.md's Structur
 
 ### Implementation
 
-- [ ] *(no separate task — T008/T009 already satisfy T010; run T010 to confirm green)*
+- [x] *(no separate task — T008/T009 already satisfy T010; run T010 to confirm green)* — **Verified 2026-11-27:** `tests/integration/test_wanted_posts_flow.spec.ts:40` ("a member creates a wanted post with no price…") green in 6 consecutive full-suite runs (local, production build) and in CI on PR #25.
 
 **Checkpoint**: MVP — a member can create a wanted post and find it, clearly labeled, in the community feed and search, with community isolation locked in by a mandatory test.
 
@@ -86,7 +86,7 @@ Single existing Next.js/Prisma project (extends 002-010), per plan.md's Structur
 
 ### Implementation
 
-- [ ] *(no separate task expected — `app/communities/[communityId]/listings/[listingId]/page.tsx`'s existing `!isOwner` branch already renders `MessageOwnerForm` regardless of kind; confirm T013 passes green with no change)*
+- [x] *(no separate task expected — `app/communities/[communityId]/listings/[listingId]/page.tsx`'s existing `!isOwner` branch already renders `MessageOwnerForm` regardless of kind; confirm T013 passes green with no change)* — **Verified 2026-11-27:** `tests/integration/test_wanted_posts_flow.spec.ts:92` ("a different member responds to a wanted post via messaging…") green with no change to the detail page, in 6 consecutive full-suite runs and in CI on PR #25.
 
 **Checkpoint**: User Stories 1 and 2 both independently verified — a wanted post can be created, found, and responded to, with messaging fully reused.
 
@@ -121,7 +121,7 @@ Single existing Next.js/Prisma project (extends 002-010), per plan.md's Structur
 
 ### Implementation
 
-- [ ] *(no separate task — T016/T017 already satisfy T018; run to confirm green)*
+- [x] *(no separate task — T016/T017 already satisfy T018; run to confirm green)* — **Verified 2026-11-27:** `tests/integration/test_wanted_posts_flow.spec.ts:138` ("the owner marks a wanted post fulfilled, reverses it, then deletes it") green in 6 consecutive full-suite runs and in CI on PR #25.
 
 **Checkpoint**: User Stories 1-3 independently verified — full author-driven lifecycle management works.
 
