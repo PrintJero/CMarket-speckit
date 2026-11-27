@@ -92,7 +92,12 @@ RUN PRISMA_VERSION="$(node -p "require('/tmp/app-package.json').devDependencies.
   && chown -R node:node /opt/prisma-cli
 
 COPY --chown=node:node docker-entrypoint.sh ./docker-entrypoint.sh
-RUN chmod +x ./docker-entrypoint.sh
+# Strip any CR: a Windows working tree checked out before .gitattributes
+# existed (or with core.autocrlf=true) hands the build a CRLF script, whose
+# "#!/bin/sh\r" shebang makes the container die with "exec ./docker-entrypoint.sh:
+# no such file or directory". Normalising here keeps the image correct no
+# matter where it is built.
+RUN sed -i 's/\r$//' ./docker-entrypoint.sh && chmod +x ./docker-entrypoint.sh
 
 USER node
 EXPOSE 3000
