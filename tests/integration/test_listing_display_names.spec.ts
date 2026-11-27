@@ -72,7 +72,10 @@ test("the feed and detail page show the listing owner's display name, or the def
   await signIn(page, memberEmail, password);
   await page.goto(`/communities/${community.id}/listings`);
   await expect(page.getByText("Ada Lovelace")).toBeVisible();
-  await expect(page.getByText("A member")).toBeVisible();
+  // Scoped to <main>: the signed-in member also has no display name, so the
+  // sidebar identity (015) shows the same "A member" placeholder.
+  const main = page.getByRole("main");
+  await expect(main.getByText("A member")).toBeVisible();
   await expect(page.getByText(ownerEmail)).toHaveCount(0);
   await expect(page.getByText(namelessOwnerEmail)).toHaveCount(0);
 
@@ -81,6 +84,6 @@ test("the feed and detail page show the listing owner's display name, or the def
   await expect(page.getByText(ownerEmail)).toHaveCount(0);
 
   await page.goto(`/communities/${community.id}/listings/${namelessListing.id}`);
-  await expect(page.getByText("A member")).toBeVisible();
+  await expect(main.getByText("A member")).toBeVisible();
   await expect(page.getByText(namelessOwnerEmail)).toHaveCount(0);
 });
