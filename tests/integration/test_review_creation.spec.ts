@@ -111,6 +111,52 @@ test("confirming a transaction immediately shows a rating modal; submitting a st
   await expect(page.getByTestId("my-review")).toContainText("4 out of 5");
 });
 
+// Regression (2026-11-27): AppShell syncs the active community and then calls
+// router.refresh(). When that refresh landed AFTER Accept, the page re-rendered
+// with state ACCEPTED, unmounted AcceptRejectButtons, and the rating prompt
+// vanished. Hold the sync response until the prompt is open to make the race
+// deterministic.
+test("the rating prompt survives a refresh that lands after accepting", async ({ page }) => {
+  const password = "correct-horse-battery-staple";
+  const ownerEmail = uniqueEmail("review-race-owner");
+  const buyerEmail = uniqueEmail("review-race-buyer");
+  const community = await createCommunityWithAdmin(
+    page.request,
+    `Review Race Community ${Date.now()}`,
+    ownerEmail,
+    password,
+    "Race Owner",
+  );
+  const buyer = await addMember(community.id, buyerEmail, password, "Race Buyer");
+  const owner = await prisma.account.findUniqueOrThrow({ where: { email: ownerEmail } });
+  const transaction = await createPendingTransaction(community.id, owner.id, buyer.id, "Review Race Item");
+
+  await signIn(page, ownerEmail, password);
+  let releaseSync!: () => void;
+  const syncGate = new Promise<void>((resolve) => (releaseSync = resolve));
+  await page.route("**/api/active-community", async (route) => {
+    await syncGate;
+    await route.continue();
+  });
+
+  await page.goto(`/communities/${community.id}/transactions/${transaction.id}`);
+  await page.getByRole("button", { name: "Accept" }).click();
+  const modal = page.getByRole("dialog", { name: "Rate this transaction" });
+  await expect(modal).toBeVisible();
+
+  // Release the sync; its router.refresh() now lands while the prompt is open.
+  const refreshed = page.waitForResponse((response) => response.request().headers()["rsc"] === "1");
+  releaseSync();
+  await refreshed;
+  await expect(page.getByText(/accepted/i).first()).toBeVisible();
+  await expect(modal).toBeVisible();
+
+  await modal.getByRole("radio", { name: "5 stars" }).click();
+  await modal.getByRole("button", { name: "Submit" }).click();
+  await expect(modal).toHaveCount(0);
+  await expect(page.getByTestId("my-review")).toContainText("5 out of 5");
+});
+
 test("dismissing the rating modal with Maybe later leaves the transaction ratable later", async ({ page }) => {
   const password = "correct-horse-battery-staple";
   const ownerEmail = uniqueEmail("review-modal-later-owner");
