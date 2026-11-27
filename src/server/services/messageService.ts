@@ -6,9 +6,7 @@ const MAX_MESSAGE_LENGTH = 2000;
 
 type MessageClient = PrismaClient | Prisma.TransactionClient;
 
-type ValidateSendResult =
-  | { ok: true; trimmed: string }
-  | { ok: false; reason: "invalid_message" };
+type ValidateSendResult = { ok: true; trimmed: string } | { ok: false; reason: "invalid_message" };
 
 /**
  * research.md #5: the single point that validates a message body before any
@@ -66,7 +64,10 @@ type CreateMessageResult =
 async function requireSenderDisplayName(
   senderId: string,
 ): Promise<{ ok: true } | { ok: false; reason: "display_name_required" }> {
-  const sender = await prisma.account.findUnique({ where: { id: senderId }, select: { displayName: true } });
+  const sender = await prisma.account.findUnique({
+    where: { id: senderId },
+    select: { displayName: true },
+  });
   if (!sender?.displayName) {
     return { ok: false, reason: "display_name_required" };
   }
@@ -78,7 +79,11 @@ async function requireSenderDisplayName(
  * Used by sendThreadMessage() (replies) and by sendMessageToListingOwner()
  * when a thread for (listingId, buyerAccountId) already exists.
  */
-async function createMessage(threadId: string, senderId: string, body: string): Promise<CreateMessageResult> {
+async function createMessage(
+  threadId: string,
+  senderId: string,
+  body: string,
+): Promise<CreateMessageResult> {
   const validated = validateMessageBody(body);
   if (!validated.ok) return validated;
 
@@ -152,7 +157,12 @@ export async function sendMessageToListingOwner(
   if (existingThread && existingThread.operationalEpoch === (community?.operationalEpoch ?? 1)) {
     const created = await createMessage(existingThread.id, buyerAccountId, body);
     if (!created.ok) return created;
-    return { ok: true, thread: { id: existingThread.id }, message: created.message, threadCreated: false };
+    return {
+      ok: true,
+      thread: { id: existingThread.id },
+      message: created.message,
+      threadCreated: false,
+    };
   }
 
   if (community?.status !== "ACTIVE") {
@@ -177,7 +187,12 @@ export async function sendMessageToListingOwner(
     return { thread, message };
   });
 
-  return { ok: true, thread: { id: created.thread.id }, message: created.message, threadCreated: true };
+  return {
+    ok: true,
+    thread: { id: created.thread.id },
+    message: created.message,
+    threadCreated: true,
+  };
 }
 
 export type SendThreadMessageResult =
@@ -200,7 +215,9 @@ export interface SendThreadMessageInput {
  * PAUSED check (FR-016, research.md #4). 009-platform-administration,
  * FR-052: replying in an existing thread tolerates a SUSPENDED community.
  */
-export async function sendThreadMessage(input: SendThreadMessageInput): Promise<SendThreadMessageResult> {
+export async function sendThreadMessage(
+  input: SendThreadMessageInput,
+): Promise<SendThreadMessageResult> {
   const { communityId, threadId, senderAccountId, body } = input;
 
   if (!(await requireCommunityMembership(senderAccountId, communityId, { allowSuspended: true }))) {
@@ -221,7 +238,8 @@ export async function sendThreadMessage(input: SendThreadMessageInput): Promise<
     return { ok: false, reason: "not_found" };
   }
 
-  const isParticipant = thread.buyerId === senderAccountId || thread.listing.ownerId === senderAccountId;
+  const isParticipant =
+    thread.buyerId === senderAccountId || thread.listing.ownerId === senderAccountId;
   if (!isParticipant) {
     return { ok: false, reason: "not_a_participant" };
   }
@@ -280,7 +298,9 @@ export async function listThreads(
     },
     orderBy: { lastMessageAt: "desc" },
     include: {
-      listing: { select: { id: true, title: true, ownerId: true, owner: { select: { displayName: true } } } },
+      listing: {
+        select: { id: true, title: true, ownerId: true, owner: { select: { displayName: true } } },
+      },
       buyer: { select: { displayName: true } },
       messages: { orderBy: { createdAt: "desc" }, take: 1 },
     },
@@ -295,7 +315,9 @@ export async function listThreads(
         listingId: thread.listing.id,
         listingTitle: thread.listing.title,
         counterpartId: isOwner ? thread.buyerId : thread.listing.ownerId,
-        counterpartDisplayName: isOwner ? thread.buyer.displayName : thread.listing.owner.displayName,
+        counterpartDisplayName: isOwner
+          ? thread.buyer.displayName
+          : thread.listing.owner.displayName,
         lastMessageAt: thread.lastMessageAt,
         lastMessagePreview: thread.messages[0].body,
       };
@@ -373,22 +395,27 @@ export async function listMyThreads(callerAccountId: string): Promise<ListMyThre
   return {
     ok: true,
     threads: threads
-      .filter((thread) => thread.operationalEpoch === currentEpochByCommunity.get(thread.listing.communityId))
+      .filter(
+        (thread) =>
+          thread.operationalEpoch === currentEpochByCommunity.get(thread.listing.communityId),
+      )
       .map((thread) => {
-      const isOwner = thread.listing.ownerId === callerAccountId;
-      return {
-        id: thread.id,
-        communityId: thread.listing.communityId,
-        communityName: thread.listing.community.name,
-        listingId: thread.listing.id,
-        listingTitle: thread.listing.title,
-        role: isOwner ? "owner" : "buyer",
-        counterpartId: isOwner ? thread.buyerId : thread.listing.ownerId,
-        counterpartDisplayName: isOwner ? thread.buyer.displayName : thread.listing.owner.displayName,
-        lastMessageAt: thread.lastMessageAt,
-        lastMessagePreview: thread.messages[0].body,
-      };
-    }),
+        const isOwner = thread.listing.ownerId === callerAccountId;
+        return {
+          id: thread.id,
+          communityId: thread.listing.communityId,
+          communityName: thread.listing.community.name,
+          listingId: thread.listing.id,
+          listingTitle: thread.listing.title,
+          role: isOwner ? "owner" : "buyer",
+          counterpartId: isOwner ? thread.buyerId : thread.listing.ownerId,
+          counterpartDisplayName: isOwner
+            ? thread.buyer.displayName
+            : thread.listing.owner.displayName,
+          lastMessageAt: thread.lastMessageAt,
+          lastMessagePreview: thread.messages[0].body,
+        };
+      }),
   };
 }
 
@@ -441,7 +468,13 @@ export async function getThread(input: GetThreadInput): Promise<GetThreadResult>
     where: { id: threadId },
     include: {
       listing: {
-        select: { id: true, title: true, communityId: true, ownerId: true, owner: { select: { displayName: true } } },
+        select: {
+          id: true,
+          title: true,
+          communityId: true,
+          ownerId: true,
+          owner: { select: { displayName: true } },
+        },
       },
       buyer: { select: { displayName: true } },
       messages: {

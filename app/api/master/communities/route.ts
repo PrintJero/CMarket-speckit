@@ -64,7 +64,10 @@ export async function POST(request: Request): Promise<Response> {
           administrator: {
             mode: "provision",
             email,
-            displayName: typeof body?.administrator?.displayName === "string" ? body.administrator.displayName : "",
+            displayName:
+              typeof body?.administrator?.displayName === "string"
+                ? body.administrator.displayName
+                : "",
           },
         },
   );

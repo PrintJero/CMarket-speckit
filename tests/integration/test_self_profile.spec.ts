@@ -5,7 +5,12 @@ import { uniqueEmail, signIn } from "./helpers";
 
 async function createVerifiedAccount(email: string, password: string, displayName: string) {
   return prisma.account.create({
-    data: { email, passwordHash: await hashPassword(password), emailVerifiedAt: new Date(), displayName },
+    data: {
+      email,
+      passwordHash: await hashPassword(password),
+      emailVerifiedAt: new Date(),
+      displayName,
+    },
   });
 }
 
@@ -21,11 +26,17 @@ async function createCommunityWithAdmin(
     data: { name, founderEmail: adminEmail, invokedBy: "playwright-test" },
   });
   const body = await response.json();
-  if (!body.ok) throw new Error(`expected community creation to succeed, got ${JSON.stringify(body)}`);
+  if (!body.ok)
+    throw new Error(`expected community creation to succeed, got ${JSON.stringify(body)}`);
   return body.community as { id: string; name: string };
 }
 
-async function addMember(communityId: string, email: string, password: string, displayName: string) {
+async function addMember(
+  communityId: string,
+  email: string,
+  password: string,
+  displayName: string,
+) {
   const account = await createVerifiedAccount(email, password, displayName);
   await prisma.membership.create({ data: { accountId: account.id, communityId, role: "MEMBER" } });
   return account;
@@ -54,7 +65,9 @@ test("Account shows the signed-in member's own profile, communities, and listing
     password,
     "Self Profile Owner D Admin",
   );
-  await prisma.membership.create({ data: { accountId: owner.id, communityId: communityD.id, role: "MEMBER" } });
+  await prisma.membership.create({
+    data: { accountId: owner.id, communityId: communityD.id, role: "MEMBER" },
+  });
 
   const forSaleListing = await prisma.listing.create({
     data: {
@@ -102,7 +115,9 @@ test("Account shows the signed-in member's own profile, communities, and listing
 });
 
 // T004 (Edge Case): a brand-new account with no memberships gets a defined empty state, not an error.
-test("Account renders a defined empty state for a member who belongs to no community yet", async ({ page }) => {
+test("Account renders a defined empty state for a member who belongs to no community yet", async ({
+  page,
+}) => {
   const password = "correct-horse-battery-staple";
   const email = uniqueEmail("self-profile-empty");
   await createVerifiedAccount(email, password, "Self Profile Empty");

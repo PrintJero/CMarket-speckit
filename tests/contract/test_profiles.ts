@@ -8,13 +8,22 @@ import { getProfile, getSelfProfile } from "@/server/services/profileService";
 
 function createVerifiedAccount(email: string) {
   return prisma.account.create({
-    data: { email, passwordHash: "irrelevant-hash", emailVerifiedAt: new Date(), displayName: "Test Account" },
+    data: {
+      email,
+      passwordHash: "irrelevant-hash",
+      emailVerifiedAt: new Date(),
+      displayName: "Test Account",
+    },
   });
 }
 
 async function createCommunityWithAdmin(communityName: string, adminEmail: string) {
   const admin = await createVerifiedAccount(adminEmail);
-  const result = await createCommunity({ name: communityName, founderEmail: adminEmail, invokedBy: "test-operator" });
+  const result = await createCommunity({
+    name: communityName,
+    founderEmail: adminEmail,
+    invokedBy: "test-operator",
+  });
   if (!result.ok) throw new Error(`expected community creation to succeed, got ${result.reason}`);
   return { community: result.community, admin };
 }
@@ -26,7 +35,12 @@ async function addMember(communityId: string, email: string) {
 }
 
 /** 013-purchase-flow-stock, research.md #11: an ACCEPTED transaction via propose-then-accept, replacing 010's CONFIRMED fixture. */
-async function createConfirmedTransaction(communityId: string, ownerId: string, buyerId: string, title = "Item") {
+async function createConfirmedTransaction(
+  communityId: string,
+  ownerId: string,
+  buyerId: string,
+  title = "Item",
+) {
   const listing = await createListing({
     communityId,
     ownerId,
@@ -107,9 +121,13 @@ describe("profileService (contract)", () => {
       "Profile Test Community Two D",
       "profile-test-owner-2d@example.com",
     );
-    await prisma.membership.create({ data: { accountId: owner.id, communityId: communityD.id, role: "MEMBER" } });
+    await prisma.membership.create({
+      data: { accountId: owner.id, communityId: communityD.id, role: "MEMBER" },
+    });
     const viewer = await addMember(communityC.id, "profile-test-buyer-2@example.com");
-    await prisma.membership.create({ data: { accountId: viewer.id, communityId: communityD.id, role: "MEMBER" } });
+    await prisma.membership.create({
+      data: { accountId: viewer.id, communityId: communityD.id, role: "MEMBER" },
+    });
 
     const inC = await createListing({
       communityId: communityC.id,
@@ -162,7 +180,9 @@ describe("profileService (contract)", () => {
       "profile-test-owner-3vo@example.com",
     );
     const viewer = await addMember(shared.id, "profile-test-viewer-3@example.com");
-    await prisma.membership.create({ data: { accountId: viewer.id, communityId: viewerOnly.id, role: "MEMBER" } });
+    await prisma.membership.create({
+      data: { accountId: viewer.id, communityId: viewerOnly.id, role: "MEMBER" },
+    });
 
     const result = await getProfile({ accountId: owner.id, viewerAccountId: viewer.id });
     expect(result.ok).toBe(true);
@@ -183,7 +203,9 @@ describe("profileService (contract)", () => {
       "Profile Test Community Four Target Only",
       "profile-test-owner-4to@example.com",
     );
-    await prisma.membership.create({ data: { accountId: owner.id, communityId: targetOnly.id, role: "MEMBER" } });
+    await prisma.membership.create({
+      data: { accountId: owner.id, communityId: targetOnly.id, role: "MEMBER" },
+    });
     const viewer = await addMember(shared.id, "profile-test-viewer-4@example.com");
 
     const result = await getProfile({ accountId: owner.id, viewerAccountId: viewer.id });
@@ -214,7 +236,10 @@ describe("profileService (contract)", () => {
       "Profile Test Community Six",
       "profile-test-viewer-6@example.com",
     );
-    const result = await getProfile({ accountId: "nonexistent-account-id", viewerAccountId: viewer.id });
+    const result = await getProfile({
+      accountId: "nonexistent-account-id",
+      viewerAccountId: viewer.id,
+    });
     expect(result).toEqual({ ok: false, reason: "not_found" });
   });
 
@@ -228,7 +253,9 @@ describe("profileService (contract)", () => {
       "Profile Test Community Seven D",
       "profile-test-owner-7d@example.com",
     );
-    await prisma.membership.create({ data: { accountId: ownerC.id, communityId: communityD.id, role: "MEMBER" } });
+    await prisma.membership.create({
+      data: { accountId: ownerC.id, communityId: communityD.id, role: "MEMBER" },
+    });
     const buyerC = await addMember(communityC.id, "profile-test-buyer-7c@example.com");
     const buyerD = await addMember(communityD.id, "profile-test-buyer-7d@example.com");
 
@@ -266,7 +293,9 @@ describe("profileService (contract)", () => {
       "Profile Test Community Nine D",
       "profile-test-owner-9d@example.com",
     );
-    await prisma.membership.create({ data: { accountId: owner.id, communityId: communityD.id, role: "MEMBER" } });
+    await prisma.membership.create({
+      data: { accountId: owner.id, communityId: communityD.id, role: "MEMBER" },
+    });
     const buyerC = await addMember(communityC.id, "profile-test-buyer-9c@example.com");
     const buyerD = await addMember(communityD.id, "profile-test-buyer-9d@example.com");
 
@@ -308,7 +337,9 @@ describe("profileService (contract)", () => {
       "Profile Test Community Ten D",
       "profile-test-owner-10d@example.com",
     );
-    await prisma.membership.create({ data: { accountId: owner.id, communityId: communityD.id, role: "MEMBER" } });
+    await prisma.membership.create({
+      data: { accountId: owner.id, communityId: communityD.id, role: "MEMBER" },
+    });
 
     const result = await getProfile({ accountId: owner.id, viewerAccountId: owner.id });
     expect(result.ok).toBe(true);
@@ -365,7 +396,9 @@ describe("profileService (contract)", () => {
         "Profile Test Community Eleven D",
         "profile-test-self-11d@example.com",
       );
-      await prisma.membership.create({ data: { accountId: owner.id, communityId: communityD.id, role: "MEMBER" } });
+      await prisma.membership.create({
+        data: { accountId: owner.id, communityId: communityD.id, role: "MEMBER" },
+      });
 
       const forSale = await createListing({
         communityId: communityC.id,

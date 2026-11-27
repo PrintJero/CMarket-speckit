@@ -18,7 +18,9 @@ interface CurrentMembershipDetail {
  * into a shared cross-module utility, matching that same established
  * per-service-duplication convention (Constitution Principle VII).
  */
-async function getCurrentMembershipsWithDetails(accountId: string): Promise<Map<string, CurrentMembershipDetail>> {
+async function getCurrentMembershipsWithDetails(
+  accountId: string,
+): Promise<Map<string, CurrentMembershipDetail>> {
   const memberships = await prisma.membership.findMany({
     where: { accountId },
     include: { community: { select: { name: true, operationalEpoch: true } } },
@@ -170,7 +172,10 @@ export interface GetProfileInput {
 export async function getProfile(input: GetProfileInput): Promise<GetProfileResult> {
   const { accountId, viewerAccountId } = input;
 
-  const account = await prisma.account.findUnique({ where: { id: accountId }, select: { displayName: true } });
+  const account = await prisma.account.findUnique({
+    where: { id: accountId },
+    select: { displayName: true },
+  });
   if (!account) {
     return { ok: false, reason: "not_found" };
   }
@@ -195,7 +200,11 @@ export async function getProfile(input: GetProfileInput): Promise<GetProfileResu
           communityId,
           communityName: detail.communityName,
           memberSince: detail.memberSince,
-          listings: await getActiveListingsForCommunity(accountId, communityId, detail.currentEpoch),
+          listings: await getActiveListingsForCommunity(
+            accountId,
+            communityId,
+            detail.currentEpoch,
+          ),
         };
       }),
     ),

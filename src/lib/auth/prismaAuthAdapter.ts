@@ -80,7 +80,9 @@ export function buildPrismaAuthAdapter(): Adapter {
       // would verify every account, discard every password and revoke every
       // session on the platform. Refuse instead.
       if (typeof account.userId !== "string" || account.userId.length === 0) {
-        throw new Error("[auth] linkAccount called without a userId — refusing an unscoped update.");
+        throw new Error(
+          "[auth] linkAccount called without a userId — refusing an unscoped update.",
+        );
       }
       // FR-015/FR-018: Google auto-linked to an existing password account.
       // `verifiedNow.count` is the atomic check-and-act signal for "this
@@ -137,7 +139,11 @@ export function buildPrismaAuthAdapter(): Adapter {
       await extendSession(sessionToken, expires);
       const found = await findSessionWithAccount(sessionToken);
       if (!found) return null;
-      return { sessionToken: found.sessionToken, userId: found.accountId, expires: found.expiresAt };
+      return {
+        sessionToken: found.sessionToken,
+        userId: found.accountId,
+        expires: found.expiresAt,
+      };
     },
 
     async deleteSession(sessionToken) {

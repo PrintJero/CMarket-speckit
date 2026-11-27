@@ -157,10 +157,7 @@ describe("the two algorithms are genuinely distinct", () => {
     const publicId = "cmarket/test/listings/draft1/a1b2c3d4e5f60718";
 
     const delivery = signDeliveryPath(transformation, publicId, SECRET);
-    const upload = signUploadParams(
-      { ...UPLOAD_PARAMS, public_id: publicId },
-      SECRET,
-    );
+    const upload = signUploadParams({ ...UPLOAD_PARAMS, public_id: publicId }, SECRET);
 
     expect(delivery).not.toBe(upload);
     expect(delivery).not.toBe(upload.slice(0, DELIVERY_SIGNATURE_LENGTH));

@@ -103,9 +103,15 @@ export async function extendSession(rawSessionToken: string, expiresAt: Date): P
  * setActiveCommunityForAccount() for the validated entry point every caller
  * actually uses).
  */
-export async function setActiveCommunity(rawSessionToken: string, communityId: string): Promise<void> {
+export async function setActiveCommunity(
+  rawSessionToken: string,
+  communityId: string,
+): Promise<void> {
   await prisma.session
-    .update({ where: { sessionToken: hashToken(rawSessionToken) }, data: { activeCommunityId: communityId } })
+    .update({
+      where: { sessionToken: hashToken(rawSessionToken) },
+      data: { activeCommunityId: communityId },
+    })
     .catch(() => undefined);
 }
 

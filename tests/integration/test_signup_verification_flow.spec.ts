@@ -11,10 +11,7 @@ import { getVerificationLink, uniqueEmail } from "./helpers";
  * contractually required to call before activating a membership (FR-005,
  * FR-007).
  */
-test("signup → blocked before verification → verify → allowed after", async ({
-  page,
-  request,
-}) => {
+test("signup → blocked before verification → verify → allowed after", async ({ page, request }) => {
   const email = uniqueEmail("signup-verify");
   const password = "correct-horse-battery-staple";
 

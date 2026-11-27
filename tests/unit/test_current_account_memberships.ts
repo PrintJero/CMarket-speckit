@@ -14,7 +14,11 @@ describe("toCurrentAccountPayload with memberships", () => {
 
   it("returns the provided memberships list verbatim when the second argument is given", () => {
     const memberships = [
-      { communityId: "community_1", communityName: "Acme University", role: "ADMINISTRATOR" as const },
+      {
+        communityId: "community_1",
+        communityName: "Acme University",
+        role: "ADMINISTRATOR" as const,
+      },
       { communityId: "community_2", communityName: "Acme Co-op", role: "MEMBER" as const },
     ];
     const payload = toCurrentAccountPayload(

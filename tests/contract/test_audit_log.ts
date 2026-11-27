@@ -10,7 +10,11 @@ async function resetState() {
 }
 
 async function createMasterFixture(masterId: string) {
-  const result = await createMaster({ masterId, email: `${masterId}@example.com`, createdByMasterId: null });
+  const result = await createMaster({
+    masterId,
+    email: `${masterId}@example.com`,
+    createdByMasterId: null,
+  });
   if (!result.ok) throw new Error("setup failed");
   return result.master.id;
 }
@@ -86,7 +90,11 @@ describe("auditService.listAuditEntries (User Story 11, FR-073, SC-012)", () => 
     expect(firstPage.entries).toHaveLength(2);
     expect(firstPage.nextCursor).not.toBeNull();
 
-    const secondPage = await listAuditEntries({ actorMasterId: masterId, pageSize: 2, cursor: firstPage.nextCursor! });
+    const secondPage = await listAuditEntries({
+      actorMasterId: masterId,
+      pageSize: 2,
+      cursor: firstPage.nextCursor!,
+    });
     expect(secondPage.entries).toHaveLength(2);
     expect(secondPage.entries[0].id).not.toBe(firstPage.entries[0].id);
   });
@@ -106,7 +114,11 @@ describe("auditService.listAuditEntries (User Story 11, FR-073, SC-012)", () => 
 
   it("no entry's detail ever contains a password/hash/token-shaped secret", async () => {
     const masterId = await createMasterFixture("aud-master-5");
-    await createMaster({ masterId: "aud-master-5-b", email: "aud-master-5-b@example.com", createdByMasterId: masterId });
+    await createMaster({
+      masterId: "aud-master-5-b",
+      email: "aud-master-5-b@example.com",
+      createdByMasterId: masterId,
+    });
 
     const entries = await listAuditEntries({ action: "master.create" });
     for (const entry of entries.entries) {

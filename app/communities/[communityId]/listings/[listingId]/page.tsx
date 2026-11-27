@@ -44,7 +44,10 @@ export default async function ListingDetailPage({
         subtitle={
           <>
             {listing.kind === "WANTED" ? "Wanted" : "For sale"} · Listed by{" "}
-            <Link href={`/communities/${communityId}/members/${listing.ownerId}`} className="hover:underline">
+            <Link
+              href={`/communities/${communityId}/members/${listing.ownerId}`}
+              className="hover:underline"
+            >
               {resolveDisplayName(listing.ownerDisplayName)}
             </Link>
           </>
@@ -103,11 +106,18 @@ export default async function ListingDetailPage({
         )}
       </Card>
 
-      {!isOwner && listing.kind === "FOR_SALE" && listing.status === "ACTIVE" && listing.priceCents !== null && (
-        <Card className="mb-5 max-w-xl">
-          <BuyForm communityId={communityId} listingId={listing.id} priceCents={listing.priceCents} />
-        </Card>
-      )}
+      {!isOwner &&
+        listing.kind === "FOR_SALE" &&
+        listing.status === "ACTIVE" &&
+        listing.priceCents !== null && (
+          <Card className="mb-5 max-w-xl">
+            <BuyForm
+              communityId={communityId}
+              listingId={listing.id}
+              priceCents={listing.priceCents}
+            />
+          </Card>
+        )}
 
       {!isOwner && (
         <Card className="mb-5 max-w-xl">

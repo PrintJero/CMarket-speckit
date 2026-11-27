@@ -25,6 +25,7 @@ export async function POST(
     return NextResponse.json(result, { status: 201 });
   }
 
-  const status = result.reason === "not_administrator" ? 403 : result.reason === "already_member" ? 409 : 400;
+  const status =
+    result.reason === "not_administrator" ? 403 : result.reason === "already_member" ? 409 : 400;
   return NextResponse.json(result, { status });
 }

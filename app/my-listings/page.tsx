@@ -31,7 +31,10 @@ export default async function MyListingsPage() {
                 {listing.threadCount === 1 ? "thread" : "threads"}
               </p>
               <div className="mt-2 flex gap-3 text-sm font-semibold">
-                <Link href={`/communities/${listing.communityId}/listings/${listing.id}`} className="text-brand">
+                <Link
+                  href={`/communities/${listing.communityId}/listings/${listing.id}`}
+                  className="text-brand"
+                >
                   View listing
                 </Link>
                 <Link

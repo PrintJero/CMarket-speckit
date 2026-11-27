@@ -4,7 +4,12 @@ import { MasterShell } from "../_components/MasterShell";
 import { MasterPageHeader } from "../_components/MasterPageHeader";
 import { MasterLinkButton } from "../_components/MasterButton";
 import { MasterStatusBadge } from "../_components/MasterStatusBadge";
-import { MasterTable, masterThClassName, masterTdClassName, masterTrClassName } from "../_components/MasterTable";
+import {
+  MasterTable,
+  masterThClassName,
+  masterTdClassName,
+  masterTrClassName,
+} from "../_components/MasterTable";
 import { MasterEmptyState } from "../_components/MasterEmptyState";
 import { BuildingIcon } from "../../_components/icons";
 import { listCommunitiesForMaster } from "@/server/services/masterAdministrationService";
@@ -26,7 +31,8 @@ export default async function CommunitiesPage({
   const master = await requireMasterPage();
   const { status } = await searchParams;
   const result = await listCommunitiesForMaster({
-    status: status === "ACTIVE" || status === "SUSPENDED" || status === "ARCHIVED" ? status : undefined,
+    status:
+      status === "ACTIVE" || status === "SUSPENDED" || status === "ARCHIVED" ? status : undefined,
   });
 
   return (
@@ -34,13 +40,17 @@ export default async function CommunitiesPage({
       <MasterPageHeader
         title="Communities"
         subtitle="Create, edit, suspend, archive, and restore — from outside, without becoming a member."
-        primaryAction={<MasterLinkButton href="/master/communities/new">Create community</MasterLinkButton>}
+        primaryAction={
+          <MasterLinkButton href="/master/communities/new">Create community</MasterLinkButton>
+        }
       />
 
       <div className="mb-5 flex gap-5 border-b border-border" role="tablist">
         {STATUS_FILTERS.map((filter) => {
           const isActive = status === filter.key || (!status && !filter.key);
-          const href = filter.key ? `/master/communities?status=${filter.key}` : "/master/communities";
+          const href = filter.key
+            ? `/master/communities?status=${filter.key}`
+            : "/master/communities";
           return (
             <Link
               key={filter.label}
@@ -48,7 +58,9 @@ export default async function CommunitiesPage({
               role="tab"
               aria-selected={isActive}
               className={`whitespace-nowrap border-b-2 px-0.5 py-2.5 text-[13px] font-semibold transition-colors ${
-                isActive ? "border-master text-master-dark" : "border-transparent text-ink-muted hover:text-ink"
+                isActive
+                  ? "border-master text-master-dark"
+                  : "border-transparent text-ink-muted hover:text-ink"
               }`}
             >
               {filter.label}
@@ -84,7 +96,10 @@ export default async function CommunitiesPage({
             {result.communities.map((c) => (
               <tr key={c.id} className={masterTrClassName}>
                 <td className={masterTdClassName}>
-                  <Link href={`/master/communities/${c.id}`} className="font-semibold text-master hover:underline">
+                  <Link
+                    href={`/master/communities/${c.id}`}
+                    className="font-semibold text-master hover:underline"
+                  >
                     {c.name}
                   </Link>
                 </td>
@@ -92,7 +107,9 @@ export default async function CommunitiesPage({
                   <MasterStatusBadge status={c.status} />
                 </td>
                 <td className={masterTdClassName}>{c.memberCount}</td>
-                <td className={`${masterTdClassName} whitespace-nowrap`}>{dateFormatter.format(c.createdAt)}</td>
+                <td className={`${masterTdClassName} whitespace-nowrap`}>
+                  {dateFormatter.format(c.createdAt)}
+                </td>
               </tr>
             ))}
           </tbody>

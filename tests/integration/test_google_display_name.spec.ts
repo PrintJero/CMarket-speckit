@@ -60,7 +60,10 @@ test.describe("Google sign-in populates displayName via the real callback route 
   // an undefined `where` field, so every nameless account on the platform was
   // renamed to the signing-in Google user's name. FR-006: populate ONLY the
   // account being linked.
-  test("a Google sign-up or auto-link never renames any other account", async ({ page, request }) => {
+  test("a Google sign-up or auto-link never renames any other account", async ({
+    page,
+    request,
+  }) => {
     const bystander = await prisma.account.create({
       data: {
         email: uniqueEmail("google-bystander"),
@@ -72,7 +75,12 @@ test.describe("Google sign-in populates displayName via the real callback route 
 
     // Brand-new Google account (createUser + linkAccount).
     const newEmail = uniqueEmail("google-new-not-bystander");
-    await setMockProfile(request, { sub: mockSub(), email: newEmail, email_verified: true, name: "Katherine Johnson" });
+    await setMockProfile(request, {
+      sub: mockSub(),
+      email: newEmail,
+      email_verified: true,
+      name: "Katherine Johnson",
+    });
     await page.goto("/sign-in");
     await page.getByRole("button", { name: "Continue with Google" }).click();
     await page.waitForURL("/");
@@ -80,16 +88,29 @@ test.describe("Google sign-in populates displayName via the real callback route 
     // Auto-link onto an existing password account (linkAccount only).
     const linkEmail = uniqueEmail("google-link-not-bystander");
     await prisma.account.create({
-      data: { email: linkEmail, passwordHash: await hashPassword("link-password-1"), emailVerifiedAt: null },
+      data: {
+        email: linkEmail,
+        passwordHash: await hashPassword("link-password-1"),
+        emailVerifiedAt: null,
+      },
     });
     await page.context().clearCookies();
-    await setMockProfile(request, { sub: mockSub(), email: linkEmail, email_verified: true, name: "Dorothy Vaughan" });
+    await setMockProfile(request, {
+      sub: mockSub(),
+      email: linkEmail,
+      email_verified: true,
+      name: "Dorothy Vaughan",
+    });
     await page.goto("/sign-in");
     await page.getByRole("button", { name: "Continue with Google" }).click();
     await page.waitForURL("/");
 
-    expect((await prisma.account.findUniqueOrThrow({ where: { email: newEmail } })).displayName).toBe("Katherine Johnson");
-    expect((await prisma.account.findUniqueOrThrow({ where: { email: linkEmail } })).displayName).toBe("Dorothy Vaughan");
+    expect(
+      (await prisma.account.findUniqueOrThrow({ where: { email: newEmail } })).displayName,
+    ).toBe("Katherine Johnson");
+    expect(
+      (await prisma.account.findUniqueOrThrow({ where: { email: linkEmail } })).displayName,
+    ).toBe("Dorothy Vaughan");
     const untouched = await prisma.account.findUniqueOrThrow({ where: { id: bystander.id } });
     expect(untouched.displayName).toBeNull();
   });
@@ -100,7 +121,11 @@ test.describe("Google sign-in populates displayName via the real callback route 
   }) => {
     const email = uniqueEmail("google-link-unverified");
     await prisma.account.create({
-      data: { email, passwordHash: await hashPassword("whatever-password-1"), emailVerifiedAt: null },
+      data: {
+        email,
+        passwordHash: await hashPassword("whatever-password-1"),
+        emailVerifiedAt: null,
+      },
     });
     await setMockProfile(request, {
       sub: mockSub(),
@@ -124,7 +149,11 @@ test.describe("Google sign-in populates displayName via the real callback route 
   }) => {
     const email = uniqueEmail("google-link-already-named");
     const existing = await prisma.account.create({
-      data: { email, passwordHash: await hashPassword("whatever-password-2"), emailVerifiedAt: new Date() },
+      data: {
+        email,
+        passwordHash: await hashPassword("whatever-password-2"),
+        emailVerifiedAt: new Date(),
+      },
     });
     await setDisplayName(existing.id, "Self-Chosen Name");
     await setMockProfile(request, {

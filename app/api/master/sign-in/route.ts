@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { signInAsMaster } from "@/server/services/masterAuthService";
-import { MASTER_SESSION_COOKIE_NAME, masterSessionCookieOptions } from "@/lib/auth/masterSessionCookie";
+import {
+  MASTER_SESSION_COOKIE_NAME,
+  masterSessionCookieOptions,
+} from "@/lib/auth/masterSessionCookie";
 
 export async function POST(request: Request): Promise<Response> {
   const body = await request.json().catch(() => null);
@@ -16,7 +19,10 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json(result, { status: 401 });
   }
 
-  const response = NextResponse.json({ ok: true, mustChangePassword: result.mustChangePassword }, { status: 200 });
+  const response = NextResponse.json(
+    { ok: true, mustChangePassword: result.mustChangePassword },
+    { status: 200 },
+  );
   response.cookies.set(MASTER_SESSION_COOKIE_NAME, result.sessionToken, {
     ...masterSessionCookieOptions,
     expires: result.expiresAt,

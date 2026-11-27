@@ -52,9 +52,12 @@ export function ListingActions({
 
   async function onReactivate() {
     setError(null);
-    const response = await fetch(`/api/communities/${communityId}/listings/${listingId}/reactivate`, {
-      method: "POST",
-    });
+    const response = await fetch(
+      `/api/communities/${communityId}/listings/${listingId}/reactivate`,
+      {
+        method: "POST",
+      },
+    );
     if (response.ok) {
       setStatus("ACTIVE");
     } else {

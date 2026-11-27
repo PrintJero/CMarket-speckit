@@ -2,7 +2,12 @@ import { requireMasterPage } from "../_lib/requireMasterPage";
 import { MasterShell } from "../_components/MasterShell";
 import { MasterPageHeader } from "../_components/MasterPageHeader";
 import { MasterSection } from "../_components/MasterSection";
-import { MasterTable, masterThClassName, masterTdClassName, masterTrClassName } from "../_components/MasterTable";
+import {
+  MasterTable,
+  masterThClassName,
+  masterTdClassName,
+  masterTrClassName,
+} from "../_components/MasterTable";
 import { MasterStatusBadge } from "../_components/MasterStatusBadge";
 import { MasterEmptyState } from "../_components/MasterEmptyState";
 import { MasterPagination } from "../_components/MasterPagination";
@@ -15,7 +20,12 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", ti
 export default async function AuditLogPage({
   searchParams,
 }: {
-  searchParams: Promise<{ action?: string; targetType?: string; targetId?: string; cursor?: string }>;
+  searchParams: Promise<{
+    action?: string;
+    targetType?: string;
+    targetId?: string;
+    cursor?: string;
+  }>;
 }) {
   const master = await requireMasterPage();
   const { action, targetType, targetId, cursor } = await searchParams;
@@ -33,7 +43,10 @@ export default async function AuditLogPage({
 
   return (
     <MasterShell master={master}>
-      <MasterPageHeader title="Audit log" subtitle="Every platform-administration action, including rejections." />
+      <MasterPageHeader
+        title="Audit log"
+        subtitle="Every platform-administration action, including rejections."
+      />
       <AuditLogFilters />
       {result.entries.length === 0 ? (
         <MasterSection className="min-w-0">
@@ -58,7 +71,9 @@ export default async function AuditLogPage({
             <tbody>
               {result.entries.map((entry) => (
                 <tr key={entry.id} className={masterTrClassName}>
-                  <td className={`${masterTdClassName} whitespace-nowrap`}>{dateFormatter.format(entry.createdAt)}</td>
+                  <td className={`${masterTdClassName} whitespace-nowrap`}>
+                    {dateFormatter.format(entry.createdAt)}
+                  </td>
                   <td className={masterTdClassName}>
                     {entry.actorType === "SYSTEM" ? (
                       <MasterStatusBadge status="SYSTEM" />
@@ -80,7 +95,10 @@ export default async function AuditLogPage({
           </MasterTable>
           {hasMore && (
             <div className="mt-3">
-              <MasterPagination hasMore={hasMore} nextHref={`/master/audit-log?${nextParams.toString()}`} />
+              <MasterPagination
+                hasMore={hasMore}
+                nextHref={`/master/audit-log?${nextParams.toString()}`}
+              />
             </div>
           )}
         </div>

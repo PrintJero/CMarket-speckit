@@ -25,7 +25,8 @@ async function createCommunityWithAdmin(
     data: { name, founderEmail: adminEmail, invokedBy: "playwright-test" },
   });
   const body = await response.json();
-  if (!body.ok) throw new Error(`expected community creation to succeed, got ${JSON.stringify(body)}`);
+  if (!body.ok)
+    throw new Error(`expected community creation to succeed, got ${JSON.stringify(body)}`);
   return body.community as { id: string; name: string };
 }
 
@@ -134,7 +135,9 @@ test("a different member responds to a wanted post via messaging, with no contac
 });
 
 // T018 (US3) — the owner marks it fulfilled, reverses it, then deletes it.
-test("the owner marks a wanted post fulfilled, reverses it, then deletes it (US3)", async ({ page }) => {
+test("the owner marks a wanted post fulfilled, reverses it, then deletes it (US3)", async ({
+  page,
+}) => {
   const password = "correct-horse-battery-staple";
   const ownerEmail = uniqueEmail("wanted-lifecycle-owner");
   const community = await createCommunityWithAdmin(

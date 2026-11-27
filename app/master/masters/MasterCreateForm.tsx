@@ -2,7 +2,11 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { MasterFormField, MasterFormMessage, masterFieldInputClassName } from "../_components/MasterFormField";
+import {
+  MasterFormField,
+  MasterFormMessage,
+  masterFieldInputClassName,
+} from "../_components/MasterFormField";
 import { MasterButton } from "../_components/MasterButton";
 import { MasterTemporaryPasswordPanel } from "../_components/MasterTemporaryPasswordPanel";
 

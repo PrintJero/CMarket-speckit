@@ -11,7 +11,9 @@ import { inviteToCommunity } from "@/server/services/invitationService";
 import { createMaster } from "@/server/services/masterAuthService";
 
 async function resetState() {
-  await prisma.membership.deleteMany({ where: { community: { name: { contains: "CLT Community" } } } });
+  await prisma.membership.deleteMany({
+    where: { community: { name: { contains: "CLT Community" } } },
+  });
   await prisma.community.deleteMany({ where: { name: { contains: "CLT Community" } } });
   await prisma.account.deleteMany({ where: { email: { contains: "clt-test" } } });
   await prisma.administrativeAuditEntry.deleteMany({});
@@ -20,7 +22,9 @@ async function resetState() {
 }
 
 function createVerifiedAccount(email: string) {
-  return prisma.account.create({ data: { email, passwordHash: "irrelevant-hash", emailVerifiedAt: new Date() } });
+  return prisma.account.create({
+    data: { email, passwordHash: "irrelevant-hash", emailVerifiedAt: new Date() },
+  });
 }
 
 function createUnverifiedAccount(email: string) {
@@ -28,7 +32,11 @@ function createUnverifiedAccount(email: string) {
 }
 
 async function createMasterFixture(masterId: string) {
-  const result = await createMaster({ masterId, email: `${masterId}@example.com`, createdByMasterId: null });
+  const result = await createMaster({
+    masterId,
+    email: `${masterId}@example.com`,
+    createdByMasterId: null,
+  });
   if (!result.ok) throw new Error("setup failed");
   return result.master.id;
 }
@@ -54,7 +62,9 @@ describe("communityLifecycleService (contract)", () => {
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error("expected success");
 
-      const memberships = await prisma.membership.findMany({ where: { communityId: result.community.id } });
+      const memberships = await prisma.membership.findMany({
+        where: { communityId: result.community.id },
+      });
       expect(memberships).toHaveLength(1);
       expect(memberships[0].accountId).toBe(founder.id);
       expect(memberships[0].role).toBe("ADMINISTRATOR");
@@ -65,7 +75,9 @@ describe("communityLifecycleService (contract)", () => {
       expect(community?.status).toBe("ACTIVE");
 
       // MASTER itself gets no Membership anywhere.
-      const masterMembership = await prisma.membership.findFirst({ where: { accountId: masterId } });
+      const masterMembership = await prisma.membership.findFirst({
+        where: { accountId: masterId },
+      });
       expect(masterMembership).toBeNull();
 
       const auditEntry = await prisma.administrativeAuditEntry.findFirst({
@@ -80,14 +92,20 @@ describe("communityLifecycleService (contract)", () => {
       const result = await createCommunityAsMaster({
         callerMasterId: masterId,
         name: "CLT Community Two",
-        administrator: { mode: "provision", email: "clt-test-provisioned-1@example.com", displayName: "Provisioned Admin" },
+        administrator: {
+          mode: "provision",
+          email: "clt-test-provisioned-1@example.com",
+          displayName: "Provisioned Admin",
+        },
       });
 
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error("expected success");
       expect(result.temporaryPassword).toBeTruthy();
 
-      const account = await prisma.account.findUnique({ where: { email: "clt-test-provisioned-1@example.com" } });
+      const account = await prisma.account.findUnique({
+        where: { email: "clt-test-provisioned-1@example.com" },
+      });
       expect(account?.emailVerifiedAt).not.toBeNull();
       expect(account?.displayName).toBe("Provisioned Admin");
 
@@ -136,7 +154,13 @@ describe("communityLifecycleService (contract)", () => {
         }),
       ).toEqual({ ok: false, reason: "account_already_exists" });
 
-      expect(await prisma.community.count({ where: { name: { in: ["CLT Community Three", "CLT Community Four", "CLT Community Five"] } } })).toBe(0);
+      expect(
+        await prisma.community.count({
+          where: {
+            name: { in: ["CLT Community Three", "CLT Community Four", "CLT Community Five"] },
+          },
+        }),
+      ).toBe(0);
 
       const failureEntries = await prisma.administrativeAuditEntry.count({
         where: { action: "community.create", outcome: "FAILURE" },
@@ -151,7 +175,10 @@ describe("communityLifecycleService (contract)", () => {
       const created = await createCommunityAsMaster({
         callerMasterId: masterId,
         name: "CLT Community Suspend One",
-        administrator: { mode: "existing", email: (await createVerifiedAccount("clt-test-suspend-admin-1@example.com")).email },
+        administrator: {
+          mode: "existing",
+          email: (await createVerifiedAccount("clt-test-suspend-admin-1@example.com")).email,
+        },
       });
       if (!created.ok) throw new Error("setup failed");
 
@@ -172,7 +199,10 @@ describe("communityLifecycleService (contract)", () => {
       const created = await createCommunityAsMaster({
         callerMasterId: masterId,
         name: "CLT Community Suspend Two",
-        administrator: { mode: "existing", email: (await createVerifiedAccount("clt-test-suspend-admin-2@example.com")).email },
+        administrator: {
+          mode: "existing",
+          email: (await createVerifiedAccount("clt-test-suspend-admin-2@example.com")).email,
+        },
       });
       if (!created.ok) throw new Error("setup failed");
 
@@ -198,7 +228,10 @@ describe("communityLifecycleService (contract)", () => {
       const created = await createCommunityAsMaster({
         callerMasterId: masterId,
         name: "CLT Community Suspend Three",
-        administrator: { mode: "existing", email: (await createVerifiedAccount("clt-test-suspend-admin-3@example.com")).email },
+        administrator: {
+          mode: "existing",
+          email: (await createVerifiedAccount("clt-test-suspend-admin-3@example.com")).email,
+        },
       });
       if (!created.ok) throw new Error("setup failed");
 
@@ -209,7 +242,10 @@ describe("communityLifecycleService (contract)", () => {
 
       await suspendCommunity(masterId, created.community.id, "Reason");
       const result = await reactivateCommunity(masterId, created.community.id);
-      expect(result).toEqual({ ok: true, community: { id: created.community.id, status: "ACTIVE" } });
+      expect(result).toEqual({
+        ok: true,
+        community: { id: created.community.id, status: "ACTIVE" },
+      });
 
       const community = await prisma.community.findUnique({ where: { id: created.community.id } });
       expect(community?.status).toBe("ACTIVE");
@@ -236,7 +272,9 @@ describe("communityLifecycleService (contract)", () => {
         data: { archiveScheduledAt: new Date(Date.now() - 1000) },
       });
 
-      const membershipBefore = await prisma.membership.findFirst({ where: { communityId: created.community.id } });
+      const membershipBefore = await prisma.membership.findFirst({
+        where: { communityId: created.community.id },
+      });
 
       const result = await archiveDueSuspendedCommunities();
       expect(result.archivedCommunityIds).toContain(created.community.id);
@@ -245,7 +283,9 @@ describe("communityLifecycleService (contract)", () => {
       expect(community?.status).toBe("ARCHIVED");
       expect(community?.archivedAt).not.toBeNull();
 
-      const membershipAfter = await prisma.membership.findFirst({ where: { communityId: created.community.id } });
+      const membershipAfter = await prisma.membership.findFirst({
+        where: { communityId: created.community.id },
+      });
       expect(membershipAfter).toEqual(membershipBefore); // untouched, including operationalEpoch
 
       const auditEntry = await prisma.administrativeAuditEntry.findFirst({
@@ -308,7 +348,12 @@ describe("communityLifecycleService (contract)", () => {
   });
 
   describe("restoreCommunity (User Story 10, FR-062–FR-065, research.md #8)", () => {
-    async function createArchivedCommunityWithHistory(masterId: string, name: string, adminEmail: string, memberEmail: string) {
+    async function createArchivedCommunityWithHistory(
+      masterId: string,
+      name: string,
+      adminEmail: string,
+      memberEmail: string,
+    ) {
       const founder = await createVerifiedAccount(adminEmail);
       const created = await createCommunityAsMaster({
         callerMasterId: masterId,
@@ -319,7 +364,12 @@ describe("communityLifecycleService (contract)", () => {
 
       const member = await createVerifiedAccount(memberEmail);
       const memberMembership = await prisma.membership.create({
-        data: { accountId: member.id, communityId: created.community.id, role: "MEMBER", operationalEpoch: 1 },
+        data: {
+          accountId: member.id,
+          communityId: created.community.id,
+          role: "MEMBER",
+          operationalEpoch: 1,
+        },
       });
       const invitation = await inviteToCommunity({
         communityId: created.community.id,
@@ -339,17 +389,25 @@ describe("communityLifecycleService (contract)", () => {
       });
       await archiveDueSuspendedCommunities();
 
-      return { communityId: created.community.id, founder, adminMembership, member, memberMembership, invitation };
+      return {
+        communityId: created.community.id,
+        founder,
+        adminMembership,
+        member,
+        memberMembership,
+        invitation,
+      };
     }
 
     it("restores exactly the selected administrator, incrementing operationalEpoch and leaving every other row at the old epoch", async () => {
       const masterId = await createMasterFixture("clt-master-restore-1");
-      const { communityId, adminMembership, memberMembership, invitation } = await createArchivedCommunityWithHistory(
-        masterId,
-        "CLT Community Restore One",
-        "clt-test-restore-admin-1@example.com",
-        "clt-test-restore-member-1@example.com",
-      );
+      const { communityId, adminMembership, memberMembership, invitation } =
+        await createArchivedCommunityWithHistory(
+          masterId,
+          "CLT Community Restore One",
+          "clt-test-restore-admin-1@example.com",
+          "clt-test-restore-member-1@example.com",
+        );
 
       const result = await restoreCommunity(masterId, communityId, adminMembership.id);
       expect(result.ok).toBe(true);
@@ -361,13 +419,19 @@ describe("communityLifecycleService (contract)", () => {
       expect(community.operationalEpoch).toBe(2);
       expect(community.archivedAt).toBeNull();
 
-      const restoredAdminMembership = await prisma.membership.findUniqueOrThrow({ where: { id: adminMembership.id } });
+      const restoredAdminMembership = await prisma.membership.findUniqueOrThrow({
+        where: { id: adminMembership.id },
+      });
       expect(restoredAdminMembership.operationalEpoch).toBe(2);
 
       // Every other pre-restoration row keeps the OLD epoch, unchanged, permanently.
-      const staleMemberMembership = await prisma.membership.findUniqueOrThrow({ where: { id: memberMembership.id } });
+      const staleMemberMembership = await prisma.membership.findUniqueOrThrow({
+        where: { id: memberMembership.id },
+      });
       expect(staleMemberMembership.operationalEpoch).toBe(1);
-      const staleInvitation = await prisma.invitation.findUniqueOrThrow({ where: { id: invitation.invitation.id } });
+      const staleInvitation = await prisma.invitation.findUniqueOrThrow({
+        where: { id: invitation.invitation.id },
+      });
       expect(staleInvitation.operationalEpoch).toBe(1);
     });
 
@@ -380,7 +444,9 @@ describe("communityLifecycleService (contract)", () => {
         administrator: { mode: "existing", email: founder.email },
       });
       if (!created.ok) throw new Error("setup failed");
-      const adminMembership = await prisma.membership.findFirstOrThrow({ where: { communityId: created.community.id } });
+      const adminMembership = await prisma.membership.findFirstOrThrow({
+        where: { communityId: created.community.id },
+      });
 
       // Not archived yet (still ACTIVE).
       expect(await restoreCommunity(masterId, created.community.id, adminMembership.id)).toEqual({
@@ -398,12 +464,13 @@ describe("communityLifecycleService (contract)", () => {
 
     it("rejects a selected administrator whose account is disabled or was never an administrator at the archived epoch", async () => {
       const masterId = await createMasterFixture("clt-master-restore-3");
-      const { communityId, adminMembership, memberMembership } = await createArchivedCommunityWithHistory(
-        masterId,
-        "CLT Community Restore Three",
-        "clt-test-restore-admin-3@example.com",
-        "clt-test-restore-member-3@example.com",
-      );
+      const { communityId, adminMembership, memberMembership } =
+        await createArchivedCommunityWithHistory(
+          masterId,
+          "CLT Community Restore Three",
+          "clt-test-restore-admin-3@example.com",
+          "clt-test-restore-member-3@example.com",
+        );
 
       // A plain MEMBER (not administrator) is not eligible.
       expect(await restoreCommunity(masterId, communityId, memberMembership.id)).toEqual({
@@ -412,7 +479,10 @@ describe("communityLifecycleService (contract)", () => {
       });
 
       // A suspended administrator account is not eligible.
-      await prisma.account.update({ where: { id: adminMembership.accountId }, data: { status: "SUSPENDED" } });
+      await prisma.account.update({
+        where: { id: adminMembership.accountId },
+        data: { status: "SUSPENDED" },
+      });
       expect(await restoreCommunity(masterId, communityId, adminMembership.id)).toEqual({
         ok: false,
         reason: "administrator_not_eligible",
@@ -441,7 +511,9 @@ describe("communityLifecycleService (contract)", () => {
       expect(newInvitation.ok).toBe(true);
       if (!newInvitation.ok) throw new Error("expected success");
 
-      const invitationRow = await prisma.invitation.findUniqueOrThrow({ where: { id: newInvitation.invitation.id } });
+      const invitationRow = await prisma.invitation.findUniqueOrThrow({
+        where: { id: newInvitation.invitation.id },
+      });
       const community = await prisma.community.findUniqueOrThrow({ where: { id: communityId } });
       expect(invitationRow.operationalEpoch).toBe(community.operationalEpoch);
     });

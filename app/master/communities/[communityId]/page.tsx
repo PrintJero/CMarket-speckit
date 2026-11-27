@@ -38,7 +38,10 @@ export default async function CommunityDetailPage({
       <MasterPageHeader
         title={community.name}
         status={<MasterStatusBadge status={community.status} />}
-        breadcrumb={[{ label: "Communities", href: "/master/communities" }, { label: community.name }]}
+        breadcrumb={[
+          { label: "Communities", href: "/master/communities" },
+          { label: community.name },
+        ]}
       />
 
       {community.status === "SUSPENDED" && (
@@ -55,7 +58,9 @@ export default async function CommunityDetailPage({
         >
           <p>
             {community.suspensionReason && <>Reason: {community.suspensionReason}. </>}
-            {community.suspendedAt && <>Suspended on {dateFormatter.format(community.suspendedAt)}. </>}
+            {community.suspendedAt && (
+              <>Suspended on {dateFormatter.format(community.suspendedAt)}. </>
+            )}
             {community.archiveScheduledAt && (
               <>Scheduled to archive on {dateFormatter.format(community.archiveScheduledAt)}. </>
             )}
@@ -77,8 +82,9 @@ export default async function CommunityDetailPage({
           }
         >
           <p>
-            Marketplace access is disabled for every member. Historical data — past listings, chats, and invitations —
-            is retained but non-operational. Restore with an eligible administrator to bring it back.
+            Marketplace access is disabled for every member. Historical data — past listings, chats,
+            and invitations — is retained but non-operational. Restore with an eligible
+            administrator to bring it back.
           </p>
         </MasterLifecycleBanner>
       )}

@@ -5,7 +5,12 @@ import { uniqueEmail, signIn } from "./helpers";
 
 async function createVerifiedAccount(email: string, password: string, displayName: string) {
   return prisma.account.create({
-    data: { email, passwordHash: await hashPassword(password), emailVerifiedAt: new Date(), displayName },
+    data: {
+      email,
+      passwordHash: await hashPassword(password),
+      emailVerifiedAt: new Date(),
+      displayName,
+    },
   });
 }
 
@@ -21,19 +26,38 @@ async function createCommunityWithAdmin(
     data: { name, founderEmail: adminEmail, invokedBy: "playwright-test" },
   });
   const body = await response.json();
-  if (!body.ok) throw new Error(`expected community creation to succeed, got ${JSON.stringify(body)}`);
+  if (!body.ok)
+    throw new Error(`expected community creation to succeed, got ${JSON.stringify(body)}`);
   return body.community as { id: string; name: string };
 }
 
-async function addMember(communityId: string, email: string, password: string, displayName: string) {
+async function addMember(
+  communityId: string,
+  email: string,
+  password: string,
+  displayName: string,
+) {
   const account = await createVerifiedAccount(email, password, displayName);
   await prisma.membership.create({ data: { accountId: account.id, communityId, role: "MEMBER" } });
   return account;
 }
 
-async function createForSaleListing(communityId: string, ownerId: string, title: string, stockQuantity: number) {
+async function createForSaleListing(
+  communityId: string,
+  ownerId: string,
+  title: string,
+  stockQuantity: number,
+) {
   return prisma.listing.create({
-    data: { communityId, ownerId, title, description: "Description", priceCents: 12000, kind: "FOR_SALE", stockQuantity },
+    data: {
+      communityId,
+      ownerId,
+      title,
+      description: "Description",
+      priceCents: 12000,
+      kind: "FOR_SALE",
+      stockQuantity,
+    },
   });
 }
 
@@ -44,9 +68,12 @@ async function proposePurchaseViaApi(
   quantity: number,
   totalCents: number,
 ) {
-  const response = await request.post(`/api/communities/${communityId}/listings/${listingId}/proposals`, {
-    data: { quantity, totalCents },
-  });
+  const response = await request.post(
+    `/api/communities/${communityId}/listings/${listingId}/proposals`,
+    {
+      data: { quantity, totalCents },
+    },
+  );
   const body = await response.json();
   if (!body.ok) throw new Error(`expected proposal to succeed, got ${JSON.stringify(body)}`);
   return body.transaction as { id: string };
@@ -77,7 +104,9 @@ test("the sidebar's Transactions link opens a Buying/Selling hub aggregating pro
     password,
     "Hub Seller Two",
   );
-  await prisma.membership.create({ data: { accountId: buyer.id, communityId: communityTwo.id, role: "MEMBER" } });
+  await prisma.membership.create({
+    data: { accountId: buyer.id, communityId: communityTwo.id, role: "MEMBER" },
+  });
   const sellerTwo = await prisma.account.findUniqueOrThrow({ where: { email: sellerTwoEmail } });
 
   const listingOne = await createForSaleListing(communityOne.id, seller.id, "Hub Bicycle", 10);
@@ -176,7 +205,9 @@ test("the buyer sees a Rate-seller action on an accepted purchase, and it become
   const sellerContext = await page.context().browser()!.newContext();
   const sellerPage = await sellerContext.newPage();
   await signIn(sellerPage, sellerEmail, password);
-  await sellerPage.request.post(`/api/communities/${community.id}/transactions/${proposed.id}/accept`);
+  await sellerPage.request.post(
+    `/api/communities/${community.id}/transactions/${proposed.id}/accept`,
+  );
   await sellerContext.close();
 
   await page.goto("/transactions");

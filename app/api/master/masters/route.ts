@@ -11,7 +11,14 @@ export async function GET(): Promise<Response> {
 
   const masters = await prisma.masterIdentity.findMany({
     orderBy: { createdAt: "desc" },
-    select: { id: true, masterId: true, email: true, status: true, createdAt: true, createdByMasterId: true },
+    select: {
+      id: true,
+      masterId: true,
+      email: true,
+      status: true,
+      createdAt: true,
+      createdByMasterId: true,
+    },
   });
   return NextResponse.json({ ok: true, masters }, { status: 200 });
 }

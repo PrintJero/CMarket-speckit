@@ -106,6 +106,8 @@ test("signing out clears the unified cookie and deletes the Session row for a Go
   await expect(page.getByText("Cookie Seam Tester")).toHaveCount(0);
 
   const cookiesAfterSignOut = await page.context().cookies();
-  expect(cookiesAfterSignOut.find((cookie) => cookie.name === resolvedAuthJsCookieName())).toBeUndefined();
+  expect(
+    cookiesAfterSignOut.find((cookie) => cookie.name === resolvedAuthJsCookieName()),
+  ).toBeUndefined();
   expect(await prisma.session.count({ where: { accountId } })).toBe(0);
 });

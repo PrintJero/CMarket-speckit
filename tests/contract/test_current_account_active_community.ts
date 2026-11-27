@@ -5,7 +5,12 @@ import { resolveLiveActiveCommunityId } from "@/lib/auth/currentAccount";
 
 function createVerifiedAccount(email: string) {
   return prisma.account.create({
-    data: { email, passwordHash: "irrelevant-hash", emailVerifiedAt: new Date(), displayName: "Test Member" },
+    data: {
+      email,
+      passwordHash: "irrelevant-hash",
+      emailVerifiedAt: new Date(),
+      displayName: "Test Member",
+    },
   });
 }
 
@@ -71,7 +76,9 @@ describe("resolveLiveActiveCommunityId (contract)", () => {
       "current-account-test-admin-c@example.com",
     );
     const member = await addMember(community.id, "current-account-test-member-3@example.com");
-    await prisma.membership.delete({ where: { accountId_communityId: { accountId: member.id, communityId: community.id } } });
+    await prisma.membership.delete({
+      where: { accountId_communityId: { accountId: member.id, communityId: community.id } },
+    });
 
     expect(await resolveLiveActiveCommunityId(member.id, community.id)).toBeNull();
   });
@@ -85,7 +92,10 @@ describe("resolveLiveActiveCommunityId (contract)", () => {
       "Current Account Test E",
       "current-account-test-admin-e@example.com",
     );
-    const memberOfAOnly = await addMember(communityA.id, "current-account-test-member-4@example.com");
+    const memberOfAOnly = await addMember(
+      communityA.id,
+      "current-account-test-member-4@example.com",
+    );
 
     expect(await resolveLiveActiveCommunityId(memberOfAOnly.id, communityB.id)).toBeNull();
   });

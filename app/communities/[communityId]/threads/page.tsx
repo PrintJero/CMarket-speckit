@@ -38,7 +38,10 @@ export default async function ThreadsInboxPage({
         <div className="flex flex-col gap-3">
           {result.threads.map((thread) => (
             <Card key={thread.id} className="max-w-xl" data-testid="thread-row">
-              <Link href={`/communities/${communityId}/threads/${thread.id}`} className="block hover:no-underline">
+              <Link
+                href={`/communities/${communityId}/threads/${thread.id}`}
+                className="block hover:no-underline"
+              >
                 <p className="font-semibold text-ink">{thread.listingTitle}</p>
               </Link>
               <Link
@@ -47,7 +50,10 @@ export default async function ThreadsInboxPage({
               >
                 {resolveDisplayName(thread.counterpartDisplayName)}
               </Link>
-              <Link href={`/communities/${communityId}/threads/${thread.id}`} className="block hover:no-underline">
+              <Link
+                href={`/communities/${communityId}/threads/${thread.id}`}
+                className="block hover:no-underline"
+              >
                 <p className="mt-1 text-sm text-ink-muted">{thread.lastMessagePreview}</p>
               </Link>
             </Card>

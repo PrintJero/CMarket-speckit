@@ -94,7 +94,10 @@ describe("no Cloudinary delivery data or credentials in the client bundle", () =
 
   bundleTest("ships no API secret in any client chunk (FR-100, SC-012)", () => {
     const secret = process.env.CLOUDINARY_API_SECRET;
-    expect(secret, "CLOUDINARY_API_SECRET must be set for this assertion to mean anything").toBeTruthy();
+    expect(
+      secret,
+      "CLOUDINARY_API_SECRET must be set for this assertion to mean anything",
+    ).toBeTruthy();
 
     const leaking = collectFiles(CLIENT_CHUNK_DIR)
       .filter((file) => readFileSync(file, "utf8").includes(secret!))

@@ -5,7 +5,10 @@ import { validatePassword } from "@/lib/validation/password";
 import { normalizeEmail, isValidEmail } from "@/lib/validation/email";
 import { normalizeMasterId, isValidMasterId } from "@/lib/validation/masterId";
 import { writeAuditEntry } from "@/server/services/auditService";
-import { createMasterSession, deleteAllMasterSessions } from "@/server/services/masterSessionService";
+import {
+  createMasterSession,
+  deleteAllMasterSessions,
+} from "@/server/services/masterSessionService";
 
 function generateTemporaryPassword(): string {
   // research.md #5: same high-entropy-random shape as a session token
@@ -137,12 +140,19 @@ export type SignInAsMasterResult =
  * password, and a DISABLED identity — never distinguishing which, mirroring
  * accountService.ts's signInWithPassword() anti-enumeration shape.
  */
-export async function signInAsMaster(masterId: string, password: string): Promise<SignInAsMasterResult> {
+export async function signInAsMaster(
+  masterId: string,
+  password: string,
+): Promise<SignInAsMasterResult> {
   const master = await prisma.masterIdentity.findUnique({
     where: { masterId: normalizeMasterId(masterId) },
   });
 
-  if (!master || master.status !== "ACTIVE" || !(await verifyPassword(master.passwordHash, password))) {
+  if (
+    !master ||
+    master.status !== "ACTIVE" ||
+    !(await verifyPassword(master.passwordHash, password))
+  ) {
     return { ok: false, reason: "invalid_credentials" };
   }
 
@@ -288,8 +298,7 @@ export async function reactivateMaster(
 }
 
 export type ResetMasterPasswordResult =
-  | { ok: true; temporaryPassword: string }
-  | { ok: false; reason: "not_found" };
+  { ok: true; temporaryPassword: string } | { ok: false; reason: "not_found" };
 
 /** FR-011: revokes every existing session for the target and forces a fresh first-login change. */
 export async function resetMasterPassword(

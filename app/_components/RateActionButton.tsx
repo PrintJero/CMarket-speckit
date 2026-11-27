@@ -41,7 +41,12 @@ export function RateActionButton({
 
   return (
     <>
-      <Button type="button" variant="secondary" className="!px-4 !py-2" onClick={() => setShowModal(true)}>
+      <Button
+        type="button"
+        variant="secondary"
+        className="!px-4 !py-2"
+        onClick={() => setShowModal(true)}
+      >
         Rate {name}
       </Button>
       {showModal && (

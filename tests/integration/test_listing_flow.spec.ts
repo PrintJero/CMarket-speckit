@@ -20,7 +20,8 @@ async function createCommunityWithAdmin(
     data: { name, founderEmail: adminEmail, invokedBy: "playwright-test" },
   });
   const body = await response.json();
-  if (!body.ok) throw new Error(`expected community creation to succeed, got ${JSON.stringify(body)}`);
+  if (!body.ok)
+    throw new Error(`expected community creation to succeed, got ${JSON.stringify(body)}`);
   return body.community as { id: string; name: string };
 }
 
@@ -38,7 +39,12 @@ test("a member creates a product listing with a photo, and sees it in the commun
   const password = "correct-horse-battery-staple";
   const adminEmail = uniqueEmail("listing-admin");
   const memberEmail = uniqueEmail("listing-member");
-  const community = await createCommunityWithAdmin(page.request, `Listing Flow Community ${Date.now()}`, adminEmail, password);
+  const community = await createCommunityWithAdmin(
+    page.request,
+    `Listing Flow Community ${Date.now()}`,
+    adminEmail,
+    password,
+  );
   await addMember(community.id, memberEmail, password);
 
   // 017-cloudinary-listing-media: uploads now go browser-to-Cloudinary directly,
@@ -69,7 +75,9 @@ test("a member creates a product listing with a photo, and sees it in the commun
   await page.waitForURL(`**/communities/${community.id}`);
   await expect(page.getByText("Bicycle")).toBeVisible();
 
-  const listing = await prisma.listing.findFirstOrThrow({ where: { communityId: community.id, title: "Bicycle" } });
+  const listing = await prisma.listing.findFirstOrThrow({
+    where: { communityId: community.id, title: "Bicycle" },
+  });
   expect(listing.status).toBe("ACTIVE");
   expect(await prisma.listingPhoto.count({ where: { listingId: listing.id } })).toBe(1);
 
@@ -92,7 +100,12 @@ test("the owner edits their listing via the detail page; a non-owner's edit atte
   const password = "correct-horse-battery-staple";
   const ownerEmail = uniqueEmail("listing-owner");
   const otherMemberEmail = uniqueEmail("listing-other-member");
-  const community = await createCommunityWithAdmin(page.request, `Listing Edit Community ${Date.now()}`, ownerEmail, password);
+  const community = await createCommunityWithAdmin(
+    page.request,
+    `Listing Edit Community ${Date.now()}`,
+    ownerEmail,
+    password,
+  );
   await addMember(community.id, otherMemberEmail, password);
   const owner = await prisma.account.findUniqueOrThrow({ where: { email: ownerEmail } });
 
@@ -113,7 +126,9 @@ test("the owner edits their listing via the detail page; a non-owner's edit atte
   await page.getByLabel("Price (MXN)").fill("20.00");
   const [patchResponse] = await Promise.all([
     page.waitForResponse(
-      (response) => response.url().endsWith(`/listings/${listing.id}`) && response.request().method() === "PATCH",
+      (response) =>
+        response.url().endsWith(`/listings/${listing.id}`) &&
+        response.request().method() === "PATCH",
     ),
     page.getByRole("button", { name: "Save changes" }).click(),
   ]);
@@ -144,10 +159,17 @@ test("the owner edits their listing via the detail page; a non-owner's edit atte
 });
 
 // T026 (US3) — the owner pauses and reactivates their listing via the detail page.
-test("the owner pauses and reactivates their listing via the detail page (US3)", async ({ page }) => {
+test("the owner pauses and reactivates their listing via the detail page (US3)", async ({
+  page,
+}) => {
   const password = "correct-horse-battery-staple";
   const ownerEmail = uniqueEmail("listing-pause-owner");
-  const community = await createCommunityWithAdmin(page.request, `Listing Pause Community ${Date.now()}`, ownerEmail, password);
+  const community = await createCommunityWithAdmin(
+    page.request,
+    `Listing Pause Community ${Date.now()}`,
+    ownerEmail,
+    password,
+  );
   const owner = await prisma.account.findUniqueOrThrow({ where: { email: ownerEmail } });
 
   const listing = await prisma.listing.create({
@@ -189,7 +211,12 @@ test("the owner deletes their listing (with a photo) via the detail page; the ad
 }) => {
   const password = "correct-horse-battery-staple";
   const ownerEmail = uniqueEmail("listing-delete-owner");
-  const community = await createCommunityWithAdmin(page.request, `Listing Delete Community ${Date.now()}`, ownerEmail, password);
+  const community = await createCommunityWithAdmin(
+    page.request,
+    `Listing Delete Community ${Date.now()}`,
+    ownerEmail,
+    password,
+  );
   const owner = await prisma.account.findUniqueOrThrow({ where: { email: ownerEmail } });
 
   const listing = await prisma.listing.create({
@@ -252,7 +279,12 @@ test("the community's administrator pauses another member's listing, without Edi
   const password = "correct-horse-battery-staple";
   const adminEmail = uniqueEmail("listing-mod-admin");
   const memberEmail = uniqueEmail("listing-mod-member");
-  const community = await createCommunityWithAdmin(page.request, `Listing Moderation Community ${Date.now()}`, adminEmail, password);
+  const community = await createCommunityWithAdmin(
+    page.request,
+    `Listing Moderation Community ${Date.now()}`,
+    adminEmail,
+    password,
+  );
   const member = await addMember(community.id, memberEmail, password);
 
   const listing = await prisma.listing.create({
@@ -338,7 +370,10 @@ test("the feed renders cards with a cover photo or placeholder and MXN prices; t
   await signIn(page, ownerEmail, password);
   await page.goto(`/communities/${community.id}/listings`);
 
-  const expectedPrice = new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(250);
+  const expectedPrice = new Intl.NumberFormat("es-MX", {
+    style: "currency",
+    currency: "MXN",
+  }).format(250);
   const cardWithPhoto = page.locator('[data-testid="listing-card"]', { hasText: "Has a photo" });
   await expect(cardWithPhoto).toBeVisible();
   await expect(cardWithPhoto.locator("img")).toBeVisible();
@@ -356,7 +391,9 @@ test("the feed renders cards with a cover photo or placeholder and MXN prices; t
   expect(coverImageResponse.headers()["cache-control"]).toBe("private, no-cache");
   await expect(cardWithPhoto).toContainText(expectedPrice);
 
-  const cardWithoutPhoto = page.locator('[data-testid="listing-card"]', { hasText: "Has no photo" });
+  const cardWithoutPhoto = page.locator('[data-testid="listing-card"]', {
+    hasText: "Has no photo",
+  });
   await expect(cardWithoutPhoto).toBeVisible();
   await expect(cardWithoutPhoto.locator("img")).toHaveCount(0);
   await expect(cardWithoutPhoto.locator('[data-testid="listing-cover-placeholder"]')).toBeVisible();

@@ -16,7 +16,13 @@ export interface MasterTab {
  * `searchParams.tab` to decide what to render — see e.g.
  * app/master/communities/[communityId]/page.tsx.
  */
-export function MasterDetailTabs({ tabs, paramName = "tab" }: { tabs: MasterTab[]; paramName?: string }) {
+export function MasterDetailTabs({
+  tabs,
+  paramName = "tab",
+}: {
+  tabs: MasterTab[];
+  paramName?: string;
+}) {
   return (
     <Suspense fallback={<div className="mb-5 h-10 border-b border-border" />}>
       <MasterDetailTabsInner tabs={tabs} paramName={paramName} />
@@ -47,7 +53,9 @@ function MasterDetailTabsInner({ tabs, paramName }: { tabs: MasterTab[]; paramNa
             role="tab"
             aria-selected={isActive}
             className={`whitespace-nowrap border-b-2 px-0.5 py-2.5 text-[13px] font-semibold transition-colors ${
-              isActive ? "border-master text-master-dark" : "border-transparent text-ink-muted hover:text-ink"
+              isActive
+                ? "border-master text-master-dark"
+                : "border-transparent text-ink-muted hover:text-ink"
             }`}
           >
             {tab.label}

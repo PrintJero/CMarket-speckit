@@ -1,12 +1,22 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { createCommunity } from "@/server/services/communityService";
-import { createListing, listListings, pauseListing, fulfillListing } from "@/server/services/listingService";
+import {
+  createListing,
+  listListings,
+  pauseListing,
+  fulfillListing,
+} from "@/server/services/listingService";
 
 /** createListing() requires a displayName on the caller (006-user-display-names, FR-008). */
 function createVerifiedAccount(email: string) {
   return prisma.account.create({
-    data: { email, passwordHash: "irrelevant-hash", emailVerifiedAt: new Date(), displayName: "Test Owner" },
+    data: {
+      email,
+      passwordHash: "irrelevant-hash",
+      emailVerifiedAt: new Date(),
+      displayName: "Test Owner",
+    },
   });
 }
 
@@ -44,7 +54,9 @@ async function seedListings(
 
 describe("listListings discovery (contract)", () => {
   beforeEach(async () => {
-    await prisma.community.deleteMany({ where: { name: { contains: "Discovery Test Community" } } });
+    await prisma.community.deleteMany({
+      where: { name: { contains: "Discovery Test Community" } },
+    });
     await prisma.account.deleteMany({ where: { email: { contains: "discovery-test" } } });
   });
 
@@ -78,7 +90,13 @@ describe("listListings discovery (contract)", () => {
       if (!page2.ok) throw new Error("expected success");
       expect(page2.listings).toHaveLength(5);
       expect(page2.hasMore).toBe(false);
-      expect(page2.listings.map((l) => l.title)).toEqual(["Item 4", "Item 3", "Item 2", "Item 1", "Item 0"]);
+      expect(page2.listings.map((l) => l.title)).toEqual([
+        "Item 4",
+        "Item 3",
+        "Item 2",
+        "Item 1",
+        "Item 0",
+      ]);
 
       const page1Ids = new Set(page1.listings.map((l) => l.id));
       const page2Ids = new Set(page2.listings.map((l) => l.id));
@@ -239,7 +257,8 @@ describe("listListings discovery (contract)", () => {
         description: "generic",
         priceCents: 9000,
       });
-      if (!cheap.ok || !mid.ok || !expensive.ok) throw new Error("expected all listings to be created");
+      if (!cheap.ok || !mid.ok || !expensive.ok)
+        throw new Error("expected all listings to be created");
 
       const ranged = await listListings(community.id, admin.id, {
         minPriceCents: 2000,

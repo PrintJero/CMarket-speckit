@@ -28,7 +28,9 @@ export default async function ThreadDetailPage({
 
   return (
     <AppShell account={account}>
-      <BackLink href={`/communities/${communityId}/listings/${thread.listingId}`}>Back to listing</BackLink>
+      <BackLink href={`/communities/${communityId}/listings/${thread.listingId}`}>
+        Back to listing
+      </BackLink>
 
       <div
         data-testid="chat-panel"
@@ -61,13 +63,21 @@ export default async function ThreadDetailPage({
                   >
                     <div
                       className={`rounded-card px-4 py-2.5 ${
-                        isOwnMessage ? "bg-brand-tint text-ink" : "border border-border bg-surface text-ink"
+                        isOwnMessage
+                          ? "bg-brand-tint text-ink"
+                          : "border border-border bg-surface text-ink"
                       }`}
                     >
-                      <p data-testid="message-body" className="whitespace-pre-wrap wrap-break-word text-[14px]">
+                      <p
+                        data-testid="message-body"
+                        className="whitespace-pre-wrap wrap-break-word text-[14px]"
+                      >
                         {message.body}
                       </p>
-                      <p data-testid="message-timestamp" className="mt-1 text-[11px] text-ink-muted">
+                      <p
+                        data-testid="message-timestamp"
+                        className="mt-1 text-[11px] text-ink-muted"
+                      >
                         {new Date(message.createdAt).toLocaleString()}
                       </p>
                     </div>

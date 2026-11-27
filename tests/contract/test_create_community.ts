@@ -43,7 +43,9 @@ describe("createCommunity (contract)", () => {
     expect(community?.name).toBe("Contract Test Community One");
     expect(community?.createdByOperator).toBe("test-operator"); // FR-013
 
-    const memberships = await prisma.membership.findMany({ where: { communityId: result.community.id } });
+    const memberships = await prisma.membership.findMany({
+      where: { communityId: result.community.id },
+    });
     expect(memberships).toHaveLength(1); // FR-008: the only membership produced
     expect(memberships[0].accountId).toBe(founder.id);
     expect(memberships[0].role).toBe("ADMINISTRATOR");

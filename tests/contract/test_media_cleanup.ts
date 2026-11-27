@@ -208,7 +208,9 @@ describe("media cleanup (contract)", () => {
     await drainCleanup({ limit: 200 });
 
     expect(destroy).toHaveBeenCalledWith(publicId);
-    expect(await prisma.mediaCleanupTask.count({ where: { cloudinaryPublicId: publicId } })).toBe(0);
+    expect(await prisma.mediaCleanupTask.count({ where: { cloudinaryPublicId: publicId } })).toBe(
+      0,
+    );
   });
 
   it("records a failure for retry with backoff instead of losing the asset (FR-082)", async () => {

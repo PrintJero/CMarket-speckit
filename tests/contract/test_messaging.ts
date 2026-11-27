@@ -1,7 +1,12 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { createCommunity } from "@/server/services/communityService";
-import { createListing, pauseListing, fulfillListing, deleteListing } from "@/server/services/listingService";
+import {
+  createListing,
+  pauseListing,
+  fulfillListing,
+  deleteListing,
+} from "@/server/services/listingService";
 import { setDisplayName } from "@/server/services/accountService";
 import {
   sendMessageToListingOwner,
@@ -14,7 +19,12 @@ import {
 /** Mirrors tests/contract/test_listings.ts's own helper (006-user-display-names, FR-008). */
 function createVerifiedAccount(email: string) {
   return prisma.account.create({
-    data: { email, passwordHash: "irrelevant-hash", emailVerifiedAt: new Date(), displayName: "Test Account" },
+    data: {
+      email,
+      passwordHash: "irrelevant-hash",
+      emailVerifiedAt: new Date(),
+      displayName: "Test Account",
+    },
   });
 }
 
@@ -37,14 +47,18 @@ async function addMember(communityId: string, email: string) {
 
 async function addAdmin(communityId: string, email: string) {
   const account = await createVerifiedAccount(email);
-  await prisma.membership.create({ data: { accountId: account.id, communityId, role: "ADMINISTRATOR" } });
+  await prisma.membership.create({
+    data: { accountId: account.id, communityId, role: "ADMINISTRATOR" },
+  });
   return account;
 }
 
 describe("messageService (contract)", () => {
   beforeEach(async () => {
     // Community deletion cascades to Membership/Invitation/Listing/MessageThread/Message (schema.prisma).
-    await prisma.community.deleteMany({ where: { name: { contains: "Messaging Test Community" } } });
+    await prisma.community.deleteMany({
+      where: { name: { contains: "Messaging Test Community" } },
+    });
     await prisma.account.deleteMany({ where: { email: { contains: "messaging-test" } } });
   });
 
@@ -152,7 +166,9 @@ describe("messageService (contract)", () => {
       });
 
       expect(result).toEqual({ ok: false, reason: "cannot_message_own_listing" });
-      expect(await prisma.messageThread.count({ where: { listingId: listing.listing.id } })).toBe(0);
+      expect(await prisma.messageThread.count({ where: { listingId: listing.listing.id } })).toBe(
+        0,
+      );
     });
 
     // T002 (US1, FR-016, research.md #4)
@@ -181,7 +197,10 @@ describe("messageService (contract)", () => {
       });
       expect(existing.ok).toBe(true);
 
-      const paused = await pauseListing({ listingId: listing.listing.id, callerAccountId: admin.id });
+      const paused = await pauseListing({
+        listingId: listing.listing.id,
+        callerAccountId: admin.id,
+      });
       expect(paused).toEqual({ ok: true });
 
       // A brand-new thread against the now-PAUSED listing is rejected.
@@ -249,7 +268,9 @@ describe("messageService (contract)", () => {
       });
       expect(tooLong).toEqual({ ok: false, reason: "invalid_message" });
 
-      expect(await prisma.messageThread.count({ where: { listingId: listing.listing.id } })).toBe(0);
+      expect(await prisma.messageThread.count({ where: { listingId: listing.listing.id } })).toBe(
+        0,
+      );
 
       // A message at exactly the limit succeeds, and a reply obeys the same rule.
       const atLimit = await sendMessageToListingOwner({
@@ -295,7 +316,9 @@ describe("messageService (contract)", () => {
       });
 
       expect(result).toEqual({ ok: false, reason: "not_a_member" });
-      expect(await prisma.messageThread.count({ where: { listingId: listing.listing.id } })).toBe(0);
+      expect(await prisma.messageThread.count({ where: { listingId: listing.listing.id } })).toBe(
+        0,
+      );
     });
   });
 
@@ -341,7 +364,9 @@ describe("messageService (contract)", () => {
       });
       expect(asBuyer.ok).toBe(true);
       if (!asBuyer.ok) throw new Error("expected success");
-      expect(asBuyer.messages.map((m) => ({ body: m.body, senderDisplayName: m.senderDisplayName }))).toEqual([
+      expect(
+        asBuyer.messages.map((m) => ({ body: m.body, senderDisplayName: m.senderDisplayName })),
+      ).toEqual([
         { body: "Is this still available?", senderDisplayName: "Buyer Name" },
         { body: "Yes, still available.", senderDisplayName: "Owner Name" },
       ]);
@@ -380,7 +405,10 @@ describe("messageService (contract)", () => {
       });
       if (!sent.ok) throw new Error("expected success");
 
-      const deleted = await deleteListing({ listingId: listing.listing.id, callerAccountId: admin.id });
+      const deleted = await deleteListing({
+        listingId: listing.listing.id,
+        callerAccountId: admin.id,
+      });
       expect(deleted).toEqual({ ok: true });
 
       expect(await prisma.messageThread.findUnique({ where: { id: sent.thread.id } })).toBeNull();
@@ -503,7 +531,10 @@ describe("messageService (contract)", () => {
         "messaging-test-wanted-admin-2@example.com",
       );
       const buyer = await addMember(community.id, "messaging-test-wanted-buyer-2@example.com");
-      const otherBuyer = await addMember(community.id, "messaging-test-wanted-other-buyer-2@example.com");
+      const otherBuyer = await addMember(
+        community.id,
+        "messaging-test-wanted-other-buyer-2@example.com",
+      );
       const listing = await createListing({
         communityId: community.id,
         ownerId: admin.id,
@@ -522,7 +553,10 @@ describe("messageService (contract)", () => {
       });
       expect(existing.ok).toBe(true);
 
-      const fulfilled = await fulfillListing({ listingId: listing.listing.id, callerAccountId: admin.id });
+      const fulfilled = await fulfillListing({
+        listingId: listing.listing.id,
+        callerAccountId: admin.id,
+      });
       expect(fulfilled).toEqual({ ok: true });
 
       // A brand-new thread against the now-FULFILLED post is rejected.
@@ -609,7 +643,10 @@ describe("messageService (contract)", () => {
       );
       const buyer = await addMember(community.id, "messaging-test-buyer-10@example.com");
       const otherAdmin = await addAdmin(community.id, "messaging-test-other-admin-10@example.com");
-      const outsiderMember = await addMember(community.id, "messaging-test-outsider-member-10@example.com");
+      const outsiderMember = await addMember(
+        community.id,
+        "messaging-test-outsider-member-10@example.com",
+      );
       const listing = await createListing({
         communityId: community.id,
         ownerId: admin.id,
@@ -672,7 +709,9 @@ describe("messageService (contract)", () => {
         body: "Interested",
       });
       expect(rejected).toEqual({ ok: false, reason: "display_name_required" });
-      expect(await prisma.messageThread.count({ where: { listingId: listing.listing.id } })).toBe(0);
+      expect(await prisma.messageThread.count({ where: { listingId: listing.listing.id } })).toBe(
+        0,
+      );
 
       await setDisplayName(nameless.id, "Now Named");
       const accepted = await sendMessageToListingOwner({
@@ -879,7 +918,9 @@ describe("messageService (contract)", () => {
       expect(mine.ok).toBe(true);
       if (!mine.ok) throw new Error("expected success");
       // Most recent first: threadWhereBuyer was created after threadWhereOwner.
-      expect(mine.threads.map((t) => ({ id: t.id, role: t.role, communityId: t.communityId }))).toEqual([
+      expect(
+        mine.threads.map((t) => ({ id: t.id, role: t.role, communityId: t.communityId })),
+      ).toEqual([
         { id: threadWhereBuyer.thread.id, role: "buyer", communityId: communityB.id },
         { id: threadWhereOwner.thread.id, role: "owner", communityId: communityA.id },
       ]);
@@ -949,7 +990,10 @@ describe("messageService (contract)", () => {
       });
       expect(viewedThread.ok).toBe(true);
 
-      const otherBuyer = await addMember(community.id, "messaging-test-suspend-buyer2-1@example.com");
+      const otherBuyer = await addMember(
+        community.id,
+        "messaging-test-suspend-buyer2-1@example.com",
+      );
       const blockedNewThread = await sendMessageToListingOwner({
         communityId: community.id,
         listingId: listing.listing.id,
@@ -984,7 +1028,11 @@ describe("messageService (contract)", () => {
       await prisma.community.update({ where: { id: community.id }, data: { status: "ARCHIVED" } });
 
       expect(
-        await getThread({ communityId: community.id, threadId: firstMessage.thread.id, callerAccountId: buyer.id }),
+        await getThread({
+          communityId: community.id,
+          threadId: firstMessage.thread.id,
+          callerAccountId: buyer.id,
+        }),
       ).toEqual({ ok: false, reason: "not_a_member" });
       expect((await listThreads(community.id, buyer.id)).ok).toBe(false);
     });

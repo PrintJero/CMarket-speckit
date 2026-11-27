@@ -23,11 +23,14 @@ export function ReviewForm({ communityId, transactionId }: ReviewFormProps) {
   async function submitRating(rating: number) {
     setError(null);
     setSubmitting(true);
-    const response = await fetch(`/api/communities/${communityId}/transactions/${transactionId}/reviews`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rating }),
-    });
+    const response = await fetch(
+      `/api/communities/${communityId}/transactions/${transactionId}/reviews`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rating }),
+      },
+    );
     const data: CreateReviewResponse = await response.json();
     setSubmitting(false);
     if (!data.ok) {

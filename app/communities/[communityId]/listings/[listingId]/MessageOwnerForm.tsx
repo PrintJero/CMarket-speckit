@@ -2,12 +2,15 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { FormField, FormError, fieldInputClassName, fieldTextareaClassName } from "../../../../_components/FormField";
+import {
+  FormField,
+  FormError,
+  fieldInputClassName,
+  fieldTextareaClassName,
+} from "../../../../_components/FormField";
 import { Button } from "../../../../_components/Button";
 
-type SendMessageResponse =
-  | { ok: true; thread: { id: string } }
-  | { ok: false; reason: string };
+type SendMessageResponse = { ok: true; thread: { id: string } } | { ok: false; reason: string };
 
 type SetDisplayNameResponse =
   | { ok: true; account: { id: string; displayName: string } }
@@ -26,7 +29,11 @@ export interface MessageOwnerFormProps {
 }
 
 /** Sends the caller's (buyer's) first or next message to this listing's owner (FR-001, FR-002). */
-export function MessageOwnerForm({ communityId, listingId, currentDisplayName = null }: MessageOwnerFormProps) {
+export function MessageOwnerForm({
+  communityId,
+  listingId,
+  currentDisplayName = null,
+}: MessageOwnerFormProps) {
   const router = useRouter();
   const needsDisplayName = !currentDisplayName;
   const [body, setBody] = useState("");

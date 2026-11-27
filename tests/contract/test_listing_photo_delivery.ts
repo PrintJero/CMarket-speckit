@@ -128,7 +128,11 @@ describe("listing photo delivery gate (contract)", () => {
     );
 
     const wrongCommunity = await getListingPhoto(other.community.id, photo.id, other.admin.id);
-    const nonexistent = await getListingPhoto(other.community.id, "clnonexistentphoto", other.admin.id);
+    const nonexistent = await getListingPhoto(
+      other.community.id,
+      "clnonexistentphoto",
+      other.admin.id,
+    );
 
     expect(wrongCommunity).toEqual({ ok: false, reason: "not_found" });
     expect(nonexistent).toEqual({ ok: false, reason: "not_found" });

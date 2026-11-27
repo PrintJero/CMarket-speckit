@@ -104,7 +104,12 @@ export function LifecycleActions({
     return (
       <div>
         {error && <MasterFormMessage tone="error">{error}</MasterFormMessage>}
-        <MasterButton type="button" variant="secondary" disabled={busy} onClick={() => setReactivateOpen(true)}>
+        <MasterButton
+          type="button"
+          variant="secondary"
+          disabled={busy}
+          onClick={() => setReactivateOpen(true)}
+        >
           Reactivate
         </MasterButton>
 
@@ -132,7 +137,9 @@ export function LifecycleActions({
           value={restoreTarget}
           onChange={(e) => setRestoreTarget(e.target.value)}
         >
-          {eligibleAdministrators.length === 0 && <option value="">No eligible administrator</option>}
+          {eligibleAdministrators.length === 0 && (
+            <option value="">No eligible administrator</option>
+          )}
           {eligibleAdministrators.map((a) => (
             <option key={a.membershipId} value={a.membershipId}>
               {a.label}
@@ -155,9 +162,9 @@ export function LifecycleActions({
         title="Restore this community?"
         description={
           <>
-            Exactly one administrator{selectedLabel ? ` — ${selectedLabel}` : ""} becomes active again. Every other
-            membership stays archived. Previous listings, chats, and invitations remain historical records. This does
-            not recreate a new community.
+            Exactly one administrator{selectedLabel ? ` — ${selectedLabel}` : ""} becomes active
+            again. Every other membership stays archived. Previous listings, chats, and invitations
+            remain historical records. This does not recreate a new community.
           </>
         }
         tone="warning"

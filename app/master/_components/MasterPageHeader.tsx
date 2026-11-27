@@ -30,7 +30,10 @@ export function MasterPageHeader({
   return (
     <div className="mb-6">
       {breadcrumb && breadcrumb.length > 0 && (
-        <nav aria-label="Breadcrumb" className="mb-1.5 flex flex-wrap items-center gap-1.5 text-[12px] text-ink-muted">
+        <nav
+          aria-label="Breadcrumb"
+          className="mb-1.5 flex flex-wrap items-center gap-1.5 text-[12px] text-ink-muted"
+        >
           {breadcrumb.map((crumb, index) => (
             <span key={`${crumb.label}-${index}`} className="flex items-center gap-1.5">
               {index > 0 && <span aria-hidden="true">/</span>}

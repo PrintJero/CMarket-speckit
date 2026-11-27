@@ -22,7 +22,10 @@ const AUTH_CONFIG_PATH = path.resolve(__dirname, "../../src/lib/auth/authConfig.
 function isGuardedByMockEnabledCheck(node: ts.Node): boolean {
   let current: ts.Node | undefined = node;
   while (current) {
-    if (ts.isIfStatement(current) && current.expression.getText().includes("GOOGLE_OAUTH_MOCK_ENABLED")) {
+    if (
+      ts.isIfStatement(current) &&
+      current.expression.getText().includes("GOOGLE_OAUTH_MOCK_ENABLED")
+    ) {
       return true;
     }
     if (
@@ -39,7 +42,12 @@ function isGuardedByMockEnabledCheck(node: ts.Node): boolean {
 describe("the mock Google OAuth boundary is not reachable by default (research.md #2)", () => {
   it("every reference to GOOGLE_OAUTH_MOCK_URL in authConfig.ts is nested inside a GOOGLE_OAUTH_MOCK_ENABLED-conditioned branch", () => {
     const sourceText = fs.readFileSync(AUTH_CONFIG_PATH, "utf8");
-    const sourceFile = ts.createSourceFile(AUTH_CONFIG_PATH, sourceText, ts.ScriptTarget.Latest, true);
+    const sourceFile = ts.createSourceFile(
+      AUTH_CONFIG_PATH,
+      sourceText,
+      ts.ScriptTarget.Latest,
+      true,
+    );
 
     const referencesFound: ts.Node[] = [];
     function visit(node: ts.Node) {

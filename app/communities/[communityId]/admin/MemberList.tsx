@@ -10,7 +10,10 @@ export interface MemberRow {
   role: "ADMINISTRATOR" | "MEMBER";
 }
 
-type RevokeResponse = { ok: false; reason: "not_administrator" | "not_found" | "last_admin" | "conflict" };
+type RevokeResponse = {
+  ok: false;
+  reason: "not_administrator" | "not_found" | "last_admin" | "conflict";
+};
 type PromoteResponse = { ok: false; reason: "not_administrator" | "not_eligible" };
 
 export function MemberList({
@@ -43,14 +46,19 @@ export function MemberList({
   async function onPromote(membershipId: string) {
     setErrorByMembership((prev) => ({ ...prev, [membershipId]: "" }));
 
-    const response = await fetch(`/api/communities/${communityId}/memberships/${membershipId}/promote`, {
-      method: "POST",
-    });
+    const response = await fetch(
+      `/api/communities/${communityId}/memberships/${membershipId}/promote`,
+      {
+        method: "POST",
+      },
+    );
     const data = await response.json();
 
     if (data.ok) {
       setMembers((prev) =>
-        prev.map((member) => (member.membershipId === membershipId ? { ...member, role: "ADMINISTRATOR" } : member)),
+        prev.map((member) =>
+          member.membershipId === membershipId ? { ...member, role: "ADMINISTRATOR" } : member,
+        ),
       );
       return;
     }
@@ -58,7 +66,11 @@ export function MemberList({
   }
 
   if (members.length === 0) {
-    return <p className="py-10 text-center text-ink-muted">No members yet. Invite someone to get started.</p>;
+    return (
+      <p className="py-10 text-center text-ink-muted">
+        No members yet. Invite someone to get started.
+      </p>
+    );
   }
 
   return (

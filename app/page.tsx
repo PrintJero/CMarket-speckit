@@ -44,8 +44,8 @@ export default async function HomePage() {
         <div className="mx-auto max-w-md text-center">
           <h1 className="text-[1.375rem] font-bold text-ink">You&apos;re all set</h1>
           <p>
-            You don&apos;t belong to any community yet. Once a community administrator invites
-            you, it will appear here.
+            You don&apos;t belong to any community yet. Once a community administrator invites you,
+            it will appear here.
           </p>
         </div>
       </AppShell>

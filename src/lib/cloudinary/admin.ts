@@ -19,7 +19,14 @@ export interface VerifyAssetExpectations {
 export type VerifyAssetResult =
   | {
       ok: true;
-      asset: { assetId: string; publicId: string; width: number; height: number; format: string; bytes: number };
+      asset: {
+        assetId: string;
+        publicId: string;
+        width: number;
+        height: number;
+        format: string;
+        bytes: number;
+      };
     }
   | { ok: false; reason: "not_found" | "mismatch" | "unavailable" };
 

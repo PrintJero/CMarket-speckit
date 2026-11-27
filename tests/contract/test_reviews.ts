@@ -7,13 +7,22 @@ import { getReputationSummary, createReview } from "@/server/services/reviewServ
 
 function createVerifiedAccount(email: string) {
   return prisma.account.create({
-    data: { email, passwordHash: "irrelevant-hash", emailVerifiedAt: new Date(), displayName: "Test Account" },
+    data: {
+      email,
+      passwordHash: "irrelevant-hash",
+      emailVerifiedAt: new Date(),
+      displayName: "Test Account",
+    },
   });
 }
 
 async function createCommunityWithAdmin(communityName: string, adminEmail: string) {
   const admin = await createVerifiedAccount(adminEmail);
-  const result = await createCommunity({ name: communityName, founderEmail: adminEmail, invokedBy: "test-operator" });
+  const result = await createCommunity({
+    name: communityName,
+    founderEmail: adminEmail,
+    invokedBy: "test-operator",
+  });
   if (!result.ok) throw new Error(`expected community creation to succeed, got ${result.reason}`);
   return { community: result.community, admin };
 }
@@ -30,7 +39,12 @@ async function addMember(communityId: string, email: string) {
  * via this feature's propose-then-accept flow — an ACCEPTED transaction is
  * this entity's replacement for a CONFIRMED one as the reviewable state.
  */
-async function createConfirmedTransaction(communityId: string, ownerId: string, buyerId: string, title = "Item") {
+async function createConfirmedTransaction(
+  communityId: string,
+  ownerId: string,
+  buyerId: string,
+  title = "Item",
+) {
   const listing = await createListing({
     communityId,
     ownerId,
@@ -261,7 +275,9 @@ describe("reviewService (contract)", () => {
         rating: 5,
       });
       expect(result).toEqual({ ok: false, reason: "transaction_not_confirmed" });
-      expect(await prisma.review.count({ where: { transactionId: proposed.transaction.id } })).toBe(0);
+      expect(await prisma.review.count({ where: { transactionId: proposed.transaction.id } })).toBe(
+        0,
+      );
     });
 
     // T021 (US3, FR-016): self-review is structurally impossible — the reviewed account is
