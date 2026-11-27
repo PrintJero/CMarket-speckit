@@ -3,8 +3,9 @@ import { isValidEmail, normalizeEmail } from "@/lib/validation/email";
 import { validatePassword } from "@/lib/validation/password";
 import { isValidDisplayName, normalizeDisplayName } from "@/lib/validation/displayName";
 import { hashPassword, verifyPassword } from "@/lib/auth/passwordHash";
-import { sendEmail } from "@/lib/email/sendEmail";
+import { EmailDeliveryError, sendEmail } from "@/lib/email/sendEmail";
 import {
+  discardVerificationToken,
   getLatestCandidatePasswordHash,
   isIssuanceRateLimited,
   issueVerificationToken,
@@ -17,19 +18,38 @@ function verificationLink(rawToken: string): string {
   return `${base}/verify-email?token=${encodeURIComponent(rawToken)}`;
 }
 
-async function sendVerificationEmail(email: string, rawToken: string): Promise<void> {
-  await sendEmail({
-    to: email,
-    subject: "Verify your CMarket email",
-    text: `Confirm your email address: ${verificationLink(rawToken)}`,
-  });
+/**
+ * Sends the verification email for a freshly issued token. Hotfix v1.0.1: if
+ * delivery fails, the undelivered token is discarded (so it does not count
+ * against the FR-021 rate limit and the member can simply retry), the
+ * provider's detail is logged server-side (redacted by the transport), and
+ * the failure is reported to the caller instead of escaping as a 500.
+ */
+async function deliverVerificationEmail(email: string, rawToken: string): Promise<boolean> {
+  try {
+    await sendEmail({
+      to: email,
+      subject: "Verify your CMarket email",
+      text: `Confirm your email address: ${verificationLink(rawToken)}`,
+    });
+    return true;
+  } catch (error) {
+    if (!(error instanceof EmailDeliveryError)) throw error;
+    await discardVerificationToken(rawToken);
+    console.error(`[email] verification email not delivered: ${error.message}`);
+    return false;
+  }
 }
 
 export type SignUpResult =
   | { ok: true }
   | { ok: false; reason: "invalid_email" }
   | { ok: false; reason: "invalid_display_name" }
-  | { ok: false; reason: "invalid_password"; passwordReason: "too_short" | "breached" };
+  | { ok: false; reason: "invalid_password"; passwordReason: "too_short" | "breached" }
+  | { ok: false; reason: "email_delivery_failed" };
+
+export type ResendVerificationResult =
+  { ok: true } | { ok: false; reason: "email_delivery_failed" };
 
 /**
  * FR-001, FR-009, FR-016, FR-017, FR-019: creates an unverified Account (with
@@ -73,7 +93,9 @@ export async function signUp(
     if (!existing.emailVerifiedAt && !(await isIssuanceRateLimited(existing.id))) {
       const candidatePasswordHash = await hashPassword(password);
       const rawToken = await issueVerificationToken(existing.id, candidatePasswordHash);
-      await sendVerificationEmail(existing.email, rawToken);
+      if (!(await deliverVerificationEmail(existing.email, rawToken))) {
+        return { ok: false, reason: "email_delivery_failed" };
+      }
     }
     return { ok: true };
   }
@@ -88,7 +110,11 @@ export async function signUp(
   });
   const candidatePasswordHash = await hashPassword(password);
   const rawToken = await issueVerificationToken(created.id, candidatePasswordHash);
-  await sendVerificationEmail(created.email, rawToken);
+  // On failure the unverified account remains (no password attached yet); a
+  // retry takes the "existing unverified" path above and issues a new token.
+  if (!(await deliverVerificationEmail(created.email, rawToken))) {
+    return { ok: false, reason: "email_delivery_failed" };
+  }
 
   return { ok: true };
 }
@@ -101,14 +127,17 @@ export async function signUp(
  * since it re-issues the same credential rather than a competing one.
  * Subject to the same shared per-account rate limit as sign-up (FR-021).
  */
-export async function resendVerification(email: string): Promise<void> {
-  if (!isValidEmail(email)) return;
+export async function resendVerification(email: string): Promise<ResendVerificationResult> {
+  if (!isValidEmail(email)) return { ok: true };
   const account = await prisma.account.findUnique({ where: { email: normalizeEmail(email) } });
   if (account && !account.emailVerifiedAt && !(await isIssuanceRateLimited(account.id))) {
     const candidatePasswordHash = await getLatestCandidatePasswordHash(account.id);
     const rawToken = await reissueVerificationToken(account.id, candidatePasswordHash);
-    await sendVerificationEmail(account.email, rawToken);
+    if (!(await deliverVerificationEmail(account.email, rawToken))) {
+      return { ok: false, reason: "email_delivery_failed" };
+    }
   }
+  return { ok: true };
 }
 
 /** FR-005, FR-007: gate consumed by the (separate) invitations feature. */

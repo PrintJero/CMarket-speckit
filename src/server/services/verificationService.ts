@@ -40,6 +40,16 @@ export async function issueVerificationToken(
 }
 
 /**
+ * Hotfix v1.0.1: removes a token whose email was never delivered. It cannot be
+ * redeemed by anyone (nobody received it), and leaving it would count against
+ * the FR-021 issuance rate limit, so repeated delivery failures would end with
+ * a sign-up that "succeeds" without sending anything.
+ */
+export async function discardVerificationToken(rawToken: string): Promise<void> {
+  await prisma.verificationToken.deleteMany({ where: { tokenHash: hashToken(rawToken) } });
+}
+
+/**
  * FR-014: resend MAY invalidate prior pending token(s), since it re-issues
  * the same candidate credential rather than a competing one.
  */

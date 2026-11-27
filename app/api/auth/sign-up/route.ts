@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { EMAIL_DELIVERY_FAILED_MESSAGE } from "@/lib/email/sendEmail";
 import { signUp } from "@/server/services/accountService";
 
 export async function POST(request: Request) {
@@ -17,6 +18,11 @@ export async function POST(request: Request) {
   const result = await signUp(email, password, displayName);
 
   if (!result.ok) {
+    // Hotfix v1.0.1: a clear, retryable error instead of an unhandled 500.
+    // The provider's detail is in the server log, never in this response.
+    if (result.reason === "email_delivery_failed") {
+      return NextResponse.json({ error: EMAIL_DELIVERY_FAILED_MESSAGE }, { status: 503 });
+    }
     if (result.reason === "invalid_email") {
       return NextResponse.json({ error: "email is not a valid address" }, { status: 400 });
     }
