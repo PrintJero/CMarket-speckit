@@ -5,7 +5,7 @@ Principle VII (Simplicity & MVP-First), new ideas are captured here instead of b
 the current scope. An item leaves this file only by becoming a feature spec under `specs/###-name/`
 (through `/speckit-specify`), never by being built ad hoc.
 
-_Last updated: 2026-11-27 (release v1.0.0)._
+_Last updated: 2026-11-27 (release v1.0.0; production deployment)._
 
 ---
 
@@ -103,7 +103,56 @@ breaking changes (configuration file, driver adapters).
 
 ---
 
-## 6. Constitution reference fix (done in v1.0.0)
+## 6. Publish the Google OAuth app (production)
+
+**Status:** the OAuth consent screen is in **Testing** mode. Google sign-in works only for the
+test users listed in Google Cloud Console (up to 100), and Google may ask them to re-consent
+periodically. Anyone else gets "Access blocked". Email and password sign-up is unaffected.
+
+**Blocked by:**
+
+- **An own domain.** Production currently runs on an `sslip.io` hostname. Google requires the
+  app's home page, privacy policy and authorised domains to be on a domain the publisher
+  controls, verified in Google Search Console. A wildcard-DNS name such as `sslip.io` cannot be
+  verified.
+- **A privacy policy page (`/privacy`)**, publicly reachable without sign-in, stating what Google
+  data CMarket receives (name, email, the `sub` identifier), why, retention, and how to request
+  deletion. A terms page is recommended. Both should be linked from the sign-in screen.
+
+**Work, once the domain exists:**
+
+1. Point the domain at Dokploy and set `NEXTAUTH_URL` and the GitHub `production` variable
+   `APP_URL` to it.
+2. Add `https://<domain>/api/auth/callback/google` as an authorised redirect URI.
+3. Add `/privacy` (a static page, same pattern as `/offline`) and link it.
+4. Complete the consent screen (logo, home page, privacy URL, authorised domain) and click
+   **Publish app**. The scopes requested (`openid`, `email`, `profile`) are non-sensitive, so no
+   security review should be needed.
+
+---
+
+## 7. Automated database backups (Constitution: Migrations & backups)
+
+**Status:** **not configured.** The constitution requires automated backups **and** one actually
+performed restore before the first production community onboards. This is the main blocker for
+onboarding a real community.
+
+**Blocked by:** an **S3-compatible destination** (AWS S3, Cloudflare R2, Backblaze B2 or MinIO)
+with a bucket and access keys. Dokploy's database backups write only to an S3 destination.
+
+**Work, once the destination exists:**
+
+1. In Dokploy, add the S3 destination, then on `cmarket-speckit-db` set **Backups**: daily, with
+   retention of 7 days or more, to that destination.
+2. Run one backup manually and confirm the object lands in the bucket.
+3. **Restore test:** restore that backup into a scratch Postgres service, point a temporary
+   `cmarket-tools` at it, and run `npx prisma migrate status` plus a row-count sanity check. Record
+   the date in the release report.
+4. Keep the bucket's credentials only in Dokploy (never in the repo or GitHub).
+
+---
+
+## 8. Constitution reference fix (done in v1.0.0)
 
 The constitution cited the direct-invitation path as "spec 001", a folder that never existed. It
 now cites `specs/004-invitations-membership`. Bumped **4.1.0 → 4.1.1 (PATCH)**, with a Sync Impact
