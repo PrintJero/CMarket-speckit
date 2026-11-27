@@ -1,15 +1,18 @@
-# CMarket production stack (Dokploy or any Compose host).
+# CMarket reference stack for a plain Docker Compose host.
 #
 #   docker compose -f docker-compose.prod.yml up -d
 #
+# NOT used by the live Dokploy production. That runs the same image as a Dokploy
+# "Application" (Provider Docker) with a separate Postgres service; see README,
+# "Production deployment (Dokploy)".
+#
 # The app runs the image .github/workflows/deploy.yml publishes to GHCR after CI
-# passes. It is NOT built on the server: what runs is exactly the commit CI
-# validated. CMARKET_IMAGE selects the tag per environment:
-#   production: ghcr.io/printjero/cmarket-speckit:main     (the default)
-#   develop:    ghcr.io/printjero/cmarket-speckit:develop
-#   rollback:   ghcr.io/printjero/cmarket-speckit:sha-<7-char commit>
-# If the GHCR package is private, add a GHCR registry (a token with
-# read:packages) in Dokploy so the host can pull it.
+# passes. It is NOT built on the host: what runs is exactly the commit CI
+# validated. CMARKET_IMAGE selects the tag:
+#   main (default): ghcr.io/printjero/cmarket-speckit:main
+#   develop:        ghcr.io/printjero/cmarket-speckit:develop
+#   rollback:       ghcr.io/printjero/cmarket-speckit:sha-<7-char commit>
+# The GHCR package is public; no registry credentials are needed.
 #
 # NO SECRETS LIVE IN THIS FILE. Every value below is `${VAR}`, supplied by the
 # deployment platform's environment (Dokploy's Environment tab, or a .env beside
